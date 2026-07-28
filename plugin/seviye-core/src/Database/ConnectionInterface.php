@@ -40,4 +40,14 @@ interface ConnectionInterface
      * @return list<array<string, mixed>>
      */
     public function getResults(string $sql): array;
+
+    /**
+     * Safely interpolates values into a SQL string (via $wpdb->prepare() in
+     * production). Any query built from request input - not just internal,
+     * hard-coded migration DDL - MUST be built through this method before
+     * being passed to {@see query()} or {@see getResults()}.
+     *
+     * @param array<int|string, mixed> $args
+     */
+    public function prepare(string $sql, array $args): string;
 }

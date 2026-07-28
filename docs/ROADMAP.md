@@ -15,24 +15,26 @@ başka hiçbir modüle bağımlı değildir.
 | 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
-| 11 | Seviye Security | 2FA, IP kısıtlama, gelişmiş audit/izleme | Planlandı |
+| 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları **kuruldu**; 2FA, IP kısıtlama, gelişmiş audit/izleme planlandı | 🟡 **Kısmen kuruldu** (bu milestone) |
 
 ## Tema ve giriş akışı
 
 | Bileşen | Durum |
 |---|---|
-| TC Kimlik No + şifre giriş ekranı, ilk şifre oluşturma, şifremi unuttum | Planlandı (sıradaki aday milestone) |
-| `store.seviye.com.tr` (Veli), `/sube` (Şube Paneli), `/admin` (Genel Merkez) yönlendirmesi | Planlandı |
+| Backend: TC Kimlik No doğrulama, `AuthService` (rate-limitli giriş), şifre/ilk-şifre token sistemi, `seviye/v1/auth/*` REST uçları | **Kuruldu** (`Seviye Security`) |
+| Frontend: gerçek giriş ekranı (HTML/JS), içerik kilitleme, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi | Planlandı (sıradaki aday milestone - bkz. aşağıda) |
+| E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
 
 ## Milestone sırası önerisi
 
 1. ~~Repo iskeleti + Seviye Core~~ ✅
-2. Giriş ekranı + TC Kimlik No auth akışı (Core'un RBAC/RateLimiter'ını kullanır)
-3. Seviye Branches + Seviye Students + Seviye Parents (temel varlık modelleri, FK'lı şema)
-4. Seviye Pricing (fiyat motoru, henüz sipariş yok)
-5. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme)
-6. Seviye Finance + Seviye Reports
-7. Seviye Notifications + Seviye API + Seviye Security (sertleştirme)
+2. ~~Giriş akışı backend'i: Seviye Security (TC Kimlik No doğrulama, AuthService, şifre/ilk-kurulum token sistemi, REST uçları)~~ ✅
+3. Tema: gerçek giriş ekranı, içerik kilitleme, rol bazlı yönlendirme (Security'nin REST uçlarını tüketir)
+4. Seviye Branches + Seviye Students + Seviye Parents (temel varlık modelleri, FK'lı şema)
+5. Seviye Pricing (fiyat motoru, henüz sipariş yok)
+6. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme)
+7. Seviye Finance + Seviye Reports
+8. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

@@ -40,17 +40,24 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 4. `dbDelta()` idempotenttir; `CREATE TABLE IF NOT EXISTS` yerine WordPress'in
    önerdiği `dbDelta` formatı kullanılır (bkz. mevcut migration örnekleri).
 
-## Şu ana kadar tanımlı tablolar (yalnızca Core)
+## Şu ana kadar tanımlı tablolar
 
-| Tablo | Migration | Amaç |
-|---|---|---|
-| `scp_migrations` | `MigrationRunner::ensureMigrationsTableExists()` (dahili) | Uygulanan migration versiyonlarını takip eder |
-| `scp_logs` | `CreateLogsTable` | Merkezi audit log (KVKK/güvenlik) |
-| `scp_settings` | `CreateSettingsTable` | Platform genelinde anahtar/değer ayar deposu |
+| Tablo | Plugin | Migration | Amaç |
+|---|---|---|---|
+| `scp_migrations` | Core | `MigrationRunner::ensureMigrationsTableExists()` (dahili) | Uygulanan migration versiyonlarını takip eder |
+| `scp_logs` | Core | `CreateLogsTable` | Merkezi audit log (KVKK/güvenlik) |
+| `scp_settings` | Core | `CreateSettingsTable` | Platform genelinde anahtar/değer ayar deposu |
+| `scp_user_identities` | Security | `CreateUserIdentitiesTable` | TC Kimlik No → WordPress kullanıcı eşlemesi (indeksli, `wp_usermeta` yerine) |
+| `scp_password_tokens` | Security | `CreatePasswordTokensTable` | Tek kullanımlık, hash'lenmiş şifre/ilk-kurulum token'ları |
+
+`scp_user_identities` ve `scp_password_tokens`, `wp_users`'a **kasıtlı olarak
+FK kısıtlaması içermez**: WordPress çekirdek tabloları için motor/charset
+garantisi yoktur, bu yüzden referans bütünlüğü uygulama katmanında
+(`WpdbIdentityGateway`, `WpdbPasswordTokenGateway`) sağlanır.
 
 Diğer tüm tablolar (`scp_branches`, `scp_students`, `scp_parents`,
 `scp_prices`, `scp_orders`, `scp_order_items`, `scp_commissions`, `scp_stock`,
 `scp_shipments`, `scp_campaigns`, ...) ilgili modül geliştirildiğinde, o
 modülün kendi migration'ları olarak eklenecek — bkz. `docs/ROADMAP.md`.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql).
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql).

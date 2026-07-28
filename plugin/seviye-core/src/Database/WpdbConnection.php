@@ -56,4 +56,10 @@ final class WpdbConnection implements ConnectionInterface
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is built internally by migrations/the runner, never from request input.
         return (array) $this->wpdb->get_results($sql, ARRAY_A);
     }
+
+    public function prepare(string $sql, array $args): string
+    {
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- this method IS the prepare() wrapper; callers pass its result to query()/getResults().
+        return $this->wpdb->prepare($sql, $args);
+    }
 }

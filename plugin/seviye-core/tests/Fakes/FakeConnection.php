@@ -50,4 +50,10 @@ final class FakeConnection implements ConnectionInterface
     {
         return $this->resultsToReturn;
     }
+
+    public function prepare(string $sql, array $args): string
+    {
+        // Test double only: real escaping is $wpdb->prepare()'s job (WpdbConnection).
+        return vsprintf($sql, $args);
+    }
 }

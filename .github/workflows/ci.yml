@@ -6,12 +6,15 @@ on:
   pull_request:
 
 jobs:
-  core-plugin-tests:
-    name: Seviye Core - PHPUnit
+  plugin-tests:
+    name: PHPUnit (${{ matrix.plugin }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        plugin: [seviye-core, seviye-security]
     defaults:
       run:
-        working-directory: plugin/seviye-core
+        working-directory: plugin/${{ matrix.plugin }}
     steps:
       - uses: actions/checkout@v4
 

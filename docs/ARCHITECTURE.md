@@ -113,6 +113,45 @@ orkestrasyonu henüz yazılmadı — bu, ilk gerçek rollback ihtiyacı doğduğ
   `scp_logs` tablosuna yazılır (KVKK/denetim gereksinimi).
 - Uninstall akışı bilinçli olarak veri silmez (bkz. `uninstall.php`).
 
+### 7. Kimlik doğrulama (Seviye Security)
+
+`Seviye Security`, Core'a bağımlı olan ilk gerçek modüldür ve giriş ekranının
+backend'ini sağlar:
+
+- `Auth\TcNumber`: TC Kimlik No format + checksum doğrulaması (saf PHP,
+  WordPress'ten bağımsız, herkese açık algoritma).
+- `Identity\IdentityGatewayInterface` / `WpdbIdentityGateway`: TC Kimlik
+  No → WP kullanıcı eşlemesi, ayrı ve indeksli bir tabloda (`scp_user_identities`)
+  tutulur — `wp_usermeta` üzerinde `meta_value` ile arama yapmak indekslenmediği
+  için büyük ölçekte yavaştır.
+- `Auth\AuthService`: giriş denemesini Core'un `RateLimiter`'ı ile korur.
+  **Kritik güvenlik kararı**: "TC Kimlik No kayıtlı değil", "TC Kimlik No
+  formatı geçersiz" ve "şifre yanlış" durumlarının hepsi aynı
+  `AuthFailureReason::INVALID_CREDENTIALS` sonucunu döner ve aynı rate-limit
+  darbesini alır — aksi halde bir saldırgan bu iki durumu ayırt ederek geçerli
+  TC Kimlik No'ları numaralandırabilirdi (enumeration attack).
+- `Token\PasswordTokenService`: "Şifremi Unuttum" ve "İlk Şifre Oluştur" için
+  tek kullanımlık token üretir. Token, WordPress çekirdeğinin kendi şifre
+  sıfırlama anahtarlarını sakladığı yöntemle aynı şekilde **yalnızca SHA-256
+  hash'i olarak** saklanır (`scp_password_tokens`); ham token yalnızca bir kez,
+  kullanıcıya gönderilen bağlantıda var olur. Süresi dolmuş bir token bile
+  `redeem()` çağrıldığında **tüketilir** (silinir), böylece tekrar oynatma
+  (replay) mümkün olmaz.
+- `Http\AuthRestController`: `seviye/v1/auth/login`, `/forgot-password`,
+  `/set-password` uç noktaları. Bilinçli olarak nonce zorunlu tutulmaz çünkü
+  bunlar oturum açılmadan önce çağrılan uç noktalardır (henüz bir auth
+  cookie/nonce bağlamı yoktur); asıl koruma `RateLimiter`'dır.
+- Şifre sıfırlama linkinin gerçekten e-posta/SMS ile **gönderilmesi** bu
+  modülün kapsamı dışındadır — `PasswordTokenService::issue()` sonrası
+  `EventBus` üzerinden `security.password_reset_requested` olayı yayınlanır;
+  bunu dinleyip iletecek olan **Seviye Notifications**'dır (henüz kurulmadı).
+  Bu, modüller arası sınırın kasıtlı olarak nerede çizildiğinin bir örneğidir.
+
+`Seviye Security`, Core'a `composer.json`'da bir `path` repository ile
+bağımlıdır (`plugin/seviye-security/composer.json` → `../seviye-core`); bu,
+monorepo içinde her modülün Core'un aynı anda geliştirilen sürümüne karşı
+çalışmasını sağlar ve gelecekteki tüm modüller aynı deseni izleyecektir.
+
 ## Tablo adlandırma kuralı
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
