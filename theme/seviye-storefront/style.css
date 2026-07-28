@@ -1,0 +1,12 @@
+/*
+Theme Name: Seviye Storefront
+Theme URI: https://seviye.com.tr
+Author: Seviye Egitim Kurumlari
+Description: Seviye Commerce Platform storefront theme. Gates the entire front-end behind a T.C. Kimlik No login screen and routes each role to its own zone (Veli: /, Şube: /sube, Genel Merkez: /admin).
+Version: 0.1.0
+Requires at least: 6.5
+Requires PHP: 8.2
+Requires Plugins: woocommerce, seviye-core, seviye-security
+Text Domain: seviye-storefront
+License: Proprietary
+*/

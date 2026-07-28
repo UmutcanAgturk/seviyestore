@@ -14,6 +14,7 @@ use Seviye\Security\Auth\AuthService;
 use Seviye\Security\Auth\PasswordPolicy;
 use Seviye\Security\Auth\TcNumber;
 use Seviye\Security\Identity\IdentityGatewayInterface;
+use Seviye\Security\Routing\RoleRouter;
 use Seviye\Security\Token\PasswordTokenPurpose;
 use Seviye\Security\Token\PasswordTokenService;
 use WP_REST_Request;
@@ -65,6 +66,15 @@ final class AuthRestController extends AbstractRestController
             ],
         ]);
 
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/auth/first-password', [
+            'methods' => 'POST',
+            'callback' => [$this, 'firstPasswordSetup'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'tc_no' => ['required' => true, 'type' => 'string'],
+            ],
+        ]);
+
         register_rest_route(RestApiRegistrar::NAMESPACE, '/auth/set-password', [
             'methods' => 'POST',
             'callback' => [$this, 'setPassword'],
@@ -93,17 +103,29 @@ final class AuthRestController extends AbstractRestController
         wp_set_auth_cookie($result->userId, (bool) $request->get_param('remember'));
 
         $user = get_userdata($result->userId);
+        $roles = $user !== false ? array_values($user->roles) : [];
 
         return new WP_REST_Response([
             'success' => true,
-            'roles' => $user !== false ? array_values($user->roles) : [],
+            'roles' => $roles,
+            'redirect_url' => RoleRouter::landingPathFor($roles),
         ]);
     }
 
     public function forgotPassword(WP_REST_Request $request): WP_REST_Response
     {
+        return $this->requestPasswordToken($request, PasswordTokenPurpose::RESET);
+    }
+
+    public function firstPasswordSetup(WP_REST_Request $request): WP_REST_Response
+    {
+        return $this->requestPasswordToken($request, PasswordTokenPurpose::FIRST_SETUP);
+    }
+
+    private function requestPasswordToken(WP_REST_Request $request, PasswordTokenPurpose $purpose): WP_REST_Response
+    {
         $rawTcNumber = (string) $request->get_param('tc_no');
-        $throttleKey = 'forgot-password:' . hash('sha256', $rawTcNumber);
+        $throttleKey = $purpose->value . ':' . hash('sha256', $rawTcNumber);
 
         if ($this->rateLimiter->tooManyAttempts($throttleKey, self::FORGOT_PASSWORD_MAX_ATTEMPTS)) {
             return new WP_REST_Response(['success' => false], 429);
@@ -115,11 +137,12 @@ final class AuthRestController extends AbstractRestController
             $userId = $this->identities->findUserIdByTcNumber(TcNumber::fromString($rawTcNumber));
 
             if ($userId !== null) {
-                $token = $this->tokens->issue($userId, PasswordTokenPurpose::RESET);
+                $token = $this->tokens->issue($userId, $purpose);
 
                 $this->eventBus->dispatch(new Event('security.password_reset_requested', [
                     'user_id' => $userId,
                     'token' => $token,
+                    'purpose' => $purpose->value,
                 ]));
             }
         }

@@ -1,0 +1,173 @@
+/*
+ * Login screen only. Self-contained on purpose - no external font/CDN
+ * requests on the one screen every visitor hits before authenticating.
+ */
+
+:root {
+  --scp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --scp-bg: #f4f5f7;
+  --scp-card-bg: #ffffff;
+  --scp-text: #1a1d23;
+  --scp-text-muted: #5b6270;
+  --scp-border: #dde1e7;
+  --scp-primary: #1d4ed8;
+  --scp-primary-hover: #1e40af;
+  --scp-error: #b91c1c;
+  --scp-error-bg: #fef2f2;
+  --scp-radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scp-bg: #14161a;
+    --scp-card-bg: #1c1f26;
+    --scp-text: #f2f3f5;
+    --scp-text-muted: #9aa1ac;
+    --scp-border: #2c313a;
+    --scp-primary: #5b8def;
+    --scp-primary-hover: #7ea3f2;
+    --scp-error: #fca5a5;
+    --scp-error-bg: #3a1a1a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.scp-auth-body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scp-bg);
+  color: var(--scp-text);
+  font-family: var(--scp-font);
+  padding: 24px;
+}
+
+.scp-auth-screen {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.scp-auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--scp-card-bg);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  padding: 32px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.scp-auth-title {
+  margin: 0 0 24px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scp-auth-status {
+  min-height: 1.25em;
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-auth-status--error {
+  color: var(--scp-error);
+  background: var(--scp-error-bg);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.scp-auth-form[hidden] {
+  display: none;
+}
+
+.scp-auth-field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.scp-auth-field span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--scp-text-muted);
+}
+
+.scp-auth-field input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--scp-text);
+  background: transparent;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+}
+
+.scp-auth-field input:focus {
+  outline: none;
+  border-color: var(--scp-primary);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+.scp-auth-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-auth-hint {
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-auth-submit {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--scp-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.scp-auth-submit:hover {
+  background: var(--scp-primary-hover);
+}
+
+.scp-auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.scp-auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.8125rem;
+}
+
+.scp-auth-links a {
+  color: var(--scp-primary);
+  text-decoration: none;
+}
+
+.scp-auth-links a:hover {
+  text-decoration: underline;
+}

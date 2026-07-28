@@ -138,9 +138,18 @@ backend'ini sağlar:
   `redeem()` çağrıldığında **tüketilir** (silinir), böylece tekrar oynatma
   (replay) mümkün olmaz.
 - `Http\AuthRestController`: `seviye/v1/auth/login`, `/forgot-password`,
-  `/set-password` uç noktaları. Bilinçli olarak nonce zorunlu tutulmaz çünkü
-  bunlar oturum açılmadan önce çağrılan uç noktalardır (henüz bir auth
-  cookie/nonce bağlamı yoktur); asıl koruma `RateLimiter`'dır.
+  `/first-password`, `/set-password` uç noktaları. Bilinçli olarak nonce
+  zorunlu tutulmaz çünkü bunlar oturum açılmadan önce çağrılan uç
+  noktalardır (henüz bir auth cookie/nonce bağlamı yoktur); asıl koruma
+  `RateLimiter`'dır. `/forgot-password` ve `/first-password` aynı
+  `requestPasswordToken()` mantığını farklı `PasswordTokenPurpose` ile
+  çağırır (DRY); ayrı REST kaynakları olarak tutulmaları API'yi
+  öz-açıklayıcı kılar.
+- `Routing\RoleRouter`: bir kullanıcının WordPress rollerinden, ait olduğu
+  bölgeyi (`/admin`, `/sube`, `/`) ve bir isteğin o bölgeye ait olup
+  olmadığını hesaplayan saf, test edilebilir politika. Login yanıtındaki
+  `redirect_url` alanı buradan gelir; Tema da aynı sınıfı kullanarak
+  bölge-dışı erişimi engeller (bkz. aşağıda).
 - Şifre sıfırlama linkinin gerçekten e-posta/SMS ile **gönderilmesi** bu
   modülün kapsamı dışındadır — `PasswordTokenService::issue()` sonrası
   `EventBus` üzerinden `security.password_reset_requested` olayı yayınlanır;
@@ -151,6 +160,42 @@ backend'ini sağlar:
 bağımlıdır (`plugin/seviye-security/composer.json` → `../seviye-core`); bu,
 monorepo içinde her modülün Core'un aynı anda geliştirilen sürümüne karşı
 çalışmasını sağlar ve gelecekteki tüm modüller aynı deseni izleyecektir.
+
+### 8. Tema (Seviye Storefront)
+
+Tema, `plugin/*` modüllerinin aksine PSR-4/Composer değil, **WordPress'in
+kendi tema konvansiyonuyla** (önekli global fonksiyonlar, `functions.php` +
+`inc/*.php`) yazılır — bu bilinçli bir tutarsızlık değil, doğru aracı doğru
+yerde kullanmaktır: tema, sunum + bağlama (glue) katmanıdır, iş mantığı
+barındırmaz; gerçek karar mantığı (kimlik doğrulama, rol→bölge eşlemesi)
+zaten test edilebilir PHP olarak `Seviye Security`'de yaşıyor, tema onu
+yalnızca çağırır.
+
+- **Giriş kilidi** (`inc/access-gate.php`, `template_redirect` önceliği 5):
+  oturum açılmamışsa, normal WordPress şablon hiyerarşisi tamamen atlanır ve
+  `templates/login.php` bağımsız bir HTML dokümanı olarak render edilip
+  `exit` edilir. Bu, "giriş yapılmadan ürün görüntülenmeyecek" kuralını tek
+  bir merkezi noktadan, her front-end isteği için garanti eder.
+- **Bölge yönlendirmesi** (`inc/zones.php`): `/admin` ve `/sube`,
+  `add_rewrite_rule()` ile sanal WordPress rotaları olarak tanımlanır (henüz
+  gerçek Şube/Öğrenci verisi yokken bile çalışır — bir yöneticinin elle
+  WP sayfası oluşturmasına bağlı değildir). `access-gate.php`, giriş yapmış
+  kullanıcının rolü isteği bölgeyle uyuşmuyorsa `RoleRouter::landingPathFor()`
+  ile kendi bölgesine yönlendirir (`template_redirect` önceliği 5); bölge
+  içeriği ancak bu kontrolden geçtikten sonra, önceliği 10 olan
+  `zones.php`'nin şablonuyla render edilir. Önceliklerin bu sırası kasıtlıdır
+  — tersi olsaydı bir Veli, `/admin` içeriğini yönlendirilmeden önce bir an
+  için görebilirdi.
+- **`/sube` ve `/admin` içeriği**: şu an için gerçek panel verisi yok
+  (Branches/Students/Commerce henüz kurulmadı); `templates/zone.php`
+  kullanıcıya dürüst, asgari bir "hoş geldiniz" ekranı gösterir — sahte veri
+  veya kırık bağlantılar içeren bir sahte pano (placeholder dashboard)
+  **değildir**.
+- **Giriş ekranı JS'i** (`assets/js/auth.js`): build adımı olmayan, saf
+  `fetch()` tabanlı bir dosya; `Seviye Security`'nin `seviye/v1/auth/*`
+  uçlarını çağırır. Arayüz metinleri `wp_localize_script()` ile PHP'den
+  `__()` üzerinden geçirilir (JS içinde hiçbir hard-coded Türkçe/İngilizce
+  metin yoktur).
 
 ## Tablo adlandırma kuralı
 

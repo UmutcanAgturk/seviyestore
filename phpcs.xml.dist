@@ -9,6 +9,7 @@
     </description>
 
     <file>plugin</file>
+    <file>theme</file>
 
     <exclude-pattern>*/vendor/*</exclude-pattern>
     <exclude-pattern>*/node_modules/*</exclude-pattern>
@@ -26,20 +27,25 @@
 
     <!--
         Every plugin's main bootstrap file (plugin/<name>/seviye-<name>.php)
-        conventionally both declares constants and registers hooks, which is
-        the standard, unavoidable shape of a WordPress plugin entry file.
+        conventionally both declares constants and registers hooks, and every
+        WordPress theme file conventionally declares helper functions and
+        registers their hooks side by side - both are the standard,
+        unavoidable shape of WordPress plugin/theme entry files.
     -->
     <rule ref="PSR1.Files.SideEffects">
         <exclude-pattern>*/plugin/*/seviye-*.php</exclude-pattern>
+        <exclude-pattern>*/theme/*</exclude-pattern>
     </rule>
 
     <!--
-        The WordPress plugin header "Description" field must stay on a single
-        physical line (WordPress parses it with a per-line regex), so it can't
-        be wrapped like ordinary code/comments.
+        The WordPress plugin/theme header "Description" field must stay on a
+        single physical line (WordPress parses it with a per-line regex), so
+        it can't be wrapped like ordinary code/comments.
     -->
     <rule ref="Generic.Files.LineLength">
         <exclude-pattern>*/plugin/*/seviye-*.php</exclude-pattern>
+        <!-- HTML markup interleaved with translation calls runs long by nature; wrapping every tag hurts readability more than a soft limit is worth here. -->
+        <exclude-pattern>*/theme/*/templates/*.php</exclude-pattern>
     </rule>
 
     <!-- WordPress security-relevant sniffs only; code style stays PSR-12. -->

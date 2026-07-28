@@ -1,0 +1,96 @@
+/*
+ * Authenticated site chrome (header/footer/panel). Deliberately minimal:
+ * the real storefront/panel UI lands with the Commerce/Branches/Students
+ * modules - this is the honest, functional shell around the login gate
+ * and role-zone routing this milestone actually delivers.
+ */
+
+:root {
+  --scp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --scp-bg: #f4f5f7;
+  --scp-surface: #ffffff;
+  --scp-text: #1a1d23;
+  --scp-text-muted: #5b6270;
+  --scp-border: #dde1e7;
+  --scp-primary: #1d4ed8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --scp-bg: #14161a;
+    --scp-surface: #1c1f26;
+    --scp-text: #f2f3f5;
+    --scp-text-muted: #9aa1ac;
+    --scp-border: #2c313a;
+    --scp-primary: #5b8def;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--scp-bg);
+  color: var(--scp-text);
+  font-family: var(--scp-font);
+}
+
+.scp-site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--scp-surface);
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-site-header__brand {
+  font-weight: 700;
+}
+
+.scp-site-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.875rem;
+}
+
+.scp-site-header__user {
+  color: var(--scp-text-muted);
+}
+
+.scp-site-header__nav a {
+  color: var(--scp-primary);
+  text-decoration: none;
+}
+
+.scp-site-header__nav a:hover {
+  text-decoration: underline;
+}
+
+.scp-site-main {
+  min-height: calc(100vh - 130px);
+}
+
+.scp-panel {
+  max-width: 720px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+
+.scp-panel h1 {
+  margin-top: 0;
+}
+
+.scp-panel__content {
+  color: var(--scp-text);
+}
+
+.scp-site-footer {
+  padding: 20px 24px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}

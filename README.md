@@ -31,10 +31,11 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 
 ## Modüller
 
-| Plugin | Durum |
+| Plugin/Tema | Durum |
 |---|---|
 | Seviye Core | ✅ Kuruldu |
-| Seviye Security | 🟡 TC Kimlik No auth, rate limiting, şifre token'ları kuruldu; 2FA/IP kısıtlama planlandı |
+| Seviye Security | 🟡 TC Kimlik No auth, rate limiting, şifre token'ları, rol→bölge yönlendirme politikası kuruldu; 2FA/IP kısıtlama planlandı |
+| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi kuruldu; panel içerikleri ilgili modüllerle gelecek |
 | Seviye Students, Parents, Branches, Pricing, Commerce, Finance, Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -53,13 +54,23 @@ cd plugin/seviye-security && composer install && cd -
 ```
 
 `plugin/seviye-core` ve `plugin/seviye-security` klasörlerini WordPress'in
-`wp-content/plugins/` altına sembolik link ile bağlayın, ardından
-WooCommerce'i, **Seviye Core'u** ve **Seviye Security'yi** (bu sırayla)
-aktive edin. Core aktivasyonu; PHP sürümünü ve WooCommerce'in aktif olduğunu
-doğrular, 9 platform rolünü kaydeder ve kendi migration'larını
-(`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır. Security
-aktivasyonu ise Core'un aktif olduğunu doğrular ve kendi migration'larını
-(`scp_user_identities`, `scp_password_tokens`) çalıştırır.
+`wp-content/plugins/` altına, `theme/seviye-storefront`'u ise `wp-content/themes/`
+altına sembolik link ile bağlayın. Ardından WooCommerce'i, **Seviye Core'u**
+ve **Seviye Security'yi** (bu sırayla) aktive edin, son olarak **Seviye
+Storefront** temasını etkinleştirin. Core aktivasyonu; PHP sürümünü ve
+WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
+migration'larını (`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır.
+Security aktivasyonu ise Core'un aktif olduğunu doğrular ve kendi
+migration'larını (`scp_user_identities`, `scp_password_tokens`) çalıştırır.
+Tema etkinleştirildiğinde `/admin` ve `/sube` rotalarını tanımlayan rewrite
+kuralları eklenir (`after_switch_theme` üzerinden otomatik `flush`).
+
+> **Not**: Bu depo headless bir CI/CLI oturumunda geliştirildi; PHP sözdizimi,
+> statik kod standardı (PHPCS) ve tüm birim testleri doğrulandı, ancak canlı
+> bir WordPress + MySQL ortamında tarayıcıda görsel olarak test edilmedi.
+> Yayına almadan önce gerçek bir WordPress kurulumunda uçtan uca (giriş,
+> şifremi unuttum, ilk şifre oluştur, rol yönlendirmesi) test edilmesi
+> önerilir.
 
 ## Test
 
