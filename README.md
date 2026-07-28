@@ -35,8 +35,9 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 |---|---|
 | Seviye Core | ✅ Kuruldu |
 | Seviye Security | 🟡 TC Kimlik No auth, rate limiting, şifre token'ları, rol→bölge yönlendirme politikası kuruldu; 2FA/IP kısıtlama planlandı |
+| Seviye Branches | ✅ Şube entity, Yetkililer (personel ataması), REST, RBAC kuruldu; logo yükleme planlandı |
 | Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi kuruldu; panel içerikleri ilgili modüllerle gelecek |
-| Seviye Students, Parents, Branches, Pricing, Commerce, Finance, Reports, Notifications, API | Planlandı |
+| Seviye Students, Parents, Pricing, Commerce, Finance, Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -51,19 +52,23 @@ composer install
 # Her eklenti kendi bağımlılıklarını kendi klasöründe kurar
 cd plugin/seviye-core && composer install && cd -
 cd plugin/seviye-security && composer install && cd -
+cd plugin/seviye-branches && composer install && cd -
 ```
 
-`plugin/seviye-core` ve `plugin/seviye-security` klasörlerini WordPress'in
-`wp-content/plugins/` altına, `theme/seviye-storefront`'u ise `wp-content/themes/`
-altına sembolik link ile bağlayın. Ardından WooCommerce'i, **Seviye Core'u**
-ve **Seviye Security'yi** (bu sırayla) aktive edin, son olarak **Seviye
-Storefront** temasını etkinleştirin. Core aktivasyonu; PHP sürümünü ve
-WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
-migration'larını (`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır.
-Security aktivasyonu ise Core'un aktif olduğunu doğrular ve kendi
-migration'larını (`scp_user_identities`, `scp_password_tokens`) çalıştırır.
-Tema etkinleştirildiğinde `/admin` ve `/sube` rotalarını tanımlayan rewrite
-kuralları eklenir (`after_switch_theme` üzerinden otomatik `flush`).
+`plugin/seviye-core`, `plugin/seviye-security` ve `plugin/seviye-branches`
+klasörlerini WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u
+ise `wp-content/themes/` altına sembolik link ile bağlayın. Ardından
+WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi** ve **Seviye
+Branches'ı** (bu sırayla) aktive edin, son olarak **Seviye Storefront**
+temasını etkinleştirin. Core aktivasyonu; PHP sürümünü ve WooCommerce'in
+aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi migration'larını
+(`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır. Security
+aktivasyonu Core'un aktif olduğunu doğrular ve kendi migration'larını
+(`scp_user_identities`, `scp_password_tokens`) çalıştırır. Branches
+aktivasyonu da aynı şekilde Core'u doğrular ve kendi migration'larını
+(`scp_branches`, `scp_branch_users`) çalıştırır. Tema etkinleştirildiğinde
+`/admin` ve `/sube` rotalarını tanımlayan rewrite kuralları eklenir
+(`after_switch_theme` üzerinden otomatik `flush`).
 
 > **Not**: Bu depo headless bir CI/CLI oturumunda geliştirildi; PHP sözdizimi,
 > statik kod standardı (PHPCS) ve tüm birim testleri doğrulandı, ancak canlı
@@ -77,6 +82,7 @@ kuralları eklenir (`after_switch_theme` üzerinden otomatik `flush`).
 ```bash
 cd plugin/seviye-core && composer test
 cd plugin/seviye-security && composer test
+cd plugin/seviye-branches && composer test
 ```
 
 Kök dizinde kod standardı denetimi:

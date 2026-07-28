@@ -49,15 +49,25 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_settings` | Core | `CreateSettingsTable` | Platform genelinde anahtar/değer ayar deposu |
 | `scp_user_identities` | Security | `CreateUserIdentitiesTable` | TC Kimlik No → WordPress kullanıcı eşlemesi (indeksli, `wp_usermeta` yerine) |
 | `scp_password_tokens` | Security | `CreatePasswordTokensTable` | Tek kullanımlık, hash'lenmiş şifre/ilk-kurulum token'ları |
+| `scp_branches` | Branches | `CreateBranchesTable` | Şube varlığı (IBAN, komisyon, telefon, adres, durum) |
+| `scp_branch_users` | Branches | `CreateBranchUsersTable` | Şube "Yetkilileri" — hangi WP kullanıcısının hangi şubeye atandığı |
 
 `scp_user_identities` ve `scp_password_tokens`, `wp_users`'a **kasıtlı olarak
 FK kısıtlaması içermez**: WordPress çekirdek tabloları için motor/charset
 garantisi yoktur, bu yüzden referans bütünlüğü uygulama katmanında
 (`WpdbIdentityGateway`, `WpdbPasswordTokenGateway`) sağlanır.
 
-Diğer tüm tablolar (`scp_branches`, `scp_students`, `scp_parents`,
-`scp_prices`, `scp_orders`, `scp_order_items`, `scp_commissions`, `scp_stock`,
-`scp_shipments`, `scp_campaigns`, ...) ilgili modül geliştirildiğinde, o
-modülün kendi migration'ları olarak eklenecek — bkz. `docs/ROADMAP.md`.
+`scp_branch_users.branch_id` ise `scp_branches.id`'ye **gerçek bir InnoDB FK
+kısıtlaması** ile bağlıdır (`ON DELETE CASCADE`) — ikisi de bizim kendi
+tablolarımız olduğu için WordPress-çekirdek-tablosu riski yok. `dbDelta()`
+`FOREIGN KEY` cümlelerini güvenilir şekilde ayrıştırmadığından, kısıtlama
+`dbDelta()`'dan sonra ayrı, idempotent bir `ALTER TABLE` adımıyla eklenir —
+bkz. `CreateBranchUsersTable::ensureForeignKey()`. Yeni bir modül-arası FK
+eklerken bu deseni izleyin.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql).
+Diğer tüm tablolar (`scp_students`, `scp_parents`, `scp_prices`, `scp_orders`,
+`scp_order_items`, `scp_commissions`, `scp_stock`, `scp_shipments`,
+`scp_campaigns`, ...) ilgili modül geliştirildiğinde, o modülün kendi
+migration'ları olarak eklenecek — bkz. `docs/ROADMAP.md`.
+
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql).

@@ -41,9 +41,28 @@ yönü bunun tersidir ve merkezde **Core** durur (Hexagonal / Ports & Adapters):
               └────────────────┘
 ```
 
-**Kural:** Hiçbir modül başka bir modülün sınıfını doğrudan import edemez.
-Modüller yalnızca Core'un container'ından çözümlenen servislerle konuşur
-(`EventBusInterface`, `RbacManager`, `MigrationRunner`, PSR-3 `LoggerInterface`).
+**Kural:** Hiçbir modül başka bir modülün *internal* sınıflarını (Repository
+implementasyonu, migration, entity içi mantık) doğrudan import edemez.
+Modüller birbirleriyle iki şekilde konuşur:
+
+1. **Core'un servisleri üzerinden** (`EventBusInterface`, `RbacManager`,
+   `MigrationRunner`, PSR-3 `LoggerInterface`) — bildirim/olay ve genel
+   altyapı için.
+2. **Bir modülün açıkça yayınladığı, kararlı arayüz (interface) sözleşmesi
+   üzerinden** — gerçek bir alan-modeli ilişkisi olduğunda (ör. bir Öğrenci
+   gerçekten bir Şubeye bağlıdır; bu yapay bir bağımlılık değil, spesifikasyonun
+   kendi veri modelidir). Bu durumda tüketici modül, üretici modülün
+   **yalnızca arayüzünü** `composer.json`'da bir `path` bağımlılığı olarak
+   ekler (Security'nin Core'a bağlandığı desenin aynısı) ve o arayüzü
+   Core'un container'ından çözümler; üretici modülün Repository/Entity gibi
+   somut sınıflarını asla import etmez. Branches henüz bu tür bir arayüz
+   yayınlamıyor (YAGNI — ilk gerçek tüketici olan Students/Commerce
+   kurulduğunda, o modülün gerçek ihtiyacına göre eklenecek).
+
+Fiziksel veritabanı şeması bu kuralın dışındadır: iki modülün kendi
+tabloları arasında gerçek bir InnoDB FK kısıtlaması olması PHP sınıf
+bağımlılığı yaratmaz (bkz. `scp_branch_users.branch_id → scp_branches.id`)
+ve spesifikasyonun kendisi FK ilişkilerini açıkça istiyor.
 
 ## Neden bu tasarım
 
@@ -196,6 +215,42 @@ yalnızca çağırır.
   uçlarını çağırır. Arayüz metinleri `wp_localize_script()` ile PHP'den
   `__()` üzerinden geçirilir (JS içinde hiçbir hard-coded Türkçe/İngilizce
   metin yoktur).
+
+### 9. Şube yönetimi (Seviye Branches)
+
+İlk gerçek "domain entity" modülü — spesifikasyondaki `Repository Pattern`
+gereksinimini ilk kez somut olarak uygular:
+
+- `Domain\Branch`: değişmez (immutable) entity; `Domain\Iban` (ISO 13616
+  mod-97 checksum — TC Kimlik No'daki gibi genel/herkese açık bir algoritma,
+  ülkeye özel değil), `Domain\CommissionRate` (0-100 aralığı doğrulamalı) ve
+  `Domain\Slug` (WordPress'ten bağımsız, Türkçe karakterleri çeviren saf PHP
+  slugifier) kendi kendini doğrulayan değer nesneleridir (TC Kimlik No'nun
+  kurduğu desenin devamı).
+- `Repository\BranchRepositoryInterface` / `WpdbBranchRepository`: CRUD,
+  `ConnectionInterface::prepare()` ile parametreli sorgular üzerinden.
+  Otomatik artan `id`'yi okumak için ayrı bir `lastInsertId()` portu
+  eklemek yerine, `slug` alanının UNIQUE kısıtlamasından yararlanılarak
+  ekleme sonrası `findBySlug()` ile geri okunur — Core'un port'unu
+  gereksiz yere genişletmemek için bilinçli bir tercih (YAGNI).
+- `Repository\BranchMembershipRepositoryInterface` / `WpdbBranchMembershipRepository`:
+  "Yetkililer" — hangi WP kullanıcısının (şube personeli) hangi şubeye
+  atandığı. Bu, yalnızca Branches'ın kendi ihtiyacı değildir: gelecekteki
+  Students/Commerce/Finance modüllerinin "bu personel hangi şubenin
+  verisini görebilir" sorusunu yanıtlaması için de temel oluşturur.
+- `scp_branch_users.branch_id → scp_branches.id`: gerçek bir InnoDB FK
+  kısıtlaması. `dbDelta()` `FOREIGN KEY` cümlelerini güvenilir şekilde
+  ayrıştırmadığı için (bilinen bir WordPress kısıtı), kısıtlama `dbDelta()`
+  sonrası ayrı, idempotent bir `information_schema` kontrolüyle korunan
+  `ALTER TABLE` adımında eklenir — bkz.
+  `CreateBranchUsersTable::ensureForeignKey()`.
+- RBAC: `scp_manage_branches` (Genel Merkez, Bölge Müdürü — tüm şubeleri
+  görür/yönetir) ve `scp_view_own_branch` (şube-kapsamlı roller — yalnızca
+  kendi şubesini görür), `RbacManager::grantCapability()` ile.
+- REST: `seviye/v1/branches` (liste/oluştur, yalnızca `scp_manage_branches`),
+  `seviye/v1/branches/{id}` (görüntüle/güncelle; görüntüleme, ya
+  `scp_manage_branches` ya da kendi şubesi için `scp_view_own_branch`
+  gerektirir), `seviye/v1/branches/me` (personelin kendi şubesi).
 
 ## Tablo adlandırma kuralı
 
