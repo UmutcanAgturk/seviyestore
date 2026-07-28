@@ -46,3 +46,20 @@ wp-config.php
 # Note: If you wish to whitelist themes,
 # uncomment the next line
 #/wp-content/themes
+
+# Seviye Commerce Platform - Composer & tooling
+# composer.lock IS committed (both root and per-plugin) for reproducible,
+# audited dependency versions in a long-lived commercial codebase.
+/vendor/
+/plugin/*/vendor/
+node_modules/
+
+# PHPUnit / PHPCS caches
+.phpunit.result.cache
+.phpunit.cache/
+.phpcs-cache
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

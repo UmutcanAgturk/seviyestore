@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<ruleset name="Seviye Commerce Platform">
+    <description>
+        Coding standard for the Seviye Commerce Platform monorepo.
+        This is a Composer/PSR-4 codebase, not classic WordPress-core-style PHP,
+        so code style follows PSR-12; WordPress-specific sniffs are layered on
+        top only for security-relevant checks (escaping, nonces, prepared SQL,
+        i18n) plus PHP-version compatibility against the target WordPress version.
+    </description>
+
+    <file>plugin</file>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/tests/*</exclude-pattern>
+
+    <arg value="sp"/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+
+    <config name="minimum_supported_wp_version" value="6.5"/>
+    <config name="testVersion" value="8.2-"/>
+
+    <rule ref="PSR12"/>
+    <rule ref="Generic.PHP.RequireStrictTypes"/>
+
+    <!--
+        Every plugin's main bootstrap file (plugin/<name>/seviye-<name>.php)
+        conventionally both declares constants and registers hooks, which is
+        the standard, unavoidable shape of a WordPress plugin entry file.
+    -->
+    <rule ref="PSR1.Files.SideEffects">
+        <exclude-pattern>*/plugin/*/seviye-*.php</exclude-pattern>
+    </rule>
+
+    <!--
+        The WordPress plugin header "Description" field must stay on a single
+        physical line (WordPress parses it with a per-line regex), so it can't
+        be wrapped like ordinary code/comments.
+    -->
+    <rule ref="Generic.Files.LineLength">
+        <exclude-pattern>*/plugin/*/seviye-*.php</exclude-pattern>
+    </rule>
+
+    <!-- WordPress security-relevant sniffs only; code style stays PSR-12. -->
+    <rule ref="WordPress.Security.EscapeOutput"/>
+    <rule ref="WordPress.Security.NonceVerification"/>
+    <rule ref="WordPress.DB.PreparedSQL"/>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+    <rule ref="WordPress.WP.I18n"/>
+    <rule ref="WordPress.PHP.DiscouragedPHPFunctions"/>
+
+    <rule ref="PHPCompatibilityWP"/>
+</ruleset>

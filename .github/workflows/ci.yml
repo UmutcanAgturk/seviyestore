@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core-plugin-tests:
+    name: Seviye Core - PHPUnit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugin/seviye-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: composer test
+
+  coding-standards:
+    name: Coding Standards (PHPCS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - run: vendor/bin/phpcs
