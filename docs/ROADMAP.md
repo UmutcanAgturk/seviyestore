@@ -26,8 +26,8 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | Backend: TC Kimlik No doğrulama, `AuthService` (rate-limitli giriş), şifre/ilk-şifre token sistemi, `seviye/v1/auth/*` REST uçları | **Kuruldu** (`Seviye Security`) |
 | Frontend: giriş ekranı (HTML/JS), içerik kilitleme, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi | **Kuruldu** (`Seviye Storefront` teması) |
 | `/sube` ve `/admin` panelleri: öğrenci listesi/formu, veli bağlama | **Kuruldu** — `seviye/v1/students`'a bağlı, gerçek CRUD ekranı |
+| `/admin`'de şube yönetimi (liste/oluştur/düzenle) | **Kuruldu** — `seviye/v1/branches`'a bağlı, gerçek CRUD ekranı |
 | `/` (Veli ana sayfası): kendi öğrencileri (salt okunur liste) + profil formu | **Kuruldu** — `seviye/v1/students/mine` ve `seviye/v1/parents/me`'ye bağlı |
-| Şube yönetimi ekranı (`/admin`'de "Şubeler" listesi/formu) | Planlandı — `seviye/v1/branches` REST'i hazır, tema henüz bağlanmadı |
 | Sipariş/finans panel içeriği | Planlandı (Seviye Commerce/Finance'ın sorumluluğu) |
 | E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
 | WooCommerce mağaza görünümü (Veli ana sayfası) | Planlandı (Seviye Commerce'in sorumluluğu) |
@@ -41,7 +41,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 5. ~~Seviye Students (öğrenci entity, veli çoktan-çoğa ilişkisi, Branches'ın Contracts'ını kullanan ilk modül, REST, RBAC)~~ ✅
 6. ~~Seviye Parents (veli'ye özgü profil alanları, REST, RBAC — Core-only, Contracts'a ihtiyaç duymayan ilk modül)~~ ✅
 7. ~~Tema: `/sube`/`/admin` öğrenci paneli + veli ana sayfası (kendi öğrencileri + profil), gerçek REST'e bağlı~~ ✅
-8. Şube yönetimi ekranı (`/admin`'e "Şubeler" listesi/formu — REST zaten hazır)
+8. ~~Tema: `/admin`'de şube yönetimi ekranı (liste/oluştur/düzenle), `seviye/v1/branches`'a bağlı~~ ✅
 9. Seviye Pricing (fiyat motoru, henüz sipariş yok)
 10. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme) — Veli ana sayfasına mağaza içeriğini kazandırır
 11. Seviye Finance + Seviye Reports

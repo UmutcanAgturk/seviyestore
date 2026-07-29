@@ -12,6 +12,11 @@
  * Danışmanı, Rehberlik do not), so this checks the capability in PHP before
  * rendering the panel, rather than showing a form that would just 403 on
  * submit for those roles.
+ *
+ * The branch management section is /admin-only (scp_current_zone() check):
+ * scp_manage_branches is granted only to Genel Merkez/Bölge Müdürü, who are
+ * the only roles that ever land in the admin zone, but the explicit check
+ * keeps this page correct even if that role/zone mapping ever changes.
  */
 
 declare(strict_types=1);
@@ -125,6 +130,78 @@ get_header();
         </section>
     <?php else : ?>
         <p><?php esc_html_e('Bu panelin içeriği, ilgili modüller geliştirildikçe burada yer alacak.', 'seviye-storefront'); ?></p>
+    <?php endif; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_branches')) : ?>
+        <section class="scp-card" id="scp-branches-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Şubeler', 'seviye-storefront'); ?></h2>
+                <button type="button" class="scp-btn" data-scp-new-branch>
+                    <?php esc_html_e('Yeni Şube', 'seviye-storefront'); ?>
+                </button>
+            </div>
+
+            <p class="scp-status" data-scp-branches-status></p>
+
+            <table class="scp-table">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Ad', 'seviye-storefront'); ?></th>
+                        <th><?php esc_html_e('IBAN', 'seviye-storefront'); ?></th>
+                        <th><?php esc_html_e('Komisyon (%)', 'seviye-storefront'); ?></th>
+                        <th><?php esc_html_e('Telefon', 'seviye-storefront'); ?></th>
+                        <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody data-scp-branches-body></tbody>
+            </table>
+
+            <form class="scp-form" data-scp-branch-form hidden>
+                <input type="hidden" name="id">
+
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Ad', 'seviye-storefront'); ?></span>
+                        <input type="text" name="name" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('IBAN', 'seviye-storefront'); ?></span>
+                        <input type="text" name="iban" placeholder="TR...">
+                    </label>
+                </div>
+
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Komisyon (%)', 'seviye-storefront'); ?></span>
+                        <input type="number" name="commission_rate" min="0" max="100" step="0.01" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Telefon', 'seviye-storefront'); ?></span>
+                        <input type="text" name="phone">
+                    </label>
+                    <label data-scp-branch-status-field hidden>
+                        <span><?php esc_html_e('Durum', 'seviye-storefront'); ?></span>
+                        <select name="status">
+                            <option value="active"><?php esc_html_e('Aktif', 'seviye-storefront'); ?></option>
+                            <option value="inactive"><?php esc_html_e('Pasif', 'seviye-storefront'); ?></option>
+                        </select>
+                    </label>
+                </div>
+
+                <label>
+                    <span><?php esc_html_e('Adres', 'seviye-storefront'); ?></span>
+                    <input type="text" name="address">
+                </label>
+
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-branch>
+                        <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </form>
+        </section>
     <?php endif; ?>
 </div>
 <?php

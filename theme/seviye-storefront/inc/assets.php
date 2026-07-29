@@ -59,6 +59,13 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
+    if ($zone === 'admin' && current_user_can('scp_manage_branches')) {
+        $handle = 'scp-branches-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/branches-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
     $isParentZone = current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile');
 
     if ($zone === '' && $isParentZone) {

@@ -27,11 +27,15 @@ Kurulu olan kapsam:
   `assets/js/parent-dashboard.js` — kendi öğrencileri (salt okunur,
   `seviye/v1/students/mine`) ve profil formu (`seviye/v1/parents/me`,
   telefon/bildirim tercihi/KVKK onayı).
+- **Şube yönetim paneli** (yalnızca `/admin`): `templates/zone.php`'ye
+  eklenen "Şubeler" bölümü + `assets/js/branches-panel.js`,
+  `seviye/v1/branches`'a bağlı gerçek liste/oluştur/düzenle arayüzü.
+  Yalnızca `scp_manage_branches` yetkisi olan roller (Genel Merkez, Bölge
+  Müdürü) görür; `inc/zones.php`'deki `scp_current_zone()` yardımcısıyla
+  bölge açıkça `admin` olarak doğrulanır.
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
-- Şube yönetim ekranı (`/admin`'de "Şubeler" listesi/formu — `seviye/v1/branches`
-  REST'i hazır, tema henüz bağlanmadı).
 - Sipariş/finans panel içerikleri.
 - WooCommerce mağaza görünümü (Seviye Commerce modülü kurulduğunda).
 

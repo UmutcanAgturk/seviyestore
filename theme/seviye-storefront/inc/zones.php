@@ -68,3 +68,13 @@ function scp_render_zone_template(): void
     include SCP_THEME_DIR . '/templates/zone.php';
     exit;
 }
+
+/**
+ * Convenience for templates/inc files that need the raw zone key ('admin'
+ * or 'sube') rather than its display label, e.g. to gate a section that
+ * only makes sense in one of the two zones.
+ */
+function scp_current_zone(): string
+{
+    return (string) get_query_var('scp_zone');
+}
