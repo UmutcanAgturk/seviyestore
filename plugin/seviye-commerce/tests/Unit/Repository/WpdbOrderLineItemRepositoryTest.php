@@ -14,10 +14,10 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
     {
         $connection = new FakeConnection();
         $connection->nextInsertId = 9;
-        $connection->resultsToReturn = [$this->row(9, 500, 3, 42, 7, '12.50', '89.90', 'processing')];
+        $connection->resultsToReturn = [$this->row(9, 500, 3, 42, 7, '12.50', '89.90', '16.18', 'processing')];
         $repository = new WpdbOrderLineItemRepository($connection);
 
-        $item = $repository->create(500, 3, 42, 7, 12.5, 89.90, 'processing');
+        $item = $repository->create(500, 3, 42, 7, 12.5, 89.90, 16.18, 'processing');
 
         self::assertSame(9, $item->id);
         self::assertSame(500, $item->orderId);
@@ -26,11 +26,13 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
         self::assertSame(7, $item->branchId);
         self::assertSame(12.5, $item->commissionRate);
         self::assertSame(89.90, $item->price);
+        self::assertSame(16.18, $item->vatAmount);
         self::assertSame('processing', $item->status);
 
         [$table, $data] = $connection->inserted[0];
         self::assertSame('test_scp_order_line_items', $table);
         self::assertSame(500, $data['order_id']);
+        self::assertSame(16.18, $data['vat_amount']);
         self::assertSame('processing', $data['status']);
     }
 
@@ -48,8 +50,8 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
     {
         $connection = new FakeConnection();
         $connection->resultsToReturn = [
-            $this->row(1, 500, 3, 42, 7, '12.50', '89.90', 'processing'),
-            $this->row(2, 500, 4, 43, 7, '12.50', '49.90', 'processing'),
+            $this->row(1, 500, 3, 42, 7, '12.50', '89.90', '16.18', 'processing'),
+            $this->row(2, 500, 4, 43, 7, '12.50', '49.90', '8.98', 'processing'),
         ];
         $repository = new WpdbOrderLineItemRepository($connection);
 
@@ -71,6 +73,7 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
         int $branchId,
         string $commissionRate,
         string $price,
+        string $vatAmount,
         string $status
     ): array {
         return [
@@ -81,6 +84,7 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
             'branch_id' => (string) $branchId,
             'commission_rate' => $commissionRate,
             'price' => $price,
+            'vat_amount' => $vatAmount,
             'status' => $status,
         ];
     }

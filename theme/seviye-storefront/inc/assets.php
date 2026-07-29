@@ -57,6 +57,11 @@ function scp_enqueue_panel_assets(): void
         'priceRuleDeleted' => __('Fiyat kuralı silindi.', 'seviye-storefront'),
         'statusActive' => __('Aktif', 'seviye-storefront'),
         'statusInactive' => __('Pasif', 'seviye-storefront'),
+        'methodBankTransfer' => __('Banka Havalesi', 'seviye-storefront'),
+        'methodCash' => __('Nakit', 'seviye-storefront'),
+        'methodOther' => __('Diğer', 'seviye-storefront'),
+        'settlementRecorded' => __('Tahsilat kaydedildi.', 'seviye-storefront'),
+        'noSettlements' => __('Henüz tahsilat kaydı yok.', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
@@ -100,6 +105,7 @@ function scp_enqueue_panel_assets(): void
         wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/hakedis-panel.js', [], SCP_THEME_VERSION, true);
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_hakedis'),
+            'canRecordSettlement' => current_user_can('scp_record_hakedis_settlement'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

@@ -42,15 +42,21 @@ Kurulu olan kapsam:
   roller "Genel" kapsam seçeneğini görmez ve BRANCH kapsamlı bir kural
   oluştururken kendi şube ID'lerini girmeleri gerekmez (sunucu otomatik
   olarak kendi şubelerine sabitler).
-- **Cari bakiye paneli** (`/sube` VE `/admin`): `templates/zone.php`'ye
+- **Cari bakiye + tahsilat paneli** (`/sube` VE `/admin`): `templates/zone.php`'ye
   eklenen "Cari Bakiye" bölümü + `assets/js/hakedis-panel.js`,
-  `seviye/v1/finance/hakedis/balance/*`'a bağlı salt okunur görünüm.
-  `scp_view_hakedis` (Genel Merkez, Bölge Müdürü) tüm şubelerin bakiyesini
+  `seviye/v1/finance/hakedis/*`'a bağlı görünüm. `scp_view_hakedis` (Genel
+  Merkez, Bölge Müdürü) tüm şubelerin alacak/ödenen/bakiye kırılımını
   gösteren bir tablo görür; `scp_view_own_hakedis` (yalnızca Şube Müdürü +
-  Muhasebe) yalnızca kendi şubesinin bakiyesini gösteren tek bir kart görür.
+  Muhasebe) yalnızca kendi şubesinin kırılımını gösteren bir kart görür.
   Tüm şubelerin bakiyesini listeleyen ayrı bir REST uç noktası yoktur — HQ
   görünümü genel `GET /branches` ile her şube için bir
   `GET /finance/hakedis/balance/{id}` çağrısını istemci tarafında birleştirir.
+  Panel ayrıca bir "Tahsilat" alt bölümü render eder: şube seçici + tahsilat
+  geçmişi (`GET /finance/hakedis/settlements/{branch_id}`) görüntüleme
+  kapasiteye göre herkese açık (HQ görünümünde bir şube seçici, şube
+  görünümünde örtük olarak kendi şubesi), ama tahsilat kaydetme formu
+  (`POST /finance/hakedis/settlements`) yalnızca `scp_record_hakedis_settlement`
+  (Genel Merkez/Muhasebe) taşıyanlarda görünür.
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca
@@ -83,7 +89,8 @@ Kurulu olan kapsam:
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
-- Tahsilat işaretleme, KDV takibi (Seviye Finance'ın sonraki bölümü).
+- İade akışı, KDV raporlaması (Seviye Reports'un işi — tutar zaten
+  yakalanıyor, bkz. yukarıdaki cari bakiye maddesi).
 
 Tema, diğer tüm bileşenler gibi yalnızca Seviye Core'un (ve ilgili modüllerin)
 yayınladığı public API'ler / REST uç noktaları üzerinden veri okur; doğrudan

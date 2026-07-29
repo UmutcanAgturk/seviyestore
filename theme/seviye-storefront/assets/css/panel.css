@@ -235,8 +235,30 @@
   background: var(--scp-danger);
 }
 
-.scp-hakedis-balance {
-  font-size: 1.5rem;
+.scp-hakedis-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.scp-hakedis-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scp-hakedis-stat__label {
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-hakedis-stat__value {
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--scp-text);
+}
+
+.scp-hakedis-stat__value--primary {
+  color: var(--scp-primary);
 }

@@ -33,7 +33,11 @@
  * the HQ view instead combines the already-public GET /branches with one
  * GET /finance/hakedis/balance/{id} call per branch, client-side - the
  * same "no speculative REST surface" principle used for the price rules
- * lookup.
+ * lookup. Its "Tahsilat" (settlement) sub-section is browsable by anyone
+ * who can view a balance (branch picker in the HQ view, automatic own
+ * branch otherwise) but only writable by scp_record_hakedis_settlement
+ * holders (Genel Merkez / Muhasebe) - a Bölge Müdürü sees the same
+ * settlement history a Muhasebe user does, but never the record form.
  *
  * The quicknav at the top of the page is built from the exact same
  * capability (+ zone) checks each section below already gates on ($scp_
@@ -359,7 +363,20 @@ get_header();
             <p class="scp-status" data-scp-hakedis-status></p>
 
             <div data-scp-hakedis-own hidden>
-                <p class="scp-hakedis-balance" data-scp-hakedis-own-balance></p>
+                <div class="scp-hakedis-stats">
+                    <div class="scp-hakedis-stat">
+                        <span class="scp-hakedis-stat__label"><?php esc_html_e('Alacak', 'seviye-storefront'); ?></span>
+                        <span class="scp-hakedis-stat__value" data-scp-hakedis-own-accrued></span>
+                    </div>
+                    <div class="scp-hakedis-stat">
+                        <span class="scp-hakedis-stat__label"><?php esc_html_e('Ödenen', 'seviye-storefront'); ?></span>
+                        <span class="scp-hakedis-stat__value" data-scp-hakedis-own-settled></span>
+                    </div>
+                    <div class="scp-hakedis-stat">
+                        <span class="scp-hakedis-stat__label"><?php esc_html_e('Bakiye', 'seviye-storefront'); ?></span>
+                        <span class="scp-hakedis-stat__value scp-hakedis-stat__value--primary" data-scp-hakedis-own-balance></span>
+                    </div>
+                </div>
             </div>
 
             <div class="scp-table-wrapper">
@@ -367,11 +384,52 @@ get_header();
                     <thead>
                         <tr>
                             <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Alacak (TRY)', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Ödenen (TRY)', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Bakiye (TRY)', 'seviye-storefront'); ?></th>
                         </tr>
                     </thead>
                     <tbody data-scp-hakedis-all-body></tbody>
                 </table>
+            </div>
+
+            <div data-scp-hakedis-settlements-panel>
+                <h3><?php esc_html_e('Tahsilat', 'seviye-storefront'); ?></h3>
+
+                <label data-scp-settlement-branch-field hidden>
+                    <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
+                    <select data-scp-settlement-branch-select></select>
+                </label>
+
+                <p class="scp-status" data-scp-settlements-status></p>
+
+                <ul class="scp-list" data-scp-settlements-list></ul>
+
+                <form class="scp-form" data-scp-settlement-form hidden>
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Tutar (TRY)', 'seviye-storefront'); ?></span>
+                            <input type="number" min="0.01" step="0.01" name="amount" required>
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Yöntem', 'seviye-storefront'); ?></span>
+                            <select name="method">
+                                <option value="bank_transfer"><?php esc_html_e('Banka Havalesi', 'seviye-storefront'); ?></option>
+                                <option value="cash"><?php esc_html_e('Nakit', 'seviye-storefront'); ?></option>
+                                <option value="other"><?php esc_html_e('Diğer', 'seviye-storefront'); ?></option>
+                            </select>
+                        </label>
+                    </div>
+                    <label>
+                        <span><?php esc_html_e('Not', 'seviye-storefront'); ?></span>
+                        <input type="text" name="note">
+                    </label>
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn">
+                            <?php esc_html_e('Tahsilatı Kaydet', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
     <?php endif; ?>

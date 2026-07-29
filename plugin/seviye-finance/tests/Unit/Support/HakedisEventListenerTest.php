@@ -21,6 +21,7 @@ final class HakedisEventListenerTest extends TestCase
             'branch_id' => 7,
             'commission_rate' => 12.5,
             'price' => 200.0,
+            'vat_amount' => 36.0,
             'branch_share' => 25.0,
             'hq_share' => 175.0,
         ];
@@ -36,6 +37,7 @@ final class HakedisEventListenerTest extends TestCase
         self::assertCount(1, $repository->entries);
         $entry = $repository->entries[0];
         self::assertSame(25.0, $entry->amount);
+        self::assertSame(36.0, $entry->vatAmount);
         self::assertSame(HakedisEntryType::EARNED, $entry->type);
         self::assertSame(7, $entry->branchId);
         self::assertSame(25.0, $repository->balanceForBranch(7));

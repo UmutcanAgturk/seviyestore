@@ -22,6 +22,12 @@ use Seviye\Core\Database\MigrationInterface;
  * do this, but a ledger is exactly the wrong place to merely assume that),
  * a second INSERT attempt fails instead of silently double-crediting a
  * branch.
+ *
+ * vat_amount snapshots Commerce's own vat_amount (Seviye\Commerce\Domain\
+ * OrderLineItem, itself WooCommerce's tax calculation) - added alongside
+ * amount/price rather than in a separate migration, since this table has
+ * never been deployed to a live install yet (see root README.md's
+ * "headless session" note).
  */
 final class CreateHakedisEntriesTable implements MigrationInterface
 {
@@ -51,6 +57,7 @@ final class CreateHakedisEntriesTable implements MigrationInterface
             amount DECIMAL(10,2) NOT NULL,
             commission_rate DECIMAL(5,2) NOT NULL,
             price DECIMAL(10,2) NOT NULL,
+            vat_amount DECIMAL(10,2) NOT NULL,
             type VARCHAR(20) NOT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY  (id),

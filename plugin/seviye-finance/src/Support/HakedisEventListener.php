@@ -59,6 +59,7 @@ final class HakedisEventListener
             $signedAmount,
             (float) $event->get('commission_rate'),
             (float) $event->get('price'),
+            (float) $event->get('vat_amount', 0.0),
             $type
         );
     }

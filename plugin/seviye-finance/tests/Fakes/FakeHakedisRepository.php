@@ -21,6 +21,7 @@ final class FakeHakedisRepository implements HakedisRepositoryInterface
         float $amount,
         float $commissionRate,
         float $price,
+        float $vatAmount,
         HakedisEntryType $type
     ): HakedisEntry {
         $entry = new HakedisEntry(
@@ -32,6 +33,7 @@ final class FakeHakedisRepository implements HakedisRepositoryInterface
             $amount,
             $commissionRate,
             $price,
+            $vatAmount,
             $type
         );
 

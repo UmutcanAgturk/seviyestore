@@ -17,6 +17,7 @@ interface HakedisRepositoryInterface
         float $amount,
         float $commissionRate,
         float $price,
+        float $vatAmount,
         HakedisEntryType $type
     ): HakedisEntry;
 

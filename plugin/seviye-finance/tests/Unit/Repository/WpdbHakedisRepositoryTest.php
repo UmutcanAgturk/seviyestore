@@ -15,20 +15,22 @@ final class WpdbHakedisRepositoryTest extends TestCase
     {
         $connection = new FakeConnection();
         $connection->nextInsertId = 5;
-        $connection->resultsToReturn = [$this->row(5, 7, 500, 3, 42, '25.00', '12.50', '200.00', 'earned')];
+        $connection->resultsToReturn = [$this->row(5, 7, 500, 3, 42, '25.00', '12.50', '200.00', '36.00', 'earned')];
         $repository = new WpdbHakedisRepository($connection);
 
-        $entry = $repository->record(7, 500, 3, 42, 25.0, 12.5, 200.0, HakedisEntryType::EARNED);
+        $entry = $repository->record(7, 500, 3, 42, 25.0, 12.5, 200.0, 36.0, HakedisEntryType::EARNED);
 
         self::assertSame(5, $entry->id);
         self::assertSame(7, $entry->branchId);
         self::assertSame(25.0, $entry->amount);
+        self::assertSame(36.0, $entry->vatAmount);
         self::assertSame(HakedisEntryType::EARNED, $entry->type);
 
         [$table, $data] = $connection->inserted[0];
         self::assertSame('test_scp_hakedis_entries', $table);
         self::assertSame('earned', $data['type']);
         self::assertSame(25.0, $data['amount']);
+        self::assertSame(36.0, $data['vat_amount']);
     }
 
     public function testEntryExistsReflectsWhetherARowWasFound(): void
@@ -73,6 +75,7 @@ final class WpdbHakedisRepositoryTest extends TestCase
         string $amount,
         string $commissionRate,
         string $price,
+        string $vatAmount,
         string $type
     ): array {
         return [
@@ -84,6 +87,7 @@ final class WpdbHakedisRepositoryTest extends TestCase
             'amount' => $amount,
             'commission_rate' => $commissionRate,
             'price' => $price,
+            'vat_amount' => $vatAmount,
             'type' => $type,
         ];
     }

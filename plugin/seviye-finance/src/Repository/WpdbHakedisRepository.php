@@ -23,6 +23,7 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
         float $amount,
         float $commissionRate,
         float $price,
+        float $vatAmount,
         HakedisEntryType $type
     ): HakedisEntry {
         $this->connection->insert($this->connection->table('hakedis_entries'), [
@@ -33,6 +34,7 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
             'amount' => $amount,
             'commission_rate' => $commissionRate,
             'price' => $price,
+            'vat_amount' => $vatAmount,
             'type' => $type->value,
             'created_at' => $this->now(),
         ]);
@@ -93,6 +95,7 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
             (float) $row['amount'],
             (float) $row['commission_rate'],
             (float) $row['price'],
+            (float) $row['vat_amount'],
             HakedisEntryType::from((string) $row['type'])
         );
     }

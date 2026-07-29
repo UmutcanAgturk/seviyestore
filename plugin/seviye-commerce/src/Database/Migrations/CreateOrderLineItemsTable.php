@@ -19,6 +19,11 @@ use Seviye\Core\Database\MigrationInterface;
  * order_id/order_item_id have no FK: they point at WooCommerce's own order
  * tables, and this platform never puts FKs on WordPress/WooCommerce core
  * tables.
+ *
+ * vat_amount snapshots WooCommerce's own tax calculation for the line item
+ * (see Domain\OrderLineItem) - added alongside price/commission_rate rather
+ * than in a separate migration, since this table has never been deployed
+ * to a live install yet (see root README.md's "headless session" note).
  */
 final class CreateOrderLineItemsTable implements MigrationInterface
 {
@@ -47,6 +52,7 @@ final class CreateOrderLineItemsTable implements MigrationInterface
             branch_id BIGINT UNSIGNED NOT NULL,
             commission_rate DECIMAL(5,2) NOT NULL,
             price DECIMAL(10,2) NOT NULL,
+            vat_amount DECIMAL(10,2) NOT NULL,
             status VARCHAR(20) NOT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,

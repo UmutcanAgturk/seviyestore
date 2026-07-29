@@ -96,6 +96,7 @@ final class OrderPersistenceHooks
                 $branchSummary->id,
                 $branchSummary->commissionRate,
                 (float) $item->get_total(),
+                (float) $item->get_total_tax(),
                 $order->get_status()
             );
         }
@@ -140,6 +141,7 @@ final class OrderPersistenceHooks
             'branch_id' => $item->branchId,
             'commission_rate' => $item->commissionRate,
             'price' => $item->price,
+            'vat_amount' => $item->vatAmount,
             'branch_share' => $split->branchShare,
             'hq_share' => $split->hqShare,
         ];

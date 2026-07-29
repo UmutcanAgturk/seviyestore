@@ -15,6 +15,7 @@ interface OrderLineItemRepositoryInterface
         int $branchId,
         float $commissionRate,
         float $price,
+        float $vatAmount,
         string $status
     ): OrderLineItem;
 

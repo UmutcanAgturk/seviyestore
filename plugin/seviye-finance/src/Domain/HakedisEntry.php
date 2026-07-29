@@ -15,6 +15,13 @@ namespace Seviye\Finance\Domain;
  *
  * `amount` is signed: positive for EARNED, negative for REVERSED, so a
  * branch's balance is always a plain SUM() over its entries.
+ *
+ * `vatAmount` is carried through unsigned (not flipped on REVERSED like
+ * `amount` is) - it is a record of how much VAT WooCommerce charged on the
+ * original order line item, not a share owed to the branch, so there is no
+ * "negative VAT" concept to represent here. It exists purely as captured
+ * accounting data for Seviye Reports (not yet built) to consume later; this
+ * module makes no use of it itself.
  */
 final class HakedisEntry
 {
@@ -27,6 +34,7 @@ final class HakedisEntry
         public readonly float $amount,
         public readonly float $commissionRate,
         public readonly float $price,
+        public readonly float $vatAmount,
         public readonly HakedisEntryType $type
     ) {
     }

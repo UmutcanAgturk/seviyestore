@@ -15,10 +15,13 @@ use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Finance\Database\Migrations\CreateHakedisEntriesTable;
+use Seviye\Finance\Database\Migrations\CreateHakedisSettlementsTable;
 use Seviye\Finance\Http\HakedisRestController;
 use Seviye\Finance\Rbac\HakedisCapability;
 use Seviye\Finance\Repository\HakedisRepositoryInterface;
+use Seviye\Finance\Repository\SettlementRepositoryInterface;
 use Seviye\Finance\Repository\WpdbHakedisRepository;
+use Seviye\Finance\Repository\WpdbSettlementRepository;
 use Seviye\Finance\Support\HakedisEventListener;
 
 /**
@@ -51,7 +54,15 @@ final class FinanceModule implements ModuleInterface
             )
         );
 
+        $container->singleton(
+            SettlementRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbSettlementRepository => new WpdbSettlementRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateHakedisEntriesTable());
+        $container->get(MigrationRunner::class)->register(new CreateHakedisSettlementsTable());
 
         $listener = new HakedisEventListener($container->get(HakedisRepositoryInterface::class));
         $eventBus = $container->get(EventBusInterface::class);
@@ -63,10 +74,13 @@ final class FinanceModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, HakedisCapability::VIEW_HAKEDIS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, HakedisCapability::VIEW_OWN_HAKEDIS->value);
         $rbac->grantCapability(Role::MUHASEBE, HakedisCapability::VIEW_OWN_HAKEDIS->value);
+        $rbac->grantCapability(Role::GENEL_MERKEZ, HakedisCapability::RECORD_SETTLEMENT->value);
+        $rbac->grantCapability(Role::MUHASEBE, HakedisCapability::RECORD_SETTLEMENT->value);
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): HakedisRestController => new HakedisRestController(
                 $container->get(HakedisRepositoryInterface::class),
+                $container->get(SettlementRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class)
             )

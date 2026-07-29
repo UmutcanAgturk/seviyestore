@@ -445,6 +445,10 @@ REST uçlarını çağırır.
   (kendi şubesi) ve `/finance/hakedis/balance/{branch_id}` (yetkiye göre
   herhangi bir şube) uçlarının `BranchesRestController::me()`/`canViewBranch()`
   deseninin doğrudan bir aynası olmasıyla da tutarlıdır (bkz. bölüm 15).
+  Panel ayrıca bir "Tahsilat" alt bölümü render eder: şube seçici + tahsilat
+  geçmişi `canViewAllBranches` altında herkese açık, tahsilat kaydetme
+  formu ise yalnızca `canRecordSettlement` (`scp_record_hakedis_settlement`
+  — Genel Merkez/Muhasebe) altında görünür (bkz. bölüm 15).
 
 ### 13. Fiyatlandırma motoru (Seviye Pricing)
 
@@ -663,6 +667,14 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   gerçekte tahsil edilenle tutarsız bir "denetim" değeri üretebilirdi.
   Gerçekte ne tahsil edildiğini WC'nin kendisinden okumak tek doğru
   kaynak.
+- **`vatAmount`, aynı ilkeyle `$item->get_total_tax()`'tan okunur**:
+  WooCommerce'in kendi vergi motoru zaten hesaplamışken Seviye KDV'yi asla
+  yeniden hesaplamaz. Yalnızca tutar saklanır, oran değil (oran, `vatAmount
+  / price`'tan türetilebilir bir değer olurdu, anlık görüntülenen bağımsız
+  bir gerçek değil). Bu alan `hakedisPayload()`'a `vat_amount` olarak
+  eklenip Seviye Finance'ın ledger'ına kadar taşınır (bkz. bölüm 15) —
+  henüz hiçbir REST yanıtında/panelde gösterilmiyor, Seviye Reports için
+  yakalanan ham muhasebe verisi.
 - **`status` kasıtlı olarak düz bir string, kapalı bir PHP enum değil**:
   `wc_get_order_statuses()` açık uçlu bir sözlüktür — üçüncü taraf ödeme/
   abonelik eklentileri kendi durumlarını ekleyebilir. Kapalı bir enum,
@@ -715,13 +727,15 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   alacaklı görünmeye devam etmesi gerçek bir hata olurdu, "yarım kod"
   disiplininin izin vermeyeceği türden bir boşluk.
 
-### 15. Hakediş defteri + cari bakiye (Seviye Finance, 1. bölüm)
+### 15. Hakediş defteri + cari bakiye + tahsilat + KDV (Seviye Finance)
 
 Spesifikasyonun Finance sorumluluğu ("Cari, hakediş, komisyon, KDV, iade,
-tahsilat") geniş; bu ilk bölüm **hakediş defterini** (Commerce'in
-event'lerini kalıcı, değişmez bir muhasebe kaydına dönüştürme) ve **cari
-bakiye görüntülemeyi** (salt okunur REST) kurar. Tahsilat/ödeme işaretleme,
-KDV takibi ve bir tema paneli sonraki bölümlerdir.
+tahsilat") geniş; ilk bölüm **hakediş defterini** (Commerce'in event'lerini
+kalıcı, değişmez bir muhasebe kaydına dönüştürme) ve **cari bakiye
+görüntülemeyi** (salt okunur REST) kurdu. Bu bölüm onun üzerine **tahsilat
+(settlement/payout) defterini**, bir tema panelini ve **KDV tutarının
+Commerce'ten Finance'a kadar uçtan uca taşınmasını** ekler. İade akışı bu
+bölümün kapsamı dışında kalır (spesifikasyonun "iade" maddesi).
 
 - **Defterin kendisi (`Support\HakedisEventListener`) hâlâ başka hiçbir
   modülün Contracts'ına bağımlı değil**: yalnızca Core'un
@@ -784,6 +798,76 @@ KDV takibi ve bir tema paneli sonraki bölümlerdir.
   bir şubeyi sorgulayabilir, şube-kapsamlı roller yalnızca kendi
   şubelerini. `/me`, HQ için de kasıtlı olarak 403 döner (Branches'ta
   olduğu gibi) — HQ'nun "kendi şubesi" diye bir kavramı yok.
+- **KDV tutarı, Commerce'ten Finance'a kadar bir "anlık görüntü zinciri"
+  olarak taşınır**: WooCommerce'in kendi vergi motoru zaten her sipariş
+  kalemi için bir vergi tutarı hesaplıyor
+  (`WC_Order_Item_Product::get_total_tax()`); Seviye KDV'yi asla yeniden
+  hesaplamaz, yalnızca `price`'ın zaten izlediği "gerçekte neyin tahsil
+  edildiğini yeniden türetme" ilkesiyle bu değeri anlık görüntüler.
+  `Seviye\Commerce\Domain\OrderLineItem::$vatAmount` →
+  `commerce.order_line_item_completed`/`_reversed` event payload'ının
+  `vat_amount` alanı → `Seviye\Finance\Domain\HakedisEntry::$vatAmount`.
+  Yalnızca tutar saklanır, oran saklanmaz — oran türetilmiş bir değer
+  olurdu (`vatAmount / price`), anlık görüntülenen bağımsız bir gerçek
+  değil. Bu veri şu an hiçbir REST yanıtında/panelde gösterilmiyor —
+  henüz kurulmamış Seviye Reports'un tüketeceği ham muhasebe verisi olarak
+  yakalanıyor, tıpkı Commerce'in Finance kurulmadan önce event yayınlamaya
+  başlaması gibi (bkz. bölüm 14).
+- **Tahsilat (settlement/payout), hakediş defterinden AYRI ikinci bir
+  değişmez defter (`scp_hakedis_settlements`), tek bir "ödendi" bayrağı
+  DEĞİL**: `scp_hakedis_entries`'e bir `settled_at`/`paid` sütunu eklemek,
+  o tablonun "asla düzenlenmeyen, yalnızca-ekleme" ilkesini kırardı (bkz.
+  yukarıdaki `Domain\HakedisEntry` maddesi). Bunun yerine bir şubenin
+  **alacağı** (`SUM(hakedis_entries.amount)`) ve **ödeneni**
+  (`SUM(hakedis_settlements.amount)`) iki ayrı toplama sorgusu, **bakiye**
+  ise ikisinin farkı (`HakedisRestController::serializeBalance()`) —
+  ikisi de her zaman hesaplanır, hiçbiri ayrıca önbelleklenmez, cari
+  bakiyenin kendisiyle aynı "asla senkronizasyondan çıkamayan toplam"
+  ilkesi. `balance` alanı geriye dönük uyumlu kalır (mevcut
+  `assets/js/hakedis-panel.js`'in zaten okuduğu alan), ama artık brüt
+  hakediş toplamı değil, **net/ödenmemiş** tutarı taşır — "cari bakiye"nin
+  gerçek anlamı zaten budur; `accrued`/`settled` yalnızca şeffaflık için
+  eklenen ek alanlardır.
+- **`Domain\HakedisSettlement`, platformdaki tek istisna olarak bir
+  `createdAt` alanı taşır**: her Domain sınıfı (bkz. `HakedisEntry`,
+  `OrderLineItem`, vb.) bugüne kadar ham bir zaman damgasını asla domain
+  nesnesine taşımadı, çünkü hiçbir tüketici buna ihtiyaç duymamıştı.
+  "Tahsilat işaretleme"nin can alıcı noktası tam olarak *ne zaman*
+  ödendiğini görebilmek olduğundan, burada gerçek bir tüketici (tahsilat
+  geçmişi listesi) bu alana ihtiyaç duyuyor — kural kırılmıyor, yalnızca
+  ilk kez gerçekten gerekli olduğu için uygulanıyor.
+- **`recorded_by`, Security'nin `scp_user_identities.user_id`'siyle aynı
+  gerekçeyle `wp_users`'a FK DEĞİLDİR**: WordPress çekirdek tabloları
+  için depolama motoru/karakter kümesi garantisi yok, bu yüzden
+  `CreateHakedisSettlementsTable` yalnızca `get_current_user_id()`'nin
+  zaten doğruladığı bir değeri saklar, DB seviyesinde kısıtlamaz.
+- **RBAC: `scp_record_hakedis_settlement`, bu modülün ilk gerçek yazma
+  yetkisi**: `VIEW_HAKEDIS`/`VIEW_OWN_HAKEDIS` salt okunur kalmaya devam
+  ediyor (defterin kendisi hâlâ yalnızca `HakedisEventListener` tarafından
+  yazılıyor), ama bir şubeye fiilen ödeme yapmayı işaretlemek gerçek bir
+  yazma eylemi. Bu yetki `VIEW_HAKEDIS`'ten daha dar verilir: Bölge
+  Müdürü her şubenin bakiyesini *görebilir* ama hiçbirine *ödeme
+  yapmaz* — bu HQ muhasebe işi (Genel Merkez / Muhasebe), Branches'ın
+  `MANAGE_BRANCHES` vs. `VIEW_OWN_BRANCH` ayrımıyla aynı gerekçe.
+- **REST: `POST /finance/hakedis/settlements` ve
+  `GET /finance/hakedis/settlements/{branch_id}`**, `balance()`'ın
+  `canViewBalance()` iznini `canAccessBranchFinance()` adıyla genelleştirip
+  hem bakiye hem tahsilat-listeleme uçları arasında paylaşır — "kim hangi
+  şubenin finansını görebilir" tek bir yerde tanımlı kalır. `POST` ayrıca
+  `RECORD_SETTLEMENT`'ı da ister; tutar/yöntem doğrulaması REST katmanında
+  yapılır (`amount <= 0` veya geçersiz `method` → 422), tıpkı Pricing'in
+  `store()`'unun kendi doğrulamasını REST'te yapması gibi — burada da ayrı
+  bir Money/Settlement değer nesnesi kurulmadı, platformun geri kalanının
+  hakediş tutarları için zaten kullandığı ham `float` + REST-katmanı
+  doğrulaması deseni tekrarlandı.
+- **Tema paneli (`hakedis-panel.js`), "görüntüleme" ile "kaydetme"yi ayrı
+  yetkilerle render eder**: şube seçici + tahsilat geçmişi
+  `canViewAllBranches` altında herkese (Bölge Müdürü dahil) açık, tahsilat
+  kaydetme formu yalnızca `canRecordSettlement` altında (Genel Merkez /
+  Muhasebe) görünür — REST katmanının izin verdiğinin ötesinde hiçbir şey
+  UI'da gösterilmez. Şube-kapsamlı görünümde (Şube Müdürü/Muhasebe) şube
+  seçici yoktur; kendi şubesi `GET /finance/hakedis/balance/me`'nin
+  döndürdüğü `branch_id`'den örtük olarak bilinir.
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo

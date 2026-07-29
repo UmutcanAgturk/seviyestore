@@ -21,6 +21,7 @@ final class WpdbOrderLineItemRepository implements OrderLineItemRepositoryInterf
         int $branchId,
         float $commissionRate,
         float $price,
+        float $vatAmount,
         string $status
     ): OrderLineItem {
         $now = $this->now();
@@ -32,6 +33,7 @@ final class WpdbOrderLineItemRepository implements OrderLineItemRepositoryInterf
             'branch_id' => $branchId,
             'commission_rate' => $commissionRate,
             'price' => $price,
+            'vat_amount' => $vatAmount,
             'status' => $status,
             'created_at' => $now,
             'updated_at' => $now,
@@ -88,6 +90,7 @@ final class WpdbOrderLineItemRepository implements OrderLineItemRepositoryInterf
             (int) $row['branch_id'],
             (float) $row['commission_rate'],
             (float) $row['price'],
+            (float) $row['vat_amount'],
             (string) $row['status']
         );
     }

@@ -15,6 +15,7 @@ CREATE TABLE {prefix}scp_order_line_items (
     branch_id BIGINT UNSIGNED NOT NULL,
     commission_rate DECIMAL(5,2) NOT NULL,
     price DECIMAL(10,2) NOT NULL,
+    vat_amount DECIMAL(10,2) NOT NULL,
     status VARCHAR(20) NOT NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
