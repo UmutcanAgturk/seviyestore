@@ -7,9 +7,9 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 }
 
 /*
- * Seviye Commerce keeps no scp_* tables of its own in this milestone (order
- * data lives in WooCommerce's own tables, with a single order-item meta key
- * added by this plugin) - see plugin/seviye-core/uninstall.php for the
- * platform-wide reasoning against destructive uninstall behaviour in
- * general.
+ * Seviye Commerce intentionally does not delete scp_order_line_items data
+ * when the plugin is removed - see plugin/seviye-core/uninstall.php for the
+ * same reasoning platform-wide. Order data itself lives in WooCommerce's
+ * own tables either way, with a single order-item meta key added by this
+ * plugin.
  */

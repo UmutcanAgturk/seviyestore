@@ -511,7 +511,7 @@ olan ilk modül — `seviye/pricing` composer paketi `seviye/core`,
   şeffaflık için şube-kapsamlı rollere de gösterir — yalnızca *yazma*
   GENERAL için engellidir.
 
-### 14. WooCommerce entegrasyonu — sepet fiyatlandırma + tema (Seviye Commerce, 1. bölüm)
+### 14. WooCommerce entegrasyonu — sepet fiyatlandırma + tema + sipariş kalıcılığı (Seviye Commerce, 1. bölüm)
 
 Seviye Commerce, spesifikasyondaki "sipariş akışı + split payment +
 hakediş tetikleme" sorumluluğunun tamamını tek bir milestone'da değil,
@@ -624,8 +624,48 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   bu bölümdeki karşılığı budur; mağaza içeriğinin `/`'e doğrudan
   gömülmesi değil (WooCommerce zaten kendi Mağaza sayfasını/ürün
   arşivini yönetiyor, bunu tekrar etmek gereksiz olurdu).
-
-## Tablo adlandırma kuralı
+- **Sipariş kalıcılığı: `scp_order_line_items`, Commerce'in ilk gerçek
+  tablosu**: WooCommerce zaten sipariş verisinin sahibi olmaya devam
+  ediyor — bu tablo onun yerini almaz, yalnızca hakediş hesaplaması için
+  gereken bilgiyi **sipariş anında anlık görüntü (snapshot) olarak**
+  saklar: `student_id`, `branch_id`, o anki `commission_rate` ve gerçekte
+  tahsil edilen `price`. Bu bilinçli bir tekrar (denormalizasyon) —
+  Branches'ın komisyon oranı ileride değişirse, geçmiş bir siparişin
+  hakediş hesabı o siparişin **o anki** oranını kullanmalı, Branches'ın
+  şu anki oranını değil. `Contracts\BranchSummary`'ye bu yüzden
+  `commissionRate` eklendi (Domain'in kendi `CommissionRate` değer
+  nesnesini sızdırmadan, ham bir `float` olarak — `BranchSummary`'nin
+  "minimal, stabil okuma modeli" ilkesinin bilinçli bir istisnası, çünkü
+  bu artık başka bir modülün meşru olarak ihtiyaç duyduğu bir veri).
+- **`price`, `PriceResolverInterface` yeniden çağrılarak değil, sipariş
+  kaleminin gerçek toplamından (`$item->get_total()`) okunur**: sepete
+  eklenirken zaten doğru fiyat uygulanmıştı (bkz. yukarıdaki
+  `woocommerce_before_calculate_totals` maddesi); ödeme anına kadar bir
+  fiyat kuralı değişmiş olabilir, bu yüzden motoru yeniden çağırmak
+  gerçekte tahsil edilenle tutarsız bir "denetim" değeri üretebilirdi.
+  Gerçekte ne tahsil edildiğini WC'nin kendisinden okumak tek doğru
+  kaynak.
+- **`status` kasıtlı olarak düz bir string, kapalı bir PHP enum değil**:
+  `wc_get_order_statuses()` açık uçlu bir sözlüktür — üçüncü taraf ödeme/
+  abonelik eklentileri kendi durumlarını ekleyebilir. Kapalı bir enum,
+  böyle bir eklenti kurulduğu an bayatlardı.
+  `woocommerce_order_status_changed` hook'u satırların `status`'unu
+  senkron tutar.
+  `scp_order_line_items.student_id`/`.branch_id` **kasıtlı olarak
+  `RESTRICT`** kullanır (varsayılan, `scp_price_rules`'ın `CASCADE`'inin
+  aksine): bu tablo bir yönetim kuralı değil, sipariş/finansal geçmiş —
+  bir öğrenci/şube daha sonra silindiğinde hakediş kayıtlarının sessizce
+  kaybolması, `scp_students.branch_id`'nin `RESTRICT`'iyle aynı
+  gerekçeyle kabul edilemez bir veri kaybı olurdu.
+- **`Http\OrderPersistenceHooks`, `WooCommerceCartHooks`'un yanına
+  eklenen ikinci, ayrı bir ince adaptör**: sepet/fiyat yaşam döngüsü ile
+  sipariş kalıcılığı farklı sorumluluklar — tek bir büyüyen sınıf yerine
+  iki odaklı sınıf. `woocommerce_checkout_order_processed`'da (gerçek
+  `order_id`/`order_item_id`'lerin kesinleştiği an) her `_scp_student_id`
+  taşıyan kalem için bir satır yazar; `Support\CartPricingService`'in
+  aksine burada ayrıca çıkarılacak saf bir karar mantığı yok (yalnızca
+  WC'den okuma + iki Contract sorgusu + repository çağrısı), bu yüzden
+  bu adaptör de `WooCommerceCartHooks` gibi test edilmez.
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo

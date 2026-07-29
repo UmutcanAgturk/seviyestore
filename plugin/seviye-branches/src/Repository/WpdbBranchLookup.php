@@ -25,7 +25,7 @@ final class WpdbBranchLookup implements BranchLookupInterface
     {
         $table = $this->connection->table('branches');
         $sql = $this->connection->prepare(
-            'SELECT id, name, slug FROM ' . $table . ' WHERE id = %d LIMIT 1',
+            'SELECT id, name, slug, commission_rate FROM ' . $table . ' WHERE id = %d LIMIT 1',
             [$branchId]
         );
 
@@ -35,7 +35,12 @@ final class WpdbBranchLookup implements BranchLookupInterface
             return null;
         }
 
-        return new BranchSummary((int) $rows[0]['id'], (string) $rows[0]['name'], (string) $rows[0]['slug']);
+        return new BranchSummary(
+            (int) $rows[0]['id'],
+            (string) $rows[0]['name'],
+            (string) $rows[0]['slug'],
+            (float) $rows[0]['commission_rate']
+        );
     }
 
     public function exists(int $branchId): bool

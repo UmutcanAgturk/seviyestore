@@ -39,7 +39,7 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
-| Seviye Commerce | 🟡 Sepet fiyatlandırma (öğrenci seçimi doğrulaması, `PriceResolverInterface` entegrasyonu, sipariş kalemi meta'sına kalıcı kayıt) ve tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi) kuruldu; sipariş kalıcılığı, split payment, hakediş tetikleme planlandı |
+| Seviye Commerce | 🟡 Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi) ve sipariş kalıcılığı (`scp_order_line_items`) kuruldu; split payment, hakediş tetikleme planlandı |
 | Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans panelleri planlandı |
 | Seviye Finance, Reports, Notifications, API | Planlandı |
 
@@ -73,8 +73,8 @@ sembolik link ile bağlayın. Ardından WooCommerce'i, **Seviye Core'u**,
 sırayla — Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının
 zaten var olmasını gerektirir; Pricing hem Branches'ın hem Students'ın
 Contracts'ını tükettiğinden ikisi de zaten aktif olmalıdır; Commerce
-Students'ın ve Pricing'in Contracts'ını tükettiğinden ikisi de zaten aktif
-olmalıdır; Parents'ın böyle bir bağımlılığı yoktur, ama tutarlılık için aynı
+Branches'ın, Students'ın ve Pricing'in Contracts'ını tükettiğinden üçü de
+zaten aktif olmalıdır; Parents'ın böyle bir bağımlılığı yoktur, ama tutarlılık için aynı
 sırada aktive edilmesi önerilir) aktive edin, son olarak **Seviye
 Storefront** temasını etkinleştirin. Core aktivasyonu; PHP sürümünü ve
 WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
@@ -90,11 +90,12 @@ aktivasyonu yalnızca Core'u doğrular ve kendi migration'unu
 (`scp_parent_profiles`) çalıştırır. Pricing aktivasyonu Core'u, **Branches'ın**
 ve **Students'ın aktif olduğunu** doğrular (aksi halde `scp_price_rules`'ın
 FK'ları kurulamaz) ve kendi migration'unu (`scp_price_rules`) çalıştırır.
-Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Students'ın**
-ve **Pricing'in aktif olduğunu** doğrular; kendi migration'u yoktur (bu
-milestone'da hiçbir `scp_*` tablosu eklemez — bkz. `database/README.md`).
-Tema etkinleştirildiğinde `/admin` ve `/sube` rotalarını tanımlayan rewrite
-kuralları eklenir (`after_switch_theme` üzerinden otomatik `flush`).
+Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın**,
+**Students'ın** ve **Pricing'in aktif olduğunu** doğrular (aksi halde
+`scp_order_line_items`'ın FK'ları kurulamaz) ve kendi migration'unu
+(`scp_order_line_items`) çalıştırır. Tema etkinleştirildiğinde `/admin` ve
+`/sube` rotalarını tanımlayan rewrite kuralları eklenir
+(`after_switch_theme` üzerinden otomatik `flush`).
 
 > **Not**: Bu depo headless bir CI/CLI oturumunda geliştirildi; PHP sözdizimi,
 > statik kod standardı (PHPCS) ve tüm birim testleri doğrulandı, ancak canlı

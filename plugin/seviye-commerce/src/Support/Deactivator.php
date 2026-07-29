@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Seviye\Commerce\Support;
 
 /**
- * Nothing to clean up on deactivation - Commerce keeps no scp_* tables of
- * its own in this milestone, and the WooCommerce order-item meta it writes
- * belongs to WooCommerce's own data, not this plugin's to delete.
+ * Intentionally does not remove scp_order_line_items data - deactivation is
+ * reversible by design, data loss is not (same reasoning as every other
+ * module's Deactivator). The WooCommerce order-item meta this plugin writes
+ * belongs to WooCommerce's own data either way, not this plugin's to delete.
  */
 final class Deactivator
 {
