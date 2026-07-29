@@ -40,8 +40,9 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
 | Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`) ve split payment + hakediş event tetikleme kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
+| Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar) kuruldu; cari bakiye REST/paneli, tahsilat işaretleme, KDV takibi planlandı |
 | Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans panelleri planlandı |
-| Seviye Finance, Reports, Notifications, API | Planlandı |
+| Seviye Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -61,22 +62,27 @@ cd plugin/seviye-students && composer install && cd -
 cd plugin/seviye-parents && composer install && cd -
 cd plugin/seviye-pricing && composer install && cd -
 cd plugin/seviye-commerce && composer install && cd -
+cd plugin/seviye-finance && composer install && cd -
 ```
 
 `plugin/seviye-core`, `plugin/seviye-security`, `plugin/seviye-branches`,
-`plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-pricing`
-ve `plugin/seviye-commerce` klasörlerini WordPress'in `wp-content/plugins/`
-altına, `theme/seviye-storefront`'u ise `wp-content/themes/` altına
-sembolik link ile bağlayın. Ardından WooCommerce'i, **Seviye Core'u**,
-**Seviye Security'yi**, **Seviye Branches'ı**, **Seviye Students'ı**,
-**Seviye Parents'ı**, **Seviye Pricing'i** ve **Seviye Commerce'i** (bu
-sırayla — Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının
-zaten var olmasını gerektirir; Pricing hem Branches'ın hem Students'ın
-Contracts'ını tükettiğinden ikisi de zaten aktif olmalıdır; Commerce
-Branches'ın, Students'ın ve Pricing'in Contracts'ını tükettiğinden üçü de
-zaten aktif olmalıdır; Parents'ın böyle bir bağımlılığı yoktur, ama tutarlılık için aynı
-sırada aktive edilmesi önerilir) aktive edin, son olarak **Seviye
-Storefront** temasını etkinleştirin. Core aktivasyonu; PHP sürümünü ve
+`plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-pricing`,
+`plugin/seviye-commerce` ve `plugin/seviye-finance` klasörlerini
+WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u ise
+`wp-content/themes/` altına sembolik link ile bağlayın. Ardından
+WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
+Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye
+Pricing'i**, **Seviye Commerce'i** ve **Seviye Finance'ı** (bu sırayla —
+Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
+olmasını gerektirir; Pricing hem Branches'ın hem Students'ın Contracts'ını
+tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
+Students'ın ve Pricing'in Contracts'ını tükettiğinden üçü de zaten aktif
+olmalıdır; Finance'ın herhangi bir modülün Contracts'ına bağımlılığı
+yoktur — yalnızca Core'un EventBus'ını dinler, bu yüzden hangi sırada
+aktive edildiği önemli değildir; Parents'ın da böyle bir bağımlılığı
+yoktur, ama tutarlılık için aynı sırada aktive edilmesi önerilir) aktive
+edin, son olarak **Seviye Storefront** temasını etkinleştirin. Core
+aktivasyonu; PHP sürümünü ve
 WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
 migration'larını (`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır.
 Security aktivasyonu Core'un aktif olduğunu doğrular ve kendi
@@ -93,8 +99,11 @@ FK'ları kurulamaz) ve kendi migration'unu (`scp_price_rules`) çalıştırır.
 Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın**,
 **Students'ın** ve **Pricing'in aktif olduğunu** doğrular (aksi halde
 `scp_order_line_items`'ın FK'ları kurulamaz) ve kendi migration'unu
-(`scp_order_line_items`) çalıştırır. Tema etkinleştirildiğinde `/admin` ve
-`/sube` rotalarını tanımlayan rewrite kuralları eklenir
+(`scp_order_line_items`) çalıştırır. Finance aktivasyonu yalnızca Core'u
+doğrular (başka hiçbir modülün aktif olmasına ihtiyacı yoktur — Commerce'in
+event'lerini yalnızca Core'un EventBus'ı üzerinden dinler) ve kendi
+migration'unu (`scp_hakedis_entries`) çalıştırır. Tema etkinleştirildiğinde
+`/admin` ve `/sube` rotalarını tanımlayan rewrite kuralları eklenir
 (`after_switch_theme` üzerinden otomatik `flush`).
 
 > **Not**: Bu depo headless bir CI/CLI oturumunda geliştirildi; PHP sözdizimi,
@@ -114,6 +123,7 @@ cd plugin/seviye-students && composer test
 cd plugin/seviye-parents && composer test
 cd plugin/seviye-pricing && composer test
 cd plugin/seviye-commerce && composer test
+cd plugin/seviye-finance && composer test
 ```
 
 Kök dizinde kod standardı denetimi:

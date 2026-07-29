@@ -56,12 +56,15 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_parent_profiles` | Parents | `CreateParentProfilesTable` | Veli'ye özgü profil (telefon, bildirim tercihi, KVKK onay zaman damgası) |
 | `scp_price_rules` | Pricing | `CreatePriceRulesTable` | Öğrenci/şube/genel kapsamlı özel fiyat kuralları (öncelik: öğrenci > şube > genel) |
 | `scp_order_line_items` | Commerce | `CreateOrderLineItemsTable` | Sipariş kalemi başına öğrenci/şube/komisyon oranı/fiyat anlık görüntüsü (hakediş hesaplaması için), WC sipariş durumuyla senkron |
+| `scp_hakedis_entries` | Finance | `CreateHakedisEntriesTable` | Değişmez, yalnızca-ekleme hakediş defteri — Commerce'in event'lerinden üretilen işaretli (EARNED pozitif, REVERSED negatif) kayıtlar |
 
 WooCommerce hâlâ sepet/sipariş verisinin sahibi — `scp_order_line_items`
 onun yerini almaz, yalnızca hakediş hesaplaması için gereken bilgiyi
 sipariş anında bir anlık görüntü olarak saklar (bkz. aşağıdaki FK
-paragrafı). Split payment/hakediş için gerekecek ek tablolar (`scp_commissions`
-veya benzeri) Commerce'in sonraki bölümünde eklenecek — bkz.
+paragrafı). `scp_hakedis_entries` de benzer şekilde WooCommerce'in
+sipariş/ödeme verisini tekrar etmez — yalnızca Commerce'in event'lerinden
+türetilen muhasebe kayıtlarını tutar. Tahsilat/ödeme takibi için
+gerekecek ek tablolar Finance'ın sonraki bölümünde eklenecek — bkz.
 `docs/ROADMAP.md`.
 
 `scp_user_identities`, `scp_password_tokens` ve `scp_parent_profiles`,
@@ -73,8 +76,10 @@ bütünlüğü uygulama katmanında sağlanır. Aynı sebeple
 `scp_branch_users.branch_id → scp_branches.id`, `scp_students.branch_id →
 scp_branches.id`, `scp_student_parents.student_id → scp_students.id`,
 `scp_price_rules.student_id → scp_students.id` / `scp_price_rules.branch_id
-→ scp_branches.id` ve `scp_order_line_items.student_id → scp_students.id`
-/ `scp_order_line_items.branch_id → scp_branches.id` ise **gerçek InnoDB FK
+→ scp_branches.id`, `scp_order_line_items.student_id → scp_students.id` /
+`scp_order_line_items.branch_id → scp_branches.id` ve
+`scp_hakedis_entries.student_id → scp_students.id` /
+`scp_hakedis_entries.branch_id → scp_branches.id` ise **gerçek InnoDB FK
 kısıtlamaları** ile bağlıdır — her seferinde bizim kendi tablolarımız
 olduğu için WordPress-çekirdek-tablosu riski yok. `dbDelta()`
 `FOREIGN KEY` cümlelerini güvenilir şekilde ayrıştırmadığından, kısıtlama
@@ -84,15 +89,16 @@ artık paylaşılan bir Core yardımcısı olarak:
 FK eklerken bunu kullanın, `ensureForeignKey()`'i kendi migration'ınıza
 kopyalamayın.
 
-`scp_students.branch_id` ve `scp_order_line_items`'ın her iki FK'sı
-üzerinde **kasıtlı olarak `ON DELETE CASCADE` kullanılmaz** (varsayılan
-`RESTRICT` uygulanır): ilki bir şube silindiğinde tüm öğrencilerinin
-sessizce silinmesini, ikincisi bir öğrenci/şube silindiğinde sipariş/
-finansal geçmişin (hakediş kayıtlarının) sessizce kaybolmasını önler — bu
-platformun tasarım gereği kaçındığı türden geri döndürülemez veri
-kayıpları. `scp_student_parents.student_id` ve `scp_price_rules`'un her
-iki FK'sı ise `ON DELETE CASCADE` kullanır — bir öğrenci/şube silindiğinde
-ona bağlı tek bir veli-bağlantısının veya fiyat kuralının da silinmesi
+`scp_students.branch_id`, `scp_order_line_items`'ın ve
+`scp_hakedis_entries`'in her iki FK'sı üzerinde **kasıtlı olarak
+`ON DELETE CASCADE` kullanılmaz** (varsayılan `RESTRICT` uygulanır):
+ilki bir şube silindiğinde tüm öğrencilerinin sessizce silinmesini,
+diğer ikisi bir öğrenci/şube silindiğinde sipariş/finansal geçmişin
+(hakediş kayıtlarının) sessizce kaybolmasını önler — bu platformun
+tasarım gereği kaçındığı türden geri döndürülemez veri kayıpları.
+`scp_student_parents.student_id` ve `scp_price_rules`'un her iki FK'sı
+ise `ON DELETE CASCADE` kullanır — bir öğrenci/şube silindiğinde ona
+bağlı tek bir veli-bağlantısının veya fiyat kuralının da silinmesi
 beklenen, güvenli, düşük-hacimli bir temizliktir (bir şubenin *tüm
 öğrencilerinin* silinmesiyle veya finansal geçmişin kaybolmasıyla aynı
 büyüklükte bir risk değil). `scp_price_rules.product_id` ve
@@ -100,8 +106,8 @@ büyüklükte bir risk değil). `scp_price_rules.product_id` ve
 kendi ürün/sipariş tablolarına işaret ederler ve bu platform hiçbir zaman
 WordPress/WooCommerce çekirdek tablolarına FK koymaz.
 
-Diğer tüm tablolar (`scp_commissions` veya benzeri, `scp_stock`,
-`scp_shipments`, `scp_campaigns`, ...) ilgili modül geliştirildiğinde, o
-modülün kendi migration'ları olarak eklenecek — bkz. `docs/ROADMAP.md`.
+Diğer tüm tablolar (`scp_stock`, `scp_shipments`, `scp_campaigns`, ...)
+ilgili modül geliştirildiğinde, o modülün kendi migration'ları olarak
+eklenecek — bkz. `docs/ROADMAP.md`.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql), [`schema/parents.sql`](schema/parents.sql), [`schema/pricing.sql`](schema/pricing.sql), [`schema/commerce.sql`](schema/commerce.sql).
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql), [`schema/parents.sql`](schema/parents.sql), [`schema/pricing.sql`](schema/pricing.sql), [`schema/commerce.sql`](schema/commerce.sql), [`schema/finance.sql`](schema/finance.sql).

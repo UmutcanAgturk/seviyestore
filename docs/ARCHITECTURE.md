@@ -697,6 +697,52 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   alacaklı görünmeye devam etmesi gerçek bir hata olurdu, "yarım kod"
   disiplininin izin vermeyeceği türden bir boşluk.
 
+### 15. Hakediş defteri (Seviye Finance, 1. bölüm)
+
+Spesifikasyonun Finance sorumluluğu ("Cari, hakediş, komisyon, KDV, iade,
+tahsilat") geniş; bu ilk bölüm yalnızca **hakediş defterini** kurar —
+Commerce'in yayınladığı event'leri dinleyip kalıcı, değişmez bir muhasebe
+kaydına dönüştürür. Cari bakiye görüntüleme ekranı (REST + tema paneli),
+tahsilat/ödeme işaretleme ve KDV takibi sonraki bölümlerdir.
+
+- **İlk kez başka hiçbir modülün Contracts'ına bağımlı olmayan modül**:
+  `seviye/finance`'ın `composer.json`'ı yalnızca `seviye/core`'a bağımlıdır.
+  Commerce'in `commerce.order_line_item_completed`/`_reversed` event'lerini
+  Core'un `EventBusInterface`'i üzerinden dinler — bu, bir PHP arayüzü
+  değil, **belgelenmiş bir event adı + payload sözleşmesi**. Bu, bölüm
+  2'de tarif edilen EventBus'ın var oluş amacının tam karşılığı: modüller
+  arası "olmuş bir şeyi bildirme" iletişimi, doğrudan bağımlılık
+  gerektirmeden. Pratik sonucu: Finance, Commerce kurulu olmasa bile
+  hatasız etkinleşir — yalnızca event hiç gelmediği için defter boş kalır.
+  Bu yüzden Finance'ın `Activator`'ı, her önceki modülün aksine, **Core'dan
+  başka hiçbir modülün aktif olduğunu doğrulamaz**.
+- **`Domain\HakedisEntry`: değişmez, yalnızca-ekleme (append-only) bir
+  muhasebe kaydı**: `updated_at` sütunu **yoktur** — bir kayıt asla
+  düzenlenmez, yalnızca ters işaretli yeni bir kayıtla düzeltilir (Parents'ın
+  KVKK onay zaman damgasının değişmezlik ilkesinin, parayla ilgili
+  uygulanışı). `amount` işaretlidir (EARNED için pozitif, REVERSED için
+  negatif), böylece bir şubenin bakiyesi her zaman kayıtları üzerinde düz
+  bir `SUM()` — ayrıca bakımı gereken, senkronizasyondan çıkabilecek bir
+  "toplam bakiye" sütunu yok (YAGNI).
+- **`UNIQUE (order_id, order_item_id, type)`: bir defter için asla
+  varsayıma dayanmayın**: Commerce'in aynı event'i iki kez yayınlamaması
+  beklenir, ama bir muhasebe defterinde bunu sadece varsaymak yanlış yer —
+  `HakedisRepositoryInterface::entryExists()` ile birlikte bu kısıtlama,
+  bir yinelenen event'in şubeyi iki kez alacaklandırmasını DB seviyesinde
+  imkansız kılar.
+- **`Support\HakedisEventListener`, Commerce'in adaptörlerinden farklı
+  olarak tamamen test edilebilir**: yalnızca Core'un `Event` nesnesine ve
+  bu modülün kendi repository'sine dokunur, hiçbir WordPress/WooCommerce
+  fonksiyonu çağırmaz — çünkü `EventBus`'ın kendisi zaten WP'den bağımsız
+  (bkz. bölüm 2). `WooCommerceCartHooks`/`OrderPersistenceHooks`'un
+  aksine, bu sınıf tam birim test kapsamına sahiptir.
+- RBAC/REST/tema paneli bu bölümde **yok**: cari bakiyeyi kimin
+  görebileceği (yalnızca kendi şubesi mi, HQ tüm şubeleri mi) gerçek bir
+  yetkilendirme kararı ve Branches'ın `BranchMembershipInterface`'ini
+  tüketen bir REST controller gerektirir — Pricing/Commerce'te izlenen
+  "önce motor, sonra REST/RBAC, sonra tema paneli" sırasının aynısı,
+  ayrı bir sonraki bölüme bırakıldı.
+
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo
 adını elle birleştirmemelidir.
