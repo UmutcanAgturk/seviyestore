@@ -12,7 +12,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 3 | Seviye Parents | Veli'ye özgü profil alanları (telefon, bildirim tercihi, KVKK onayı), REST | ✅ **Kuruldu** (bu milestone) |
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
 | 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→genel→WC varsayılan önceliği; "bölge" katmanı Branches'ta resmi bir Region entity'si olmadığından bu milestone'da bilinçli olarak ayrı bir katman değil — bkz. `docs/ARCHITECTURE.md` bölüm 13), Contracts (`PriceResolverInterface`), REST | ✅ **Kuruldu** |
-| 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | Planlandı |
+| 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | 🟡 **Kısmen kuruldu** — sepet fiyatlandırma (öğrenci seçimi, `PriceResolverInterface` entegrasyonu, sipariş kalemi meta'sına kalıcı kayıt) kuruldu; sipariş kalıcılığı/split payment/hakediş tetikleme planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 14 |
 | 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | Planlandı |
 | 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
@@ -31,7 +31,8 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/admin` ve `/sube`'de fiyat kuralları yönetim ekranı | **Kuruldu** — `seviye/v1/pricing/rules`'a bağlı, gerçek CRUD ekranı |
 | Sipariş/finans panel içeriği | Planlandı (Seviye Commerce/Finance'ın sorumluluğu) |
 | E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
-| WooCommerce mağaza görünümü (Veli ana sayfası) | Planlandı (Seviye Commerce'in sorumluluğu) |
+| Sepette öğrenci seçimi + öğrenciye göre fiyat çözümü | **Kuruldu** — `Seviye Commerce`, ürün sayfasında öğrenci seçici arayüzü henüz yok (WooCommerce ürün şablonu özelleştirmesi planlı) |
+| WooCommerce mağaza görünümü (ürün listesi/tekil ürün sayfası, öğrenci seçici) | Planlandı (Seviye Commerce'in sorumluluğu) |
 
 ## Milestone sırası önerisi
 
@@ -45,7 +46,11 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 8. ~~Tema: `/admin`'de şube yönetimi ekranı (liste/oluştur/düzenle), `seviye/v1/branches`'a bağlı~~ ✅
 9. ~~Seviye Pricing (fiyat motoru: öğrenci/şube/genel kural CRUD'u + `PriceResolverInterface`, henüz sipariş yok)~~ ✅
 10. ~~Tema: `/admin` ve `/sube`'de fiyat kuralları yönetim ekranı, `seviye/v1/pricing/rules`'a bağlı~~ ✅
-11. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme, `PriceResolverInterface`'i tüketen ilk modül) — Veli ana sayfasına mağaza içeriğini kazandırır
+11. Seviye Commerce — `PriceResolverInterface`'i tüketen ilk modül, Veli ana sayfasına mağaza içeriğini kazandırır:
+    - ~~11a. Sepet fiyatlandırma: öğrenci seçimi doğrulaması (`StudentGuardianCheckInterface`), `woocommerce_before_calculate_totals` üzerinden fiyat çözümü, sipariş kalemi meta'sına kalıcı kayıt~~ ✅
+    - 11b. Tema: WooCommerce ürün listesi/tekil ürün sayfası şablonları + öğrenci seçici arayüzü
+    - 11c. Sipariş kalıcılığı ve durum akışı (`scp_orders`/hakediş için gerekli meta veriler)
+    - 11d. Split payment (şube/HQ arası ödeme bölüşümü, Branches'ın `CommissionRate`'ine dayalı) + hakediş event tetikleme (Seviye Finance'ın dinleyeceği)
 12. Seviye Finance + Seviye Reports
 13. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
 

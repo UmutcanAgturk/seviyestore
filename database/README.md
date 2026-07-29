@@ -56,6 +56,14 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_parent_profiles` | Parents | `CreateParentProfilesTable` | Veli'ye özgü profil (telefon, bildirim tercihi, KVKK onay zaman damgası) |
 | `scp_price_rules` | Pricing | `CreatePriceRulesTable` | Öğrenci/şube/genel kapsamlı özel fiyat kuralları (öncelik: öğrenci > şube > genel) |
 
+Seviye Commerce'in bu ana kadarki kısmının (sepet fiyatlandırma) kendi
+`scp_*` tablosu **yoktur** — WooCommerce zaten sepet/sipariş verisinin
+sahibi; öğrenci seçimi WC'nin kendi `cart_item_data`/sipariş kalemi meta
+mekanizmasında (`_scp_student_id`) taşınır. Sipariş kalıcılığı/split
+payment/hakediş için gerekecek tablolar (`scp_orders`, `scp_order_items`,
+`scp_commissions`, ...) Commerce'in sonraki bölümlerinde eklenecek — bkz.
+`docs/ROADMAP.md`.
+
 `scp_user_identities`, `scp_password_tokens` ve `scp_parent_profiles`,
 `wp_users`'a **kasıtlı olarak FK kısıtlaması içermez**: WordPress çekirdek
 tabloları için motor/charset garantisi yoktur, bu yüzden referans

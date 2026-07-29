@@ -511,6 +511,86 @@ olan ilk modül — `seviye/pricing` composer paketi `seviye/core`,
   şeffaflık için şube-kapsamlı rollere de gösterir — yalnızca *yazma*
   GENERAL için engellidir.
 
+### 14. WooCommerce entegrasyonu — sepet fiyatlandırma (Seviye Commerce, 1. bölüm)
+
+Seviye Commerce, spesifikasyondaki "sipariş akışı + split payment +
+hakediş tetikleme" sorumluluğunun tamamını tek bir milestone'da değil,
+Branches/Students/Pricing'te olduğu gibi katman katman inşa ediyor. Bu ilk
+bölüm yalnızca **sepet fiyatlandırmasını** kurar: bir Veli sepete bir ürün
+eklerken hangi çocuğu için aldığını seçer, fiyat bu öğrenciye göre
+`Seviye Pricing`'in motoruyla çözülür ve bu seçim siparişe kadar hayatta
+kalır. Sipariş kalıcılığı, split payment ve hakediş tetikleme sonraki
+bölümlerdir (bkz. `docs/ROADMAP.md`).
+
+- **İlk kez hem Students'ın hem Pricing'in Contracts'ına bağımlı, kendi
+  Domain/Repository/REST katmanı olmayan bir modül**: `seviye/commerce` bu
+  milestone'da yalnızca `Students\Contracts\StudentGuardianCheckInterface`,
+  `Students\Contracts\StudentLookupInterface` ve
+  `Pricing\Contracts\PriceResolverInterface`'i WooCommerce'in hook'larına
+  bağlıyor — kendi veritabanı tablosu, kendi REST'i, kendi RBAC
+  capability'si yok.
+- **Yeni Contract: `Students\Contracts\StudentGuardianCheckInterface::isGuardianOf()`**:
+  Commerce'in "bu sepet öğesi gerçekten bu Veli'nin çocuğu için mi"
+  sorusuna cevap vermesi gerekiyordu; Students'ın bunun için var olan
+  `Repository\StudentParentRepositoryInterface`'i internal bir sınıf
+  olduğundan doğrudan tüketilemezdi (kural: yalnızca `Contracts`
+  namespace'i modüller-arası tüketilebilir). `WpdbBranchLookup`/
+  `WpdbStudentLookup`'ın izlediği desenle ayrı, minimal bir
+  `WpdbStudentGuardianCheck` adaptörü eklendi.
+- **Ports & Adapters, WooCommerce'e uygulanmış**: `Support\CartPricingService`
+  saf PHP'dir (WordPress'e/WooCommerce'e bağımlı değildir, tam birim test
+  kapsamı vardır) — asıl kararları (misafirlik doğrulaması, fiyat çözümü)
+  verir. `Http\WooCommerceCartHooks` ince bir adaptördür: yalnızca WC
+  hook'larını kaydeder ve `CartPricingService`'e/`StudentLookupInterface`'e
+  devreder; kendisi test edilmez — `WpdbConnection`, tema'nın `inc/*.php`
+  dosyaları gibi, bu kod tabanındaki her WordPress/WooCommerce'e dokunan
+  adaptörle aynı ilke (bkz. "Test stratejisi").
+- **Sepet öğesi → öğrenci eşlemesi yeni bir `scp_*` tablosu gerektirmedi**:
+  WooCommerce zaten sepet/sipariş verisinin sahibi; `student_id` sepette
+  WC'nin kendi `cart_item_data` dizisinde (`scp_student_id` anahtarı),
+  siparişte ise sipariş kalemi meta'sında (`_scp_student_id`) taşınır.
+  Yeni bir tablo eklemek, WooCommerce'in zaten sağladığı bir mekanizmayı
+  gereksiz yere tekrar etmek olurdu.
+- **Beş WC hook'u, her biri tek bir sorumluluk**:
+  `woocommerce_add_to_cart_validation` (misafirlik doğrulaması — geçersiz
+  bir öğrenci seçimi sepete hiç girmez), `woocommerce_add_cart_item_data`
+  (seçilen `student_id`'yi sepet öğesine iliştirir),
+  `woocommerce_before_calculate_totals` (her sepet öğesinin fiyatını
+  `PriceResolverInterface` üzerinden yeniden hesaplar — WooCommerce'in
+  sepet-bazlı dinamik fiyatlandırma için önerdiği standart hook, ürün
+  bazlı `woocommerce_product_get_price` filtresi değil, çünkü o filtre
+  hangi sepet öğesinden çağrıldığı bağlamını taşımaz),
+  `woocommerce_get_item_data` (sepet/checkout görünümünde "Öğrenci: ..."
+  satırı gösterir), `woocommerce_checkout_create_order_line_item`
+  (`student_id`'yi kalıcı sipariş kalemi meta'sına kopyalar).
+- **Misafirlik doğrulaması yalnızca sepete-ekleme anında yapılır, her
+  toplam yeniden hesaplamasında tekrar edilmez**: `CartPricingService::resolvePriceForCartItem()`
+  sepette zaten saklanan `student_id`'ye güvenir. Bir veli-öğrenci bağının
+  bir Veli sepette ürün varken kaldırılması gerçekçi olmayan, düşük riskli
+  bir kenar durumdur (bu bir güvenlik sınırı değildir — temanın rol/bölge
+  kapısı zaten Veli olmayan hiçbir rolü mağazaya sokmaz); en kötü ihtimalle
+  sepette bayat bir fiyat kalır, başka bir velinin çocuğunun verisi asla
+  sızmaz. Bu bilinçli bir performans/basitlik tercihidir, gözden kaçmış bir
+  kontrol değildir.
+- **Yeni bir RBAC capability'sine gerek yok**: "sepete kim erişebilir"
+  sorusu zaten `Seviye\Security\Routing\RoleRouter` + temanın
+  `inc/access-gate.php`'i tarafından çözülmüş durumda —
+  `RoleRouter::zoneForPath()` `/admin` ve `/sube` dışındaki her yolu
+  "parent" bölgesi sayar, yani WooCommerce ürün/sepet/checkout sayfalarına
+  yalnızca Veli-bölgesine ait roller iniyor (HQ/Şube rolleri kendi
+  bölgelerine geri yönlendiriliyor). Commerce'in kendi misafirlik kontrolü
+  bunun *üstüne* eklenen, farklı bir soruya (bu Veli'nin BU çocuğu mu)
+  cevap veren ayrı bir iş kuralı — rol/bölge kapısının yerini almaz, onu
+  tekrarlamaz da.
+- **Aktivasyon sırası**: Commerce'in aktivasyonu Core'u, WooCommerce'in
+  aktif olduğunu (`Environment::isWooCommerceActive()` — Core'un kendi
+  aktivasyon kontrolüyle aynı paylaşılan yardımcı), Students'ı ve
+  Pricing'i doğrular. `CommerceModule::boot()` da ayrıca
+  `Environment::isWooCommerceActive()` ile korunur (yalnızca aktivasyon
+  anında değil, her `plugins_loaded`'da) — WooCommerce etkinleştirildikten
+  sonra devre dışı bırakılırsa WC hook'larının hiçbir işlevi kalmayan bir
+  şekilde kayıtlı kalması yerine sessizce atlanır.
+
 ## Tablo adlandırma kuralı
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
