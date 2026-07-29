@@ -1,10 +1,11 @@
 <?php
 
 /**
- * Veli home view: "Öğrencilerim" (own children, read-only here - Students
- * remains the single owner of that data) and "Profilim" (Seviye Parents).
- * Included directly by index.php when the current user holds either of
- * the capabilities checked below.
+ * Veli home view: a link into the WooCommerce shop (Seviye Commerce),
+ * "Öğrencilerim" (own children, read-only here - Students remains the
+ * single owner of that data) and "Profilim" (Seviye Parents). Included
+ * directly by index.php when the current user holds either of the
+ * capabilities checked below.
  */
 
 declare(strict_types=1);
@@ -22,6 +23,18 @@ if (!defined('ABSPATH')) {
             wp_get_current_user()->display_name
         ));
         ?></h1>
+
+    <?php if (function_exists('wc_get_page_permalink')) : ?>
+        <section class="scp-card" id="scp-parent-shop">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Mağaza', 'seviye-storefront'); ?></h2>
+            </div>
+            <p><?php esc_html_e('Öğrenciniz için ürün satın almak üzere mağazaya gidin.', 'seviye-storefront'); ?></p>
+            <a class="scp-btn" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
+                <?php esc_html_e('Mağazaya Git', 'seviye-storefront'); ?>
+            </a>
+        </section>
+    <?php endif; ?>
 
     <?php if (current_user_can('scp_view_own_children')) : ?>
         <section class="scp-card" id="scp-parent-children">

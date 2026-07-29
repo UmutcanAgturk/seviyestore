@@ -42,11 +42,23 @@ Kurulu olan kapsam:
   roller "Genel" kapsam seçeneğini görmez ve BRANCH kapsamlı bir kural
   oluştururken kendi şube ID'lerini girmeleri gerekmez (sunucu otomatik
   olarak kendi şubelerine sabitler).
+- **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
+  `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
+  zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca
+  `woocommerce_before_add_to_cart_button` hook'una bir `<select>` eklendi,
+  `seviye/v1/students/mine`'dan doldurulur. Seçilen değer WC'nin kendi
+  `form.cart` POST'una otomatik dahil olur. Vitrin (arşiv) sayfasındaki
+  anlık "sepete ekle" düğmesi, öğrenci seçimini taşıyamadığından ürün
+  sayfasına giden düz bir bağlantıya dönüştürüldü
+  (`woocommerce_loop_add_to_cart_link`). Veli ana sayfasına
+  `wc_get_page_permalink('shop')`'a bağlanan bir "Mağazaya Git" bölümü
+  eklendi.
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
 - Sipariş/finans panel içerikleri.
-- WooCommerce mağaza görünümü (Seviye Commerce modülü kurulduğunda).
+- Sipariş kalıcılığı, split payment, hakediş tetikleme (Seviye Commerce'in
+  sonraki bölümleri).
 
 Tema, diğer tüm bileşenler gibi yalnızca Seviye Core'un (ve ilgili modüllerin)
 yayınladığı public API'ler / REST uç noktaları üzerinden veri okur; doğrudan

@@ -511,7 +511,7 @@ olan ilk modül — `seviye/pricing` composer paketi `seviye/core`,
   şeffaflık için şube-kapsamlı rollere de gösterir — yalnızca *yazma*
   GENERAL için engellidir.
 
-### 14. WooCommerce entegrasyonu — sepet fiyatlandırma (Seviye Commerce, 1. bölüm)
+### 14. WooCommerce entegrasyonu — sepet fiyatlandırma + tema (Seviye Commerce, 1. bölüm)
 
 Seviye Commerce, spesifikasyondaki "sipariş akışı + split payment +
 hakediş tetikleme" sorumluluğunun tamamını tek bir milestone'da değil,
@@ -590,6 +590,40 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   anında değil, her `plugins_loaded`'da) — WooCommerce etkinleştirildikten
   sonra devre dışı bırakılırsa WC hook'larının hiçbir işlevi kalmayan bir
   şekilde kayıtlı kalması yerine sessizce atlanır.
+- **Tema tarafı: özel bir WC şablonu gerekmedi**: `inc/setup.php`
+  `add_theme_support('woocommerce')`'i zaten kuruyordu (Milestone 3'ten
+  beri); WooCommerce kendi paketlenmiş `archive-product.php`/
+  `single-product.php` şablonlarını, temanın `header.php`/`footer.php`'i
+  (`wp_head()`/`wp_body_open()`/`wp_footer()` zaten mevcut) üzerinden
+  otomatik render eder. Bu yüzden ürün sayfasına öğrenci seçici eklemek
+  yeni bir şablon dosyası değil, tek bir hook
+  (`woocommerce_before_add_to_cart_button`) gerektirdi —
+  `inc/woocommerce.php`.
+- **Vitrin (arşiv/mağaza) sayfasındaki "hızlı sepete ekle" bağlantısı
+  değiştirildi**: WooCommerce'in vitrin şablonundaki anlık AJAX
+  "sepete ekle" düğmesinin, öğrenci seçimini taşıyacak bir `<form>`'u
+  yoktur (yalnızca `product_id`/miktar gönderir) — bu platformda HER ürün
+  bir öğrenci seçimi gerektirdiğinden, bu düğme sessizce yanlış/eksik bir
+  sepet girdisi oluşturmak yerine (sunucu tarafı doğrulama zaten reddeder,
+  ama kullanıcıya belirsiz bir hata gösterir) `woocommerce_loop_add_to_cart_link`
+  filtresiyle ürün sayfasına giden düz bir bağlantıya ("Öğrenci Seç")
+  dönüştürüldü — seçicinin gerçekten yaşadığı tek yer.
+- **Öğrenci seçici, `students-panel.js`'in kurduğu REST/nonce desenini
+  tekrar eder**: `assets/js/product-student-picker.js`,
+  `seviye/v1/students/mine`'ı çağırıp `<select name="scp_student_id">`'i
+  doldurur — bu `<select>` WooCommerce'in kendi `form.cart`'ının İÇİNDE
+  render edildiğinden (`woocommerce_before_add_to_cart_button`), seçilen
+  değer WC'nin standart sepete-ekleme POST'una otomatik dahil olur; ayrıca
+  bir fetch/submit kodu yazmaya gerek yoktur. Boş seçenekler için
+  `noChildren` metni (Veli dashboard'ın zaten kullandığı anahtar) tekrar
+  kullanılır.
+- **Veli ana sayfasına gerçek bir mağaza girişi**: `parent-dashboard.php`'ye
+  eklenen "Mağaza" bölümü `wc_get_page_permalink('shop')`'a bağlanır —
+  bu olmadan bir Veli'nin mağazayı keşfedecek hiçbir navigasyonu
+  olmayacaktı. "Veli ana sayfasına mağaza içeriğini kazandırır" hedefinin
+  bu bölümdeki karşılığı budur; mağaza içeriğinin `/`'e doğrudan
+  gömülmesi değil (WooCommerce zaten kendi Mağaza sayfasını/ürün
+  arşivini yönetiyor, bunu tekrar etmek gereksiz olurdu).
 
 ## Tablo adlandırma kuralı
 

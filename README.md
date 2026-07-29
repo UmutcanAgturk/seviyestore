@@ -39,8 +39,8 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
-| Seviye Commerce | 🟡 Sepet fiyatlandırma (öğrenci seçimi doğrulaması, `PriceResolverInterface` entegrasyonu, sipariş kalemi meta'sına kalıcı kayıt) kuruldu; ürün sayfası/öğrenci seçici arayüzü, sipariş kalıcılığı, split payment, hakediş tetikleme planlandı |
-| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`) ve Veli ana sayfası (kendi öğrencileri + profil) kuruldu; WooCommerce mağaza görünümü/sipariş/finans panelleri planlandı |
+| Seviye Commerce | 🟡 Sepet fiyatlandırma (öğrenci seçimi doğrulaması, `PriceResolverInterface` entegrasyonu, sipariş kalemi meta'sına kalıcı kayıt) ve tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi) kuruldu; sipariş kalıcılığı, split payment, hakediş tetikleme planlandı |
+| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans panelleri planlandı |
 | Seviye Finance, Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
