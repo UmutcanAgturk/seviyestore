@@ -13,7 +13,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
 | 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→genel→WC varsayılan önceliği; "bölge" katmanı Branches'ta resmi bir Region entity'si olmadığından bu milestone'da bilinçli olarak ayrı bir katman değil — bkz. `docs/ARCHITECTURE.md` bölüm 13), Contracts (`PriceResolverInterface`), REST | ✅ **Kuruldu** |
 | 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | ✅ **Kuruldu** — sepet fiyatlandırma, tema tarafı, sipariş kalıcılığı, split payment hesaplaması ve hakediş event tetikleme (tamamlama + iade/iptal ters çevirme) kuruldu; asıl hakediş/cari kaydını tutmak Seviye Finance'ın işi (henüz kurulmadı), bkz. `docs/ARCHITECTURE.md` bölüm 14 |
-| 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri (`scp_hakedis_entries`: Commerce'in `commerce.order_line_item_completed`/`_reversed` event'lerini dinleyip değişmez, yalnızca-ekleme kayıtlara dönüştürür) kuruldu; cari bakiye REST/paneli, tahsilat işaretleme, KDV takibi planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
+| 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri (`scp_hakedis_entries`) ve cari bakiye REST'i (`GET /finance/hakedis/balance/me`, `GET /finance/hakedis/balance/{branch_id}`, RBAC) kuruldu; tema paneli, tahsilat işaretleme, KDV takibi planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
 | 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
@@ -35,8 +35,9 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | WooCommerce ürün sayfası: öğrenci seçici, vitrin "hızlı sepete ekle" düğmesinin ürün sayfasına yönlendirilmesi, Veli ana sayfasından mağazaya giriş bağlantısı | **Kuruldu** — özel bir WC şablonu gerekmedi, mevcut `add_theme_support('woocommerce')` + hook'lar yeterli |
 | Sipariş kalıcılığı (`scp_order_line_items`: öğrenci/şube/komisyon/fiyat anlık görüntüsü + WC durum senkronu) | **Kuruldu** — `Seviye Commerce` |
 | Split payment hesaplaması + hakediş event tetikleme (tamamlama + iade/iptal ters çevirme) | **Kuruldu** — `Seviye Commerce`; asıl hakediş/cari kaydı Seviye Finance'ın sorumluluğu |
-| Hakediş defteri (`scp_hakedis_entries`, event tüketimi) | **Kuruldu** — `Seviye Finance` |
-| Cari bakiye görüntüleme (REST + tema paneli), tahsilat işaretleme, KDV takibi | Planlandı (Seviye Finance'ın sorumluluğu) |
+| Hakediş defteri (`scp_hakedis_entries`, event tüketimi) + cari bakiye REST'i | **Kuruldu** — `Seviye Finance` |
+| `/admin` ve `/sube`'de cari bakiye görüntüleme paneli | Planlandı (Seviye Finance'ın sorumluluğu) |
+| Tahsilat işaretleme, KDV takibi | Planlandı (Seviye Finance'ın sorumluluğu) |
 
 ## Milestone sırası önerisi
 
@@ -57,8 +58,9 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     - ~~11d. Split payment (`Support\SplitPaymentCalculator`, `scp_order_line_items`'ın sakladığı komisyon oranı anlık görüntüsüne dayalı) + hakediş event tetikleme (`commerce.order_line_item_completed`/`_reversed`, Seviye Finance'ın dinleyeceği)~~ ✅
 12. Seviye Finance:
     - ~~12a. Hakediş defteri: `scp_hakedis_entries` (değişmez, yalnızca-ekleme), `commerce.order_line_item_completed`/`_reversed`'i EventBus üzerinden dinleyen `HakedisEventListener` — Commerce'in Contracts'ına değil, yalnızca Core'a bağımlı ilk modül~~ ✅
-    - 12b. Cari bakiye REST + tema paneli (`balanceForBranch()`'ı bir uç noktaya bağlama, RBAC: HQ tüm şubeleri, şube-kapsamlı roller yalnızca kendi bakiyesini görür)
-    - 12c. Tahsilat işaretleme (hakediş kaydının ne zaman/nasıl ödendiğini takip etme) + KDV takibi
+    - ~~12b. Cari bakiye REST: `GET /finance/hakedis/balance/me` + `GET /finance/hakedis/balance/{branch_id}`, RBAC (`scp_view_hakedis`: HQ tüm şubeleri; `scp_view_own_hakedis`: yalnızca Şube Müdürü + Muhasebe, kendi şubesi) — `BranchesRestController`'ın `/branches/me` desenini izler~~ ✅
+    - 12c. Tema: `/admin` ve `/sube`'de cari bakiye görüntüleme paneli
+    - 12d. Tahsilat işaretleme (hakediş kaydının ne zaman/nasıl ödendiğini takip etme) + KDV takibi
     - Seviye Reports
 13. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
 

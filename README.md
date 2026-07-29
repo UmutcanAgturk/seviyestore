@@ -40,7 +40,7 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
 | Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`) ve split payment + hakediş event tetikleme kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
-| Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar) kuruldu; cari bakiye REST/paneli, tahsilat işaretleme, KDV takibi planlandı |
+| Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar) ve cari bakiye REST'i kuruldu; tema paneli, tahsilat işaretleme, KDV takibi planlandı |
 | Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans panelleri planlandı |
 | Seviye Reports, Notifications, API | Planlandı |
 
@@ -77,10 +77,13 @@ Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
 olmasını gerektirir; Pricing hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
 Students'ın ve Pricing'in Contracts'ını tükettiğinden üçü de zaten aktif
-olmalıdır; Finance'ın herhangi bir modülün Contracts'ına bağımlılığı
-yoktur — yalnızca Core'un EventBus'ını dinler, bu yüzden hangi sırada
-aktive edildiği önemli değildir; Parents'ın da böyle bir bağımlılığı
-yoktur, ama tutarlılık için aynı sırada aktive edilmesi önerilir) aktive
+olmalıdır; Finance'ın hakediş defteri Commerce'in event'lerini yalnızca
+Core'un EventBus'ı üzerinden dinler (Commerce'in kendisine bağımlı
+değildir), ama cari bakiye REST'i Branches'ın Contracts'ını tükettiğinden
+ve migration'ı `scp_students`'a bir FK kurduğundan Branches'ın ve
+Students'ın zaten aktif olmasını gerektirir; Parents'ın böyle bir
+bağımlılığı yoktur, ama tutarlılık için aynı sırada aktive edilmesi
+önerilir) aktive
 edin, son olarak **Seviye Storefront** temasını etkinleştirin. Core
 aktivasyonu; PHP sürümünü ve
 WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
@@ -99,10 +102,12 @@ FK'ları kurulamaz) ve kendi migration'unu (`scp_price_rules`) çalıştırır.
 Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın**,
 **Students'ın** ve **Pricing'in aktif olduğunu** doğrular (aksi halde
 `scp_order_line_items`'ın FK'ları kurulamaz) ve kendi migration'unu
-(`scp_order_line_items`) çalıştırır. Finance aktivasyonu yalnızca Core'u
-doğrular (başka hiçbir modülün aktif olmasına ihtiyacı yoktur — Commerce'in
-event'lerini yalnızca Core'un EventBus'ı üzerinden dinler) ve kendi
-migration'unu (`scp_hakedis_entries`) çalıştırır. Tema etkinleştirildiğinde
+(`scp_order_line_items`) çalıştırır. Finance aktivasyonu Core'u, **Branches'ın** ve **Students'ın aktif
+olduğunu** doğrular (Commerce'in kendisine değil — hakediş defteri
+event'leri yalnızca Core'un EventBus'ı üzerinden dinler; ama cari bakiye
+REST'i Branches'ın Contracts'ını tüketir, ve migration'ı `scp_students`'a
+FK kurar) ve kendi migration'unu (`scp_hakedis_entries`) çalıştırır. Tema
+etkinleştirildiğinde
 `/admin` ve `/sube` rotalarını tanımlayan rewrite kuralları eklenir
 (`after_switch_theme` üzerinden otomatik `flush`).
 

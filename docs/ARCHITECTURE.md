@@ -697,25 +697,41 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   alacaklı görünmeye devam etmesi gerçek bir hata olurdu, "yarım kod"
   disiplininin izin vermeyeceği türden bir boşluk.
 
-### 15. Hakediş defteri (Seviye Finance, 1. bölüm)
+### 15. Hakediş defteri + cari bakiye (Seviye Finance, 1. bölüm)
 
 Spesifikasyonun Finance sorumluluğu ("Cari, hakediş, komisyon, KDV, iade,
-tahsilat") geniş; bu ilk bölüm yalnızca **hakediş defterini** kurar —
-Commerce'in yayınladığı event'leri dinleyip kalıcı, değişmez bir muhasebe
-kaydına dönüştürür. Cari bakiye görüntüleme ekranı (REST + tema paneli),
-tahsilat/ödeme işaretleme ve KDV takibi sonraki bölümlerdir.
+tahsilat") geniş; bu ilk bölüm **hakediş defterini** (Commerce'in
+event'lerini kalıcı, değişmez bir muhasebe kaydına dönüştürme) ve **cari
+bakiye görüntülemeyi** (salt okunur REST) kurar. Tahsilat/ödeme işaretleme,
+KDV takibi ve bir tema paneli sonraki bölümlerdir.
 
-- **İlk kez başka hiçbir modülün Contracts'ına bağımlı olmayan modül**:
-  `seviye/finance`'ın `composer.json`'ı yalnızca `seviye/core`'a bağımlıdır.
-  Commerce'in `commerce.order_line_item_completed`/`_reversed` event'lerini
-  Core'un `EventBusInterface`'i üzerinden dinler — bu, bir PHP arayüzü
-  değil, **belgelenmiş bir event adı + payload sözleşmesi**. Bu, bölüm
-  2'de tarif edilen EventBus'ın var oluş amacının tam karşılığı: modüller
-  arası "olmuş bir şeyi bildirme" iletişimi, doğrudan bağımlılık
-  gerektirmeden. Pratik sonucu: Finance, Commerce kurulu olmasa bile
-  hatasız etkinleşir — yalnızca event hiç gelmediği için defter boş kalır.
-  Bu yüzden Finance'ın `Activator`'ı, her önceki modülün aksine, **Core'dan
-  başka hiçbir modülün aktif olduğunu doğrulamaz**.
+- **Defterin kendisi (`Support\HakedisEventListener`) hâlâ başka hiçbir
+  modülün Contracts'ına bağımlı değil**: yalnızca Core'un
+  `EventBusInterface`'i üzerinden Commerce'in
+  `commerce.order_line_item_completed`/`_reversed` event'lerini dinler —
+  bir PHP arayüzü değil, **belgelenmiş bir event adı + payload
+  sözleşmesi**. Bu, bölüm 2'de tarif edilen EventBus'ın var oluş amacının
+  tam karşılığı. Bu parça, Commerce kurulu olmasa bile hatasız çalışır —
+  yalnızca event hiç gelmediği için defter boş kalır.
+- **Bu bölümde eklenen bakiye görüntüleme REST'i ise farklı bir hikâye**:
+  "hangi şubenin bakiyesini kim görebilir" gerçek bir yetkilendirme
+  sorusu, bu yüzden Branches'ın Contracts'ına (`BranchMembershipInterface`,
+  `BranchLookupInterface`) Students/Pricing/Commerce'le aynı şekilde
+  bağımlıdır. Sonuç: `seviye/finance`'ın `composer.json`'ı artık
+  `seviye/branches`'a da bağımlı, ve `Activator`'ı Branches'ın aktif
+  olduğunu doğruluyor — yalnızca defter/event-dinleme parçası Core-only
+  kalmaya devam ediyor, modülün tamamı değil.
+- **Bir düzeltme, bu bölüm inşa edilirken bulundu**: Finance'ın
+  migration'ı (`CreateHakedisEntriesTable`) 1. bölümden beri
+  `scp_students`'a gerçek bir FK kuruyordu, ama `Activator` yalnızca
+  Core'u doğruluyordu — Students aktif değilse bu FK kurulumu
+  başarısız olurdu. `Activator` artık Students'ın da aktif olduğunu
+  doğruluyor (yalnızca migration'ın FK'sı için — Finance'ın PHP kodu
+  hiçbir Students sınıfına dokunmadığından `composer.json`'a
+  `seviye/students` eklenmedi, yalnızca WP eklenti başlığındaki
+  `Requires Plugins`'e eklendi). Aynı sınıfta gözden kaçmış bir
+  eksiklik olması, "yarım kod" disiplininin neden her bölümde
+  yeniden gözden geçirmeyi gerektirdiğinin somut bir örneği.
 - **`Domain\HakedisEntry`: değişmez, yalnızca-ekleme (append-only) bir
   muhasebe kaydı**: `updated_at` sütunu **yoktur** — bir kayıt asla
   düzenlenmez, yalnızca ters işaretli yeni bir kayıtla düzeltilir (Parents'ın
@@ -736,12 +752,20 @@ tahsilat/ödeme işaretleme ve KDV takibi sonraki bölümlerdir.
   fonksiyonu çağırmaz — çünkü `EventBus`'ın kendisi zaten WP'den bağımsız
   (bkz. bölüm 2). `WooCommerceCartHooks`/`OrderPersistenceHooks`'un
   aksine, bu sınıf tam birim test kapsamına sahiptir.
-- RBAC/REST/tema paneli bu bölümde **yok**: cari bakiyeyi kimin
-  görebileceği (yalnızca kendi şubesi mi, HQ tüm şubeleri mi) gerçek bir
-  yetkilendirme kararı ve Branches'ın `BranchMembershipInterface`'ini
-  tüketen bir REST controller gerektirir — Pricing/Commerce'te izlenen
-  "önce motor, sonra REST/RBAC, sonra tema paneli" sırasının aynısı,
-  ayrı bir sonraki bölüme bırakıldı.
+- **RBAC: `scp_view_hakedis`/`scp_view_own_hakedis`, "manage" değil
+  "view"**: bu modülün REST yüzeyi bu bölümde de salt okunur —
+  defterdeki kayıtlar yalnızca `HakedisEventListener` tarafından yazılır,
+  hiçbir REST endpoint'i yazma yapmaz. `VIEW_OWN_HAKEDIS`,
+  Branches'ın `VIEW_OWN_BRANCH`'ından bilinçli olarak daha dar verilir
+  (yalnızca Şube Müdürü + Muhasebe, şube-kapsamlı 5 rolün tamamı değil) —
+  bir şubenin finansal bakiyesi, iletişim bilgilerinden daha hassas,
+  bu yüzden en-az-yetki kümesi daha küçük.
+- **REST: `GET /finance/hakedis/balance/me` ve
+  `GET /finance/hakedis/balance/{branch_id}`**, `BranchesRestController`'ın
+  `/branches/me` + `canViewBranch()` deseninin birebir aynısı: HQ herhangi
+  bir şubeyi sorgulayabilir, şube-kapsamlı roller yalnızca kendi
+  şubelerini. `/me`, HQ için de kasıtlı olarak 403 döner (Branches'ta
+  olduğu gibi) — HQ'nun "kendi şubesi" diye bir kavramı yok.
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo
