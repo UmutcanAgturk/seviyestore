@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Seviye\Branches\Repository;
 
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Database\ConnectionInterface;
 
-final class WpdbBranchMembershipRepository implements BranchMembershipRepositoryInterface
+final class WpdbBranchMembershipRepository implements BranchMembershipInterface
 {
     public function __construct(private readonly ConnectionInterface $connection)
     {

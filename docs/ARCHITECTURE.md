@@ -55,9 +55,11 @@ Modüller birbirleriyle iki şekilde konuşur:
    **yalnızca arayüzünü** `composer.json`'da bir `path` bağımlılığı olarak
    ekler (Security'nin Core'a bağlandığı desenin aynısı) ve o arayüzü
    Core'un container'ından çözümler; üretici modülün Repository/Entity gibi
-   somut sınıflarını asla import etmez. Branches henüz bu tür bir arayüz
-   yayınlamıyor (YAGNI — ilk gerçek tüketici olan Students/Commerce
-   kurulduğunda, o modülün gerçek ihtiyacına göre eklenecek).
+   somut sınıflarını asla import etmez. İlk örneği: `Seviye Branches`'ın
+   `Contracts\BranchMembershipInterface` ve `Contracts\BranchLookupInterface`'i
+   — `Seviye Students`, bir Şube Müdürü'nün hangi şubeye ait olduğunu bu
+   arayüzler üzerinden öğrenir, Branches'ın `WpdbBranchRepository`'sini veya
+   `Domain\Branch`'ini asla import etmez.
 
 Fiziksel veritabanı şeması bu kuralın dışındadır: iki modülün kendi
 tabloları arasında gerçek bir InnoDB FK kısıtlaması olması PHP sınıf
@@ -233,11 +235,16 @@ gereksinimini ilk kez somut olarak uygular:
   eklemek yerine, `slug` alanının UNIQUE kısıtlamasından yararlanılarak
   ekleme sonrası `findBySlug()` ile geri okunur — Core'un port'unu
   gereksiz yere genişletmemek için bilinçli bir tercih (YAGNI).
-- `Repository\BranchMembershipRepositoryInterface` / `WpdbBranchMembershipRepository`:
+- `Contracts\BranchMembershipInterface` / `WpdbBranchMembershipRepository`:
   "Yetkililer" — hangi WP kullanıcısının (şube personeli) hangi şubeye
-  atandığı. Bu, yalnızca Branches'ın kendi ihtiyacı değildir: gelecekteki
-  Students/Commerce/Finance modüllerinin "bu personel hangi şubenin
-  verisini görebilir" sorusunu yanıtlaması için de temel oluşturur.
+  atandığı. Bu, yalnızca Branches'ın kendi ihtiyacı değildir: **Seviye
+  Students bu arayüzü tam olarak bunun için tüketen ilk modüldür** ("bu
+  Şube Müdürü hangi şubenin öğrencilerini görebilir" sorusu). `Contracts\BranchLookupInterface`
+  + `Contracts\BranchSummary`, benzer şekilde diğer modüllerin şube adını
+  kendi Domain katmanlarını (`Iban`, `CommissionRate`) bilmeden gösterebilmesi
+  için yayınlanan hafif bir okuma sözleşmesidir (`WpdbBranchLookup` —
+  `WpdbBranchRepository`'nin tam `find()` metoduyla dönüş tipi çakışmaması
+  için ayrı, minimal bir adapter).
 - `scp_branch_users.branch_id → scp_branches.id`: gerçek bir InnoDB FK
   kısıtlaması. `dbDelta()` `FOREIGN KEY` cümlelerini güvenilir şekilde
   ayrıştırmadığı için (bilinen bir WordPress kısıtı), kısıtlama `dbDelta()`

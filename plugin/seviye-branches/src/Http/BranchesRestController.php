@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Seviye\Branches\Http;
 
 use InvalidArgumentException;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Branches\Domain\Branch;
 use Seviye\Branches\Domain\BranchStatus;
 use Seviye\Branches\Domain\CommissionRate;
 use Seviye\Branches\Domain\Iban;
 use Seviye\Branches\Domain\Slug;
 use Seviye\Branches\Rbac\BranchCapability;
-use Seviye\Branches\Repository\BranchMembershipRepositoryInterface;
 use Seviye\Branches\Repository\BranchRepositoryInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
@@ -27,7 +27,7 @@ final class BranchesRestController extends AbstractRestController
 {
     public function __construct(
         private readonly BranchRepositoryInterface $branches,
-        private readonly BranchMembershipRepositoryInterface $memberships
+        private readonly BranchMembershipInterface $memberships
     ) {
     }
 

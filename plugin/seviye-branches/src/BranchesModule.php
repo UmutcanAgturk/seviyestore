@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Seviye\Branches;
 
+use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Branches\Database\Migrations\CreateBranchesTable;
 use Seviye\Branches\Database\Migrations\CreateBranchUsersTable;
 use Seviye\Branches\Http\BranchesRestController;
 use Seviye\Branches\Rbac\BranchCapability;
-use Seviye\Branches\Repository\BranchMembershipRepositoryInterface;
 use Seviye\Branches\Repository\BranchRepositoryInterface;
+use Seviye\Branches\Repository\WpdbBranchLookup;
 use Seviye\Branches\Repository\WpdbBranchMembershipRepository;
 use Seviye\Branches\Repository\WpdbBranchRepository;
 use Seviye\Core\Container\ServiceContainer;
@@ -37,8 +39,15 @@ final class BranchesModule implements ModuleInterface
         );
 
         $container->singleton(
-            BranchMembershipRepositoryInterface::class,
+            BranchMembershipInterface::class,
             static fn (ServiceContainer $c): WpdbBranchMembershipRepository => new WpdbBranchMembershipRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            BranchLookupInterface::class,
+            static fn (ServiceContainer $c): WpdbBranchLookup => new WpdbBranchLookup(
                 $c->get(ConnectionInterface::class)
             )
         );
@@ -56,7 +65,7 @@ final class BranchesModule implements ModuleInterface
 
         $container->get(RestApiRegistrar::class)->register(new BranchesRestController(
             $container->get(BranchRepositoryInterface::class),
-            $container->get(BranchMembershipRepositoryInterface::class)
+            $container->get(BranchMembershipInterface::class)
         ));
     }
 
