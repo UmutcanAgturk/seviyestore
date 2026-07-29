@@ -51,23 +51,36 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_password_tokens` | Security | `CreatePasswordTokensTable` | Tek kullanımlık, hash'lenmiş şifre/ilk-kurulum token'ları |
 | `scp_branches` | Branches | `CreateBranchesTable` | Şube varlığı (IBAN, komisyon, telefon, adres, durum) |
 | `scp_branch_users` | Branches | `CreateBranchUsersTable` | Şube "Yetkilileri" — hangi WP kullanıcısının hangi şubeye atandığı |
+| `scp_students` | Students | `CreateStudentsTable` | Öğrenci varlığı (şube, eğitim yılı, sınıf, durum) |
+| `scp_student_parents` | Students | `CreateStudentParentsTable` | Öğrenci ↔ veli (WP kullanıcı) çoktan-çoğa ilişkisi |
 
 `scp_user_identities` ve `scp_password_tokens`, `wp_users`'a **kasıtlı olarak
 FK kısıtlaması içermez**: WordPress çekirdek tabloları için motor/charset
 garantisi yoktur, bu yüzden referans bütünlüğü uygulama katmanında
-(`WpdbIdentityGateway`, `WpdbPasswordTokenGateway`) sağlanır.
+(`WpdbIdentityGateway`, `WpdbPasswordTokenGateway`) sağlanır. Aynı sebeple
+`scp_student_parents.parent_user_id` de `wp_users`'a FK içermez.
 
-`scp_branch_users.branch_id` ise `scp_branches.id`'ye **gerçek bir InnoDB FK
-kısıtlaması** ile bağlıdır (`ON DELETE CASCADE`) — ikisi de bizim kendi
+`scp_branch_users.branch_id → scp_branches.id` ve
+`scp_students.branch_id → scp_branches.id` ve
+`scp_student_parents.student_id → scp_students.id` ise **gerçek InnoDB FK
+kısıtlamaları** ile bağlıdır — ikisi de her seferinde bizim kendi
 tablolarımız olduğu için WordPress-çekirdek-tablosu riski yok. `dbDelta()`
 `FOREIGN KEY` cümlelerini güvenilir şekilde ayrıştırmadığından, kısıtlama
 `dbDelta()`'dan sonra ayrı, idempotent bir `ALTER TABLE` adımıyla eklenir —
-bkz. `CreateBranchUsersTable::ensureForeignKey()`. Yeni bir modül-arası FK
-eklerken bu deseni izleyin.
+artık paylaşılan bir Core yardımcısı olarak: `Seviye\Core\Database\ForeignKeyInstaller::ensure()`.
+Yeni bir modül-arası FK eklerken bunu kullanın, `ensureForeignKey()`'i
+kendi migration'ınıza kopyalamayın.
 
-Diğer tüm tablolar (`scp_students`, `scp_parents`, `scp_prices`, `scp_orders`,
-`scp_order_items`, `scp_commissions`, `scp_stock`, `scp_shipments`,
-`scp_campaigns`, ...) ilgili modül geliştirildiğinde, o modülün kendi
-migration'ları olarak eklenecek — bkz. `docs/ROADMAP.md`.
+`scp_students.branch_id` üzerinde **kasıtlı olarak `ON DELETE CASCADE`
+kullanılmaz** (varsayılan `RESTRICT` uygulanır): bir şube silindiğinde tüm
+öğrencilerinin sessizce silinmesi, bu platformun tasarım gereği kaçındığı
+türden geri döndürülemez bir veri kaybıdır. `scp_student_parents.student_id`
+ise `ON DELETE CASCADE` kullanır — bir öğrenci silindiğinde onun kendi
+veli-bağlantı satırlarının da silinmesi beklenen, güvenli bir temizliktir.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql).
+Diğer tüm tablolar (`scp_prices`, `scp_orders`, `scp_order_items`,
+`scp_commissions`, `scp_stock`, `scp_shipments`, `scp_campaigns`, ...) ilgili
+modül geliştirildiğinde, o modülün kendi migration'ları olarak eklenecek —
+bkz. `docs/ROADMAP.md`.
+
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql).

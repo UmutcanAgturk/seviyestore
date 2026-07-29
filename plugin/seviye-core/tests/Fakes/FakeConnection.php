@@ -17,6 +17,11 @@ final class FakeConnection implements ConnectionInterface
     /** @var list<string> */
     public array $dbDeltaCalls = [];
 
+    /** @var list<string> */
+    public array $queries = [];
+
+    public int $nextInsertId = 1;
+
     public function table(string $suffix): string
     {
         return 'test_scp_' . $suffix;
@@ -41,8 +46,15 @@ final class FakeConnection implements ConnectionInterface
         return true;
     }
 
+    public function lastInsertId(): int
+    {
+        return $this->nextInsertId;
+    }
+
     public function query(string $sql): bool
     {
+        $this->queries[] = $sql;
+
         return true;
     }
 

@@ -45,6 +45,11 @@ final class WpdbConnection implements ConnectionInterface
         return $this->wpdb->insert($table, $data) !== false;
     }
 
+    public function lastInsertId(): int
+    {
+        return (int) $this->wpdb->insert_id;
+    }
+
     public function query(string $sql): bool
     {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is built internally by migrations/the runner, never from request input.

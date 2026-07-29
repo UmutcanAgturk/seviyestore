@@ -63,10 +63,12 @@ final class BranchesModule implements ModuleInterface
             $rbac->grantCapability($role, BranchCapability::VIEW_OWN_BRANCH->value);
         }
 
-        $container->get(RestApiRegistrar::class)->register(new BranchesRestController(
-            $container->get(BranchRepositoryInterface::class),
-            $container->get(BranchMembershipInterface::class)
-        ));
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): BranchesRestController => new BranchesRestController(
+                $container->get(BranchRepositoryInterface::class),
+                $container->get(BranchMembershipInterface::class)
+            )
+        );
     }
 
     /**

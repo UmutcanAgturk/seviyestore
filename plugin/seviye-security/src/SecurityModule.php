@@ -84,7 +84,7 @@ final class SecurityModule implements ModuleInterface
         $container->get(MigrationRunner::class)->register(new CreateUserIdentitiesTable());
         $container->get(MigrationRunner::class)->register(new CreatePasswordTokensTable());
 
-        $container->get(RestApiRegistrar::class)->register(new AuthRestController(
+        $container->get(RestApiRegistrar::class)->register(static fn (): AuthRestController => new AuthRestController(
             $container->get(AuthService::class),
             $container->get(IdentityGatewayInterface::class),
             $container->get(PasswordTokenService::class),

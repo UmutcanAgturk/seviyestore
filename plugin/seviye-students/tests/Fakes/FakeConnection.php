@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Seviye\Branches\Tests\Fakes;
+namespace Seviye\Students\Tests\Fakes;
 
 use Seviye\Core\Database\ConnectionInterface;
 

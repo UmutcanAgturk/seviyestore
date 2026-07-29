@@ -250,7 +250,8 @@ gereksinimini ilk kez somut olarak uygular:
   ayrıştırmadığı için (bilinen bir WordPress kısıtı), kısıtlama `dbDelta()`
   sonrası ayrı, idempotent bir `information_schema` kontrolüyle korunan
   `ALTER TABLE` adımında eklenir — bkz.
-  `CreateBranchUsersTable::ensureForeignKey()`.
+  `Seviye\Core\Database\ForeignKeyInstaller::ensure()` (Core'a taşınan
+  paylaşılan yardımcı, bkz. bölüm 10).
 - RBAC: `scp_manage_branches` (Genel Merkez, Bölge Müdürü — tüm şubeleri
   görür/yönetir) ve `scp_view_own_branch` (şube-kapsamlı roller — yalnızca
   kendi şubesini görür), `RbacManager::grantCapability()` ile.
@@ -258,6 +259,56 @@ gereksinimini ilk kez somut olarak uygular:
   `seviye/v1/branches/{id}` (görüntüle/güncelle; görüntüleme, ya
   `scp_manage_branches` ya da kendi şubesi için `scp_view_own_branch`
   gerektirir), `seviye/v1/branches/me` (personelin kendi şubesi).
+
+### 10. Öğrenci yönetimi (Seviye Students) — ilk gerçek modüller-arası tüketici
+
+Students, Core'un yanı sıra **başka bir modülün Contracts'ına da bağımlı
+olan ilk modül**: `seviye/students` composer paketi `seviye/core` ve
+`seviye/branches`'a `path` bağımlılığıdır.
+
+- `Domain\EducationYear`: "YYYY-YYYY" formatını ve ardışık yıl kuralını
+  doğrulayan, TC Kimlik No/IBAN'ın kurduğu desenin devamı olan saf bir değer
+  nesnesi.
+- `scp_students.branch_id → scp_branches.id`: gerçek InnoDB FK, ama
+  **`scp_branch_users`'ın aksine `ON DELETE CASCADE` kullanmaz** —
+  varsayılan `RESTRICT` uygulanır. Bir şube silindiğinde tüm öğrencilerinin
+  sessizce silinmesi, bu platformun kaçındığı türden geri döndürülemez bir
+  veri kaybıdır; `scp_student_parents.student_id` ise (bir öğrencinin kendi
+  veli-bağlantılarının temizlenmesi beklenen, güvenli bir işlem olduğu için)
+  `ON DELETE CASCADE` kullanır.
+- **Modül-boot sırası sorunu ve çözümü**: `StudentsModule::boot()`,
+  Branches'ın `Contracts\BranchMembershipInterface`'ine ihtiyaç duyar, ama
+  hangi modülün `plugins_loaded` önceliği-10 kaydının önce çalışacağı
+  (dolayısıyla `ModuleRegistry::bootAll()`'un hangi sırada `boot()`
+  çağıracağı) WordPress'in eklenti yükleme sırasına bağlıdır — garanti
+  edilmez. Bunun için `Core\Http\RestApiRegistrar::register()` artık hazır
+  bir controller nesnesi değil, bir **factory closure** kabul eder; closure
+  yalnızca `rest_api_init` anında (tüm modüllerin `boot()`'u kesinlikle
+  bittikten çok sonra) çalışır. Bu, sıralamaya bağımlı olmayan, genel bir
+  düzeltmedir — Security ve Branches'ın kendi REST controller kayıtları da
+  aynı deseni kullanacak şekilde güncellendi (onlar için kritik değildi,
+  çünkü yalnızca Core'un — her zaman önce hazır olan — bağlarına
+  ihtiyaçları vardı, ama tutarlılık için aynı desen uygulandı).
+- `Core\Database\ForeignKeyInstaller`: `CreateBranchUsersTable`'da tekrar
+  eden idempotent-FK-ekleme mantığı, ikinci kullanım (`CreateStudentsTable`,
+  `CreateStudentParentsTable`) ile birlikte Core'a çıkarıldı — üç modülde de
+  tekrar edeceği baştan belliydi.
+- `Core\Database\ConnectionInterface::lastInsertId()`: Branches'ta
+  otomatik-artan `id`'yi `slug`'ın UNIQUE kısıtlamasından yararlanarak geri
+  okumuştuk (bkz. bölüm 9); Students'ta böyle doğal bir benzersiz alan
+  olmadığından (isim+şube+yıl+sınıf kombinasyonu DB'de kısıtlanmamıştır ve
+  aynı isimde öğrenciler gerçekte olur), bu kez port'u gerçekten genişletmek
+  gerekti — YAGNI'nin "gerektiğinde ekle" tarafının uygulanışı.
+- RBAC: `scp_manage_students` — Genel Merkez, Bölge Müdürü VE Şube Müdürü
+  aynı capability'yi taşır (ayrı bir "yalnızca kendi şubesi" capability'si
+  yoktur); kapsam farkı **çalışma zamanında**, `StudentsRestController`'ın
+  Branches'ın `BranchMembershipInterface::branchIdForUser()`'ını sorup
+  sonucun null olup olmadığına göre karar verilir (null → HQ, tüm şubeler;
+  değilse → yalnızca o şube). `scp_view_own_children` — Veli.
+- REST: `seviye/v1/students` (liste/oluştur, şube-kapsamlı), `/students/{id}`
+  (görüntüle/güncelle, erişim `canAccessStudent()` ile denetlenir),
+  `/students/mine` (Veli'nin kendi çocukları), `/students/{id}/parents`
+  (veli bağla/kaldır).
 
 ## Tablo adlandırma kuralı
 
