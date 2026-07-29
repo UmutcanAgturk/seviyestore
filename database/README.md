@@ -53,11 +53,12 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_branch_users` | Branches | `CreateBranchUsersTable` | Şube "Yetkilileri" — hangi WP kullanıcısının hangi şubeye atandığı |
 | `scp_students` | Students | `CreateStudentsTable` | Öğrenci varlığı (şube, eğitim yılı, sınıf, durum) |
 | `scp_student_parents` | Students | `CreateStudentParentsTable` | Öğrenci ↔ veli (WP kullanıcı) çoktan-çoğa ilişkisi |
+| `scp_parent_profiles` | Parents | `CreateParentProfilesTable` | Veli'ye özgü profil (telefon, bildirim tercihi, KVKK onay zaman damgası) |
 
-`scp_user_identities` ve `scp_password_tokens`, `wp_users`'a **kasıtlı olarak
-FK kısıtlaması içermez**: WordPress çekirdek tabloları için motor/charset
-garantisi yoktur, bu yüzden referans bütünlüğü uygulama katmanında
-(`WpdbIdentityGateway`, `WpdbPasswordTokenGateway`) sağlanır. Aynı sebeple
+`scp_user_identities`, `scp_password_tokens` ve `scp_parent_profiles`,
+`wp_users`'a **kasıtlı olarak FK kısıtlaması içermez**: WordPress çekirdek
+tabloları için motor/charset garantisi yoktur, bu yüzden referans
+bütünlüğü uygulama katmanında sağlanır. Aynı sebeple
 `scp_student_parents.parent_user_id` de `wp_users`'a FK içermez.
 
 `scp_branch_users.branch_id → scp_branches.id` ve
@@ -83,4 +84,4 @@ Diğer tüm tablolar (`scp_prices`, `scp_orders`, `scp_order_items`,
 modül geliştirildiğinde, o modülün kendi migration'ları olarak eklenecek —
 bkz. `docs/ROADMAP.md`.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql).
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql), [`schema/parents.sql`](schema/parents.sql).

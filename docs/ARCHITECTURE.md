@@ -310,6 +310,31 @@ olan ilk modül**: `seviye/students` composer paketi `seviye/core` ve
   `/students/mine` (Veli'nin kendi çocukları), `/students/{id}/parents`
   (veli bağla/kaldır).
 
+### 11. Veli profili (Seviye Parents)
+
+"VELİ PANELİ" listesindeki "Kendi öğrencileri" zaten Students'ın
+`/students/mine`'ı üzerinden çözülüyor; Parents bu yüzden **yalnızca Core'a
+bağımlı, kasıtlı olarak küçük ve bağımsız bir modül** — Branches/Students
+gibi bir Contracts ilişkisine ihtiyacı yok, ki bu da her modülün otomatik
+olarak bir cross-module bağımlılık biriktirmeyeceğinin bir kanıtı.
+
+- `scp_parent_profiles`: `wp_users`'ın kapsamadığı alanlar (telefon,
+  bildirim tercihi, KVKK onay zaman damgası). Diğer platform tabloları
+  gibi `wp_users`'a FK içermez.
+- **KVKK onayının değişmezliği**: `WpdbParentProfileRepository::upsert()`,
+  bir kez verilen `kvkk_consent_at` zaman damgasını asla temizlemez veya
+  üzerine yazmaz — sonraki bir `PUT /parents/me` çağrısı onay bayrağını
+  `false` gönderse bile önceki onay kaydı korunur. Bu, saf, WordPress'ten
+  bağımsız bir kural olarak `resolveConsentTimestamp()`'te izole edilmiş ve
+  ayrıca test edilmiştir (`WpdbParentProfileRepositoryTest`) — KVKK
+  denetlenebilirliği için kasıtlı bir tasarım kararı, tesadüfi bir
+  davranış değil.
+- RBAC: `scp_manage_own_profile` — yalnızca Veli. Uç nokta her zaman
+  *geçerli* kullanıcının kendi profilidir (`get_current_user_id()`); başka
+  bir velinin profilini görüntüleme diye bir şey olmadığından, capability
+  kontrolünün ötesinde ayrıca bir sahiplik kontrolüne gerek yoktur.
+- REST: `GET/PUT seviye/v1/parents/me`.
+
 ## Tablo adlandırma kuralı
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde

@@ -9,7 +9,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 |---|---|---|---|
 | 1 | Seviye Core | DI container, event bus, RBAC, migration runner, audit log, REST altyapısı | ✅ **Kuruldu** |
 | 2 | Seviye Students | Öğrenci entity (şube/eğitim yılı/sınıf), veli (WP kullanıcı) ile çoktan-çoğa ilişki, REST | ✅ **Kuruldu** (bu milestone) |
-| 3 | Seviye Parents | Veli'ye özgü profil alanları (`wp_users`'ın kapsamadığı) | Planlandı |
+| 3 | Seviye Parents | Veli'ye özgü profil alanları (telefon, bildirim tercihi, KVKK onayı), REST | ✅ **Kuruldu** (bu milestone) |
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
 | 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→bölge→genel→WC varsayılan önceliği) | Planlandı |
 | 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | Planlandı |
@@ -36,8 +36,8 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 3. ~~Tema: giriş ekranı, içerik kilitleme, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi~~ ✅
 4. ~~Seviye Branches (şube entity, Yetkililer/personel ataması, Contracts, REST, RBAC)~~ ✅
 5. ~~Seviye Students (öğrenci entity, veli çoktan-çoğa ilişkisi, Branches'ın Contracts'ını kullanan ilk modül, REST, RBAC)~~ ✅
-6. Seviye Parents (veli'ye özgü profil alanları — "Kendi öğrencileri" görünümü zaten Students'ın `seviye/v1/students/mine`'ı üzerinden çalışıyor)
-7. Tema: `/sube` ve `/admin` panellerini Students'ın REST uçlarına bağlamak (gerçek öğrenci listesi/formu)
+6. ~~Seviye Parents (veli'ye özgü profil alanları, REST, RBAC — Core-only, Contracts'a ihtiyaç duymayan ilk modül)~~ ✅
+7. Tema: `/sube` ve `/admin` panellerini Students'ın REST uçlarına, veli profilini Parents'ın REST'ine bağlamak (gerçek form/liste ekranları)
 8. Seviye Pricing (fiyat motoru, henüz sipariş yok)
 9. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme) — Veli ana sayfasına mağaza içeriğini kazandırır
 10. Seviye Finance + Seviye Reports
