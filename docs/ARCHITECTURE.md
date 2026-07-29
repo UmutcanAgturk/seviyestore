@@ -662,10 +662,40 @@ bölümlerdir (bkz. `docs/ROADMAP.md`).
   sipariş kalıcılığı farklı sorumluluklar — tek bir büyüyen sınıf yerine
   iki odaklı sınıf. `woocommerce_checkout_order_processed`'da (gerçek
   `order_id`/`order_item_id`'lerin kesinleştiği an) her `_scp_student_id`
-  taşıyan kalem için bir satır yazar; `Support\CartPricingService`'in
-  aksine burada ayrıca çıkarılacak saf bir karar mantığı yok (yalnızca
-  WC'den okuma + iki Contract sorgusu + repository çağrısı), bu yüzden
-  bu adaptör de `WooCommerceCartHooks` gibi test edilmez.
+  taşıyan kalem için bir satır yazar; kendisi `WooCommerceCartHooks` gibi
+  test edilmez (yalnızca WC'den okuma + Contract sorguları + repository
+  çağrıları), ama artık gerçek bir karar mantığını da çağırıyor — bkz.
+  aşağıdaki split payment maddesi.
+- **Split payment: `Support\SplitPaymentCalculator`, saf ve test edilen
+  aritmetik**: `Domain\CommissionRate`'in kendi docblock'unun zaten
+  belirlediği kural — "bir şubenin bir siparişteki payını hesaplamak için
+  kullanılır" — burada uygulanır: `branchShare = price × commissionRate /
+  100`, `hqShare = price - branchShare`. Bu tek gerçek karar/hesap
+  mantığı olduğundan `CartPricingService`'in izlediği aynı ayrıştırma
+  ilkesiyle `OrderPersistenceHooks`'tan çıkarılıp ayrı, birim test edilen
+  bir sınıfa alındı.
+- **"Hakediş tetikleme": `commerce.order_line_item_completed` event'i,
+  gerçek hakediş kaydı değil**: `OrderPersistenceHooks::syncOrderStatus()`,
+  bir sipariş `completed` durumuna geçtiğinde (`processing` değil — hâlâ
+  iade/iptal edilebilir bir siparişte hakediş tetiklemek yanlış olurdu),
+  o siparişin her kalemi için `EventBusInterface::dispatch()` ile bir
+  `Event('commerce.order_line_item_completed', [...])` yayınlar —
+  Security'nin `security.password_reset_requested`'ı yayınlamasıyla
+  birebir aynı desen. Payload, Finance'ın (henüz kurulmamış) ihtiyaç
+  duyacağı her şeyi taşır: `order_id`, `order_item_id`, `student_id`,
+  `branch_id`, `commission_rate`, `price`, `branch_share`, `hq_share`.
+  **Commerce'in sorumluluğu burada biter** — asıl hakediş/cari kaydını
+  oluşturmak, spesifikasyonun plugin tablosunda zaten Seviye Finance'a ait
+  ("Cari, hakediş, komisyon, KDV, iade, tahsilat"), Commerce'e değil; bu
+  event'i şimdi kimse dinlemiyor olması (Finance henüz yok) kasıtlı ve
+  zararsız — `EventBus::dispatch()` dinleyicisiz bir event'te sessizce no-op'tur.
+- **Ters çevirme (reversal) event'i, `completed` sonrası bir iade/iptali
+  hesaba katar**: `completed`'e ulaşmış bir sipariş daha sonra `refunded`
+  veya `cancelled`'a geçerse, `commerce.order_line_item_reversed` aynı
+  payload'la yayınlanır. Bu olmadan tasarım eksik kalırdı — bir siparişin
+  parası iade edildikten sonra ilgili şubenin kazanılmamış bir komisyonda
+  alacaklı görünmeye devam etmesi gerçek bir hata olurdu, "yarım kod"
+  disiplininin izin vermeyeceği türden bir boşluk.
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo

@@ -11,9 +11,11 @@ use Seviye\Commerce\Http\WooCommerceCartHooks;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
 use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Support\CartPricingService;
+use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
+use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Support\Environment;
 use Seviye\Pricing\Contracts\PriceResolverInterface;
@@ -67,7 +69,9 @@ final class CommerceModule implements ModuleInterface
         $orderHooks = new OrderPersistenceHooks(
             $container->get(OrderLineItemRepositoryInterface::class),
             $container->get(StudentLookupInterface::class),
-            $container->get(BranchLookupInterface::class)
+            $container->get(BranchLookupInterface::class),
+            new SplitPaymentCalculator(),
+            $container->get(EventBusInterface::class)
         );
         $orderHooks->register();
     }
