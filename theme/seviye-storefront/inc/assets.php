@@ -91,6 +91,17 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
+    $canViewHakedis = current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $canViewHakedis) {
+        $handle = 'scp-hakedis-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/hakedis-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canViewAllBranches' => current_user_can('scp_view_hakedis'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
     if (function_exists('is_product') && is_product() && current_user_can('scp_view_own_children')) {
         $handle = 'scp-product-student-picker';
         wp_enqueue_script(

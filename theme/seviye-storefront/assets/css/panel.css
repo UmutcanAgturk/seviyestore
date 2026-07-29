@@ -157,3 +157,9 @@
   color: #fff;
   background: var(--scp-danger);
 }
+
+.scp-hakedis-balance {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--scp-text);
+}

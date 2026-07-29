@@ -24,6 +24,16 @@
  * Seviye\Pricing\Http\PricingRestController::canWriteScope(). It requires a
  * product id to look up (no product catalog exists yet - Seviye
  * Commerce/WooCommerce integration is still planned).
+ *
+ * The cari bakiye (hakediş balance) section also appears in BOTH zones:
+ * scp_view_hakedis (HQ) and scp_view_own_hakedis (Şube Müdürü + Muhasebe
+ * only, not every branch-scoped role - see
+ * Seviye\Finance\Rbac\HakedisCapability) land in /admin and /sube
+ * respectively. There is no "list every branch's balance" REST endpoint;
+ * the HQ view instead combines the already-public GET /branches with one
+ * GET /finance/hakedis/balance/{id} call per branch, client-side - the
+ * same "no speculative REST surface" principle used for the price rules
+ * lookup.
  */
 
 declare(strict_types=1);
@@ -291,6 +301,30 @@ get_header();
                     </div>
                 </form>
             </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) : ?>
+        <section class="scp-card" id="scp-hakedis-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Cari Bakiye', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-hakedis-status></p>
+
+            <div data-scp-hakedis-own hidden>
+                <p class="scp-hakedis-balance" data-scp-hakedis-own-balance></p>
+            </div>
+
+            <table class="scp-table" data-scp-hakedis-all hidden>
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                        <th><?php esc_html_e('Bakiye (TRY)', 'seviye-storefront'); ?></th>
+                    </tr>
+                </thead>
+                <tbody data-scp-hakedis-all-body></tbody>
+            </table>
         </section>
     <?php endif; ?>
 </div>

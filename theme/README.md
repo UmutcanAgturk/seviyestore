@@ -42,6 +42,15 @@ Kurulu olan kapsam:
   roller "Genel" kapsam seçeneğini görmez ve BRANCH kapsamlı bir kural
   oluştururken kendi şube ID'lerini girmeleri gerekmez (sunucu otomatik
   olarak kendi şubelerine sabitler).
+- **Cari bakiye paneli** (`/sube` VE `/admin`): `templates/zone.php`'ye
+  eklenen "Cari Bakiye" bölümü + `assets/js/hakedis-panel.js`,
+  `seviye/v1/finance/hakedis/balance/*`'a bağlı salt okunur görünüm.
+  `scp_view_hakedis` (Genel Merkez, Bölge Müdürü) tüm şubelerin bakiyesini
+  gösteren bir tablo görür; `scp_view_own_hakedis` (yalnızca Şube Müdürü +
+  Muhasebe) yalnızca kendi şubesinin bakiyesini gösteren tek bir kart görür.
+  Tüm şubelerin bakiyesini listeleyen ayrı bir REST uç noktası yoktur — HQ
+  görünümü genel `GET /branches` ile her şube için bir
+  `GET /finance/hakedis/balance/{id}` çağrısını istemci tarafında birleştirir.
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca
@@ -56,9 +65,7 @@ Kurulu olan kapsam:
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
-- Sipariş/finans panel içerikleri.
-- Sipariş kalıcılığı, split payment, hakediş tetikleme (Seviye Commerce'in
-  sonraki bölümleri).
+- Tahsilat işaretleme, KDV takibi (Seviye Finance'ın sonraki bölümü).
 
 Tema, diğer tüm bileşenler gibi yalnızca Seviye Core'un (ve ilgili modüllerin)
 yayınladığı public API'ler / REST uç noktaları üzerinden veri okur; doğrudan

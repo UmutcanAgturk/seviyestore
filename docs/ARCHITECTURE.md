@@ -336,12 +336,13 @@ olarak bir cross-module bağımlılık biriktirmeyeceğinin bir kanıtı.
   kontrolünün ötesinde ayrıca bir sahiplik kontrolüne gerek yoktur.
 - REST: `GET/PUT seviye/v1/parents/me`.
 
-### 12. Panel entegrasyonu (Students + Parents + Branches + Pricing REST'ine bağlanma)
+### 12. Panel entegrasyonu (Students + Parents + Branches + Pricing + Finance REST'ine bağlanma)
 
-`templates/zone.php` (öğrenci + şube + fiyat kuralları yönetimi, `/admin` +
-`/sube`) ve `templates/parent-dashboard.php` (Veli ana sayfası, `/`)
-sırasıyla `assets/js/students-panel.js`, `assets/js/branches-panel.js`,
-`assets/js/pricing-panel.js` ve `assets/js/parent-dashboard.js` ile ilgili
+`templates/zone.php` (öğrenci + şube + fiyat kuralları + cari bakiye
+yönetimi, `/admin` + `/sube`) ve `templates/parent-dashboard.php` (Veli ana
+sayfası, `/`) sırasıyla `assets/js/students-panel.js`,
+`assets/js/branches-panel.js`, `assets/js/pricing-panel.js`,
+`assets/js/hakedis-panel.js` ve `assets/js/parent-dashboard.js` ile ilgili
 REST uçlarını çağırır.
 
 - **Nonce farkı**: Security'nin `seviye/v1/auth/*` uçları oturum açılmadan
@@ -427,6 +428,23 @@ REST uçlarını çağırır.
   inşa etmenin sunucu tarafında gerçek, önceden fark edilmemiş bir kullanım
   kusuru ortaya çıkardığı bir başka örnek — bkz. yukarıdaki "Eksik uç nokta"
   maddesi, Students'taki aynı desen.
+- **Cari bakiye paneli** (`/admin` VE `/sube`): `hakedis-panel.js`, fiyat
+  kuralları paneliyle aynı iki-bölge desenini izler, ama iki bölge FARKLI
+  yetkilerle (`scp_view_hakedis` HQ için, `scp_view_own_hakedis` yalnızca
+  Şube Müdürü + Muhasebe için — bkz. bölüm 15, Finance) girildiğinden JS iki
+  ayrı görünüm render eder: `scpPanel.canViewAllBranches` (yalnızca
+  `scp_view_hakedis` taşıyanlarda true) tüm şubelerin bakiyesini gösteren
+  bir tablo mu, yoksa yalnızca kullanıcının kendi şubesinin bakiyesini
+  gösteren tek bir kart mı çizileceğine karar verir. "Tüm şubelerin
+  bakiyesini listele" diye ayrı bir REST uç noktası **yoktur** — fiyat
+  kuralları panelinin ham "Ürün ID" deseni gibi burada da "gereksiz
+  spekülatif REST yüzeyi ekleme" ilkesi uygulanır: HQ görünümü zaten genel
+  `GET /branches` uç noktasını her şube için bir kez
+  `GET /finance/hakedis/balance/{id}` ile birleştirerek tabloyu istemci
+  tarafında oluşturur. Bu, `HakedisRestController`'ın `/finance/hakedis/balance/me`
+  (kendi şubesi) ve `/finance/hakedis/balance/{branch_id}` (yetkiye göre
+  herhangi bir şube) uçlarının `BranchesRestController::me()`/`canViewBranch()`
+  deseninin doğrudan bir aynası olmasıyla da tutarlıdır (bkz. bölüm 15).
 
 ### 13. Fiyatlandırma motoru (Seviye Pricing)
 
