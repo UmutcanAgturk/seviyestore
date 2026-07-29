@@ -63,6 +63,24 @@ Kurulu olan kapsam:
   `wc_get_page_permalink('shop')`'a bağlanan bir "Mağazaya Git" bölümü
   eklendi.
 
+- **Genel görsel tasarım geçişi**: Site başlığı sabitlenmiş (sticky) hale
+  getirildi ve marka rozeti eklendi; marka bağlantısı
+  `inc/zones.php::scp_current_user_landing_path()` ile kullanıcının kendi
+  rolüne ait bölgeye götürür (`Seviye\Security\Routing\RoleRouter`'ın aynı
+  politikasını tekrar kullanır, tekrar uygulamaz) — böylece WooCommerce
+  mağaza/ürün sayfası gibi bölge dışı ekranlardan da panele dönüş mümkün
+  olur. `templates/zone.php`'nin üstüne, o sayfada gerçekten render edilen
+  bölümlerle (aynı yetki kontrolleri) birebir eşleşen bir kısayol
+  navigasyonu (`.scp-quicknav`) eklendi — birden fazla bölüm olmadıkça
+  gösterilmez. Öğrenci/şube/fiyat kuralı tablolarındaki "Durum" sütunu artık
+  düz metin yerine renkli bir rozet (`.scp-badge--active`/`--inactive`)
+  olarak render ediliyor. Tablolar küçük ekranlarda yatay kaydırılabilir
+  sarmalayıcıya (`.scp-table-wrapper`) alındı, kartlara ince bir gölge ve
+  hover durumu, form alanlarına odak (focus) durumu, düğmelere hover/active
+  durumu eklendi; 640px altı için duyarlı (responsive) ayarlamalar yapıldı.
+  Bunların hiçbiri yeni bir REST uç noktası veya iş mantığı eklemez — salt
+  var olan verinin sunumunu iyileştirir.
+
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
 - Tahsilat işaretleme, KDV takibi (Seviye Finance'ın sonraki bölümü).

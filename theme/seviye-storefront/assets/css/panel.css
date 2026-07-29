@@ -10,6 +10,21 @@
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
+  box-shadow: var(--scp-shadow);
+  transition: box-shadow 0.15s ease;
+}
+
+.scp-card:hover {
+  box-shadow: var(--scp-shadow-raised);
+}
+
+.scp-empty {
+  text-align: center;
+  color: var(--scp-text-muted);
+}
+
+.scp-empty p {
+  margin: 0;
 }
 
 .scp-card__header {
@@ -35,8 +50,13 @@
   color: #b91c1c;
 }
 
+.scp-table-wrapper {
+  overflow-x: auto;
+}
+
 .scp-table {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 0.875rem;
 }
@@ -46,6 +66,37 @@
   text-align: left;
   padding: 8px 10px;
   border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-table th {
+  color: var(--scp-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.scp-table tbody tr:hover {
+  background: var(--scp-bg);
+}
+
+.scp-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.scp-badge--active {
+  color: var(--scp-success-text);
+  background: var(--scp-success-bg);
+}
+
+.scp-badge--inactive {
+  color: var(--scp-text-muted);
+  background: var(--scp-bg);
 }
 
 .scp-list {
@@ -116,6 +167,13 @@
   border-radius: 8px;
 }
 
+.scp-form input:focus,
+.scp-form select:focus {
+  outline: none;
+  border-color: var(--scp-primary);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
 .scp-form__actions {
   display: flex;
   gap: 8px;
@@ -140,12 +198,31 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+.scp-btn:hover {
+  filter: brightness(1.08);
+}
+
+.scp-btn:active {
+  transform: translateY(1px);
+}
+
+.scp-btn:focus-visible {
+  outline: 2px solid var(--scp-primary);
+  outline-offset: 2px;
 }
 
 .scp-btn--ghost {
   color: var(--scp-primary);
   background: transparent;
   border: 1px solid var(--scp-border);
+}
+
+.scp-btn--ghost:hover {
+  background: var(--scp-bg);
+  filter: none;
 }
 
 .scp-btn--small {

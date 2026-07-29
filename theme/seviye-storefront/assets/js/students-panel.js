@@ -32,6 +32,16 @@
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
     }
 
+    function statusBadgeCell(status) {
+        var cell = document.createElement('td');
+        var badge = document.createElement('span');
+        var isActive = status === 'active';
+        badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
+        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        cell.appendChild(badge);
+        return cell;
+    }
+
     function apiFetch(path, options) {
         options = options || {};
         options.headers = Object.assign(
@@ -90,13 +100,14 @@
                 student.first_name + ' ' + student.last_name,
                 student.branch_name || '',
                 student.education_year,
-                student.class_name,
-                student.status
+                student.class_name
             ].forEach(function (text) {
                 var cell = document.createElement('td');
                 cell.textContent = text;
                 row.appendChild(cell);
             });
+
+            row.appendChild(statusBadgeCell(student.status));
 
             var actionsCell = document.createElement('td');
             var editButton = document.createElement('button');

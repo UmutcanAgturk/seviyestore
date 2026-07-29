@@ -78,3 +78,21 @@ function scp_current_zone(): string
 {
     return (string) get_query_var('scp_zone');
 }
+
+/**
+ * The URL the current user's own role lands them on - the same policy
+ * inc/access-gate.php enforces on every request, reused here (not
+ * reimplemented) so header.php can link "back home" from anywhere
+ * (e.g. the WooCommerce shop/product pages, which have no zone of their
+ * own) without guessing at a role->zone mapping the theme doesn't own.
+ */
+function scp_current_user_landing_path(): string
+{
+    if (!class_exists(\Seviye\Security\Routing\RoleRouter::class)) {
+        return home_url('/');
+    }
+
+    $roles = array_values(wp_get_current_user()->roles);
+
+    return home_url(\Seviye\Security\Routing\RoleRouter::landingPathFor($roles));
+}

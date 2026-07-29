@@ -55,6 +55,8 @@ function scp_enqueue_panel_assets(): void
         'studentIdLabel' => __('Öğrenci ID', 'seviye-storefront'),
         'confirmDeletePriceRule' => __('Bu fiyat kuralını silmek istediğinize emin misiniz?', 'seviye-storefront'),
         'priceRuleDeleted' => __('Fiyat kuralı silindi.', 'seviye-storefront'),
+        'statusActive' => __('Aktif', 'seviye-storefront'),
+        'statusInactive' => __('Pasif', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {

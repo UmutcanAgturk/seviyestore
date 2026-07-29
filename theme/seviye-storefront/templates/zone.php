@@ -34,12 +34,42 @@
  * GET /finance/hakedis/balance/{id} call per branch, client-side - the
  * same "no speculative REST surface" principle used for the price rules
  * lookup.
+ *
+ * The quicknav at the top of the page is built from the exact same
+ * capability (+ zone) checks each section below already gates on ($scp_
+ * -prefixed locals, computed once before get_header()) - it never invents a
+ * link a section wouldn't actually render, and only appears once there is
+ * more than one section to jump between.
  */
 
 declare(strict_types=1);
 
 if (!defined('ABSPATH')) {
     exit;
+}
+
+/*
+ * Quicknav is built from the exact same capability (+ zone, where relevant)
+ * checks each section below already gates on - it never invents a link a
+ * section wouldn't actually render. Only shown when there is more than one
+ * section to jump between; a single-section page gains nothing from it.
+ */
+$scp_sections = [];
+
+if (current_user_can('scp_manage_students')) {
+    $scp_sections['#scp-students-panel'] = __('Öğrenciler', 'seviye-storefront');
+}
+
+if (scp_current_zone() === 'admin' && current_user_can('scp_manage_branches')) {
+    $scp_sections['#scp-branches-panel'] = __('Şubeler', 'seviye-storefront');
+}
+
+if (current_user_can('scp_manage_pricing')) {
+    $scp_sections['#scp-pricing-panel'] = __('Fiyat Kuralları', 'seviye-storefront');
+}
+
+if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
+    $scp_sections['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
 }
 
 get_header();
@@ -60,6 +90,14 @@ get_header();
         ));
         ?></p>
 
+    <?php if (count($scp_sections) > 1) : ?>
+        <nav class="scp-quicknav" aria-label="<?php esc_attr_e('Bölüm kısayolları', 'seviye-storefront'); ?>">
+            <?php foreach ($scp_sections as $scp_href => $scp_label) : ?>
+                <a href="<?php echo esc_attr($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+            <?php endforeach; ?>
+        </nav>
+    <?php endif; ?>
+
     <?php if (current_user_can('scp_manage_students')) : ?>
         <section class="scp-card" id="scp-students-panel">
             <div class="scp-card__header">
@@ -71,19 +109,21 @@ get_header();
 
             <p class="scp-status" data-scp-students-status></p>
 
-            <table class="scp-table">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Ad Soyad', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Eğitim Yılı', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Sınıf', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody data-scp-students-body></tbody>
-            </table>
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Ad Soyad', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Eğitim Yılı', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Sınıf', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-students-body></tbody>
+                </table>
+            </div>
 
             <form class="scp-form" data-scp-student-form hidden>
                 <input type="hidden" name="id">
@@ -146,7 +186,9 @@ get_header();
             </form>
         </section>
     <?php else : ?>
-        <p><?php esc_html_e('Bu panelin içeriği, ilgili modüller geliştirildikçe burada yer alacak.', 'seviye-storefront'); ?></p>
+        <div class="scp-card scp-empty">
+            <p><?php esc_html_e('Bu panelin içeriği, ilgili modüller geliştirildikçe burada yer alacak.', 'seviye-storefront'); ?></p>
+        </div>
     <?php endif; ?>
 
     <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_branches')) : ?>
@@ -160,19 +202,21 @@ get_header();
 
             <p class="scp-status" data-scp-branches-status></p>
 
-            <table class="scp-table">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Ad', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('IBAN', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Komisyon (%)', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Telefon', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody data-scp-branches-body></tbody>
-            </table>
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Ad', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('IBAN', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Komisyon (%)', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Telefon', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-branches-body></tbody>
+                </table>
+            </div>
 
             <form class="scp-form" data-scp-branch-form hidden>
                 <input type="hidden" name="id">
@@ -245,18 +289,20 @@ get_header();
                     </button>
                 </div>
 
-                <table class="scp-table">
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Kapsam', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Hedef', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody data-scp-price-rules-body></tbody>
-                </table>
+                <div class="scp-table-wrapper">
+                    <table class="scp-table">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Kapsam', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Hedef', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody data-scp-price-rules-body></tbody>
+                    </table>
+                </div>
 
                 <form class="scp-form" data-scp-price-rule-form hidden>
                     <input type="hidden" name="id">
@@ -316,15 +362,17 @@ get_header();
                 <p class="scp-hakedis-balance" data-scp-hakedis-own-balance></p>
             </div>
 
-            <table class="scp-table" data-scp-hakedis-all hidden>
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
-                        <th><?php esc_html_e('Bakiye (TRY)', 'seviye-storefront'); ?></th>
-                    </tr>
-                </thead>
-                <tbody data-scp-hakedis-all-body></tbody>
-            </table>
+            <div class="scp-table-wrapper">
+                <table class="scp-table" data-scp-hakedis-all hidden>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Bakiye (TRY)', 'seviye-storefront'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-hakedis-all-body></tbody>
+                </table>
+            </div>
         </section>
     <?php endif; ?>
 </div>

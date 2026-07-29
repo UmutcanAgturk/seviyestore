@@ -26,6 +26,16 @@
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
     }
 
+    function statusBadgeCell(status) {
+        var cell = document.createElement('td');
+        var badge = document.createElement('span');
+        var isActive = status === 'active';
+        badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
+        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        cell.appendChild(badge);
+        return cell;
+    }
+
     function apiFetch(path, options) {
         options = options || {};
         options.headers = Object.assign(
@@ -62,13 +72,14 @@
                 branch.name,
                 branch.iban || '',
                 String(branch.commission_rate),
-                branch.phone || '',
-                branch.status
+                branch.phone || ''
             ].forEach(function (text) {
                 var cell = document.createElement('td');
                 cell.textContent = text;
                 row.appendChild(cell);
             });
+
+            row.appendChild(statusBadgeCell(branch.status));
 
             var actionsCell = document.createElement('td');
             var editButton = document.createElement('button');

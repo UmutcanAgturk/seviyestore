@@ -46,6 +46,16 @@
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
     }
 
+    function statusBadgeCell(status) {
+        var cell = document.createElement('td');
+        var badge = document.createElement('span');
+        var isActive = status === 'active';
+        badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
+        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        cell.appendChild(badge);
+        return cell;
+    }
+
     function apiFetch(path, options) {
         options = options || {};
         options.headers = Object.assign(
@@ -103,11 +113,11 @@
             targetCell.textContent = targetId !== null ? String(targetId) : '';
             row.appendChild(targetCell);
 
-            [String(rule.price), rule.status].forEach(function (text) {
-                var cell = document.createElement('td');
-                cell.textContent = text;
-                row.appendChild(cell);
-            });
+            var priceCell = document.createElement('td');
+            priceCell.textContent = String(rule.price);
+            row.appendChild(priceCell);
+
+            row.appendChild(statusBadgeCell(rule.status));
 
             var actionsCell = document.createElement('td');
             var editButton = document.createElement('button');
