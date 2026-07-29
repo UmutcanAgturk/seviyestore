@@ -17,6 +17,56 @@ function scp_enqueue_assets(): void
     }
 
     wp_enqueue_style('scp-theme', SCP_THEME_URL . '/assets/css/theme.css', [], SCP_THEME_VERSION);
+    wp_enqueue_style('scp-panel', SCP_THEME_URL . '/assets/css/panel.css', ['scp-theme'], SCP_THEME_VERSION);
+
+    scp_enqueue_panel_assets();
+}
+
+/**
+ * REST calls made from an already-authenticated screen carry a WordPress
+ * cookie, so - unlike the pre-login seviye/v1/auth/* endpoints in
+ * inc/assets.php's auth counterpart - WordPress' own cookie-nonce check
+ * (rest_cookie_check_errors(), wired in by core on every request) rejects
+ * them without a valid X-WP-Nonce header. Every script enqueued here gets
+ * one via scpPanel.nonce.
+ */
+function scp_enqueue_panel_assets(): void
+{
+    $zone = (string) get_query_var('scp_zone');
+
+    $localized = [
+        'restUrl' => esc_url_raw(rest_url('seviye/v1/')),
+        'nonce' => wp_create_nonce('wp_rest'),
+    ];
+
+    $text = [
+        'loadError' => __('Veriler yüklenirken bir hata oluştu.', 'seviye-storefront'),
+        'saveError' => __('Kaydedilirken bir hata oluştu.', 'seviye-storefront'),
+        'saved' => __('Kaydedildi.', 'seviye-storefront'),
+        'edit' => __('Düzenle', 'seviye-storefront'),
+        'remove' => __('Kaldır', 'seviye-storefront'),
+        'parentLinked' => __('Veli bağlandı.', 'seviye-storefront'),
+        'profileSaved' => __('Profiliniz güncellendi.', 'seviye-storefront'),
+        'noChildren' => __('Sisteme bağlı bir öğrenci bulunamadı.', 'seviye-storefront'),
+    ];
+
+    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
+        $handle = 'scp-students-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/students-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageAllBranches' => current_user_can('scp_manage_branches'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    $isParentZone = current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile');
+
+    if ($zone === '' && $isParentZone) {
+        $handle = 'scp-parent-dashboard';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/parent-dashboard.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
 }
 
 function scp_enqueue_auth_assets(): void

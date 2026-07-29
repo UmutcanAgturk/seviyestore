@@ -72,12 +72,19 @@ final class StudentsRestController extends AbstractRestController
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/students/(?P<id>\d+)/parents', [
-            'methods' => 'POST',
-            'callback' => [$this, 'linkParent'],
-            'permission_callback' => [$this, 'canAccessStudent'],
-            'args' => [
-                'parent_user_id' => ['required' => true, 'type' => 'integer'],
-                'relationship' => ['required' => true, 'type' => 'string'],
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'listParents'],
+                'permission_callback' => [$this, 'canAccessStudent'],
+            ],
+            [
+                'methods' => 'POST',
+                'callback' => [$this, 'linkParent'],
+                'permission_callback' => [$this, 'canAccessStudent'],
+                'args' => [
+                    'parent_user_id' => ['required' => true, 'type' => 'integer'],
+                    'relationship' => ['required' => true, 'type' => 'string'],
+                ],
             ],
         ]);
 
@@ -179,6 +186,11 @@ final class StudentsRestController extends AbstractRestController
         }
 
         return new WP_REST_Response($this->serialize($student));
+    }
+
+    public function listParents(WP_REST_Request $request): WP_REST_Response
+    {
+        return new WP_REST_Response($this->studentParents->parentUserIdsForStudent((int) $request->get_param('id')));
     }
 
     public function linkParent(WP_REST_Request $request): WP_REST_Response

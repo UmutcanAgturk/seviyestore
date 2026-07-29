@@ -16,12 +16,23 @@ Kurulu olan kapsam:
   tarafından belirlenir (test edilebilir, WordPress'ten bağımsız saf PHP);
   tema yalnızca bu kararı `inc/access-gate.php` ve `inc/zones.php` üzerinden
   uygular.
+- **Öğrenci yönetim paneli** (`/sube`, `/admin`): `templates/zone.php` +
+  `assets/js/students-panel.js`, `seviye/v1/students`'a bağlı gerçek
+  liste/oluştur/düzenle ve veli bağlama arayüzü. Şube kapsaması sunucu
+  tarafında zaten yapıldığından (`Şube Müdürü` yalnızca kendi şubesini
+  görür), aynı ekran her iki bölgede de kullanılır. `scp_manage_students`
+  yetkisi olmayan şube rolleri (Muhasebe, Depo, Satış Danışmanı, Rehberlik)
+  için dürüst bir "içerik henüz yok" mesajı gösterilir.
+- **Veli ana sayfası** (`/`): `templates/parent-dashboard.php` +
+  `assets/js/parent-dashboard.js` — kendi öğrencileri (salt okunur,
+  `seviye/v1/students/mine`) ve profil formu (`seviye/v1/parents/me`,
+  telefon/bildirim tercihi/KVKK onayı).
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
-- Gerçek şube/öğrenci/sipariş panel içerikleri (`/sube`, `/admin` şu an
-  minimal, dürüst bir "hoş geldiniz" ekranı gösterir — sahte veri/placeholder
-  bileşen içermez).
+- Şube yönetim ekranı (`/admin`'de "Şubeler" listesi/formu — `seviye/v1/branches`
+  REST'i hazır, tema henüz bağlanmadı).
+- Sipariş/finans panel içerikleri.
 - WooCommerce mağaza görünümü (Seviye Commerce modülü kurulduğunda).
 
 Tema, diğer tüm bileşenler gibi yalnızca Seviye Core'un (ve ilgili modüllerin)

@@ -1,0 +1,154 @@
+/*
+ * Shared styling for authenticated panel screens (students management,
+ * Veli dashboard). Reuses the color variables theme.css defines on :root -
+ * this file only adds component styles on top.
+ */
+
+.scp-card {
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.scp-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.scp-card__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.scp-status {
+  min-height: 1.25em;
+  font-size: 0.875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-status--error {
+  color: #b91c1c;
+}
+
+.scp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.scp-table th,
+.scp-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+}
+
+.scp-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-form {
+  margin-top: 16px;
+}
+
+.scp-form[hidden] {
+  display: none;
+}
+
+.scp-form--inline {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scp-form__row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.scp-form label {
+  display: block;
+  margin-bottom: 12px;
+  flex: 1;
+  min-width: 160px;
+}
+
+.scp-form label[hidden] {
+  display: none;
+}
+
+.scp-form label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--scp-text-muted);
+}
+
+.scp-form input,
+.scp-form select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--scp-text);
+  background: transparent;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+}
+
+.scp-form__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scp-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-btn {
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #fff;
+  background: var(--scp-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.scp-btn--ghost {
+  color: var(--scp-primary);
+  background: transparent;
+  border: 1px solid var(--scp-border);
+}
+
+.scp-btn--small {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}

@@ -3,8 +3,8 @@
 /**
  * Generic fallback template. WooCommerce (Seviye Commerce, once built)
  * supplies its own archive/product templates via the template hierarchy;
- * this file only needs to handle the case where there is genuinely no
- * WooCommerce/content yet, or a plain Page/Post is being viewed.
+ * until then, a Veli landing here sees their own dashboard (children +
+ * profile) instead of an empty store.
  */
 
 declare(strict_types=1);
@@ -14,6 +14,14 @@ if (!defined('ABSPATH')) {
 }
 
 get_header();
+
+if (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile')) {
+    include SCP_THEME_DIR . '/templates/parent-dashboard.php';
+    get_footer();
+
+    return;
+}
+
 ?>
 <div class="scp-panel">
     <?php if (have_posts()) : ?>

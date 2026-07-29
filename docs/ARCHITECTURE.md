@@ -207,16 +207,60 @@ yalnızca çağırır.
   `zones.php`'nin şablonuyla render edilir. Önceliklerin bu sırası kasıtlıdır
   — tersi olsaydı bir Veli, `/admin` içeriğini yönlendirilmeden önce bir an
   için görebilirdi.
-- **`/sube` ve `/admin` içeriği**: şu an için gerçek panel verisi yok
-  (Branches/Students/Commerce henüz kurulmadı); `templates/zone.php`
-  kullanıcıya dürüst, asgari bir "hoş geldiniz" ekranı gösterir — sahte veri
-  veya kırık bağlantılar içeren bir sahte pano (placeholder dashboard)
-  **değildir**.
+- **`/sube` ve `/admin` içeriği**: `templates/zone.php`, Students kurulduktan
+  sonra artık gerçek bir öğrenci yönetim panelidir (bkz. aşağıda) —
+  `scp_manage_students` yetkisi olmayan şube rolleri (Muhasebe, Depo, Satış
+  Danışmanı, Rehberlik) için hâlâ dürüst, asgari bir "bu panelin içeriği
+  ilgili modüller geliştirildikçe burada yer alacak" mesajı gösterilir; asla
+  kırık/sahte bir form değildir.
 - **Giriş ekranı JS'i** (`assets/js/auth.js`): build adımı olmayan, saf
   `fetch()` tabanlı bir dosya; `Seviye Security`'nin `seviye/v1/auth/*`
   uçlarını çağırır. Arayüz metinleri `wp_localize_script()` ile PHP'den
   `__()` üzerinden geçirilir (JS içinde hiçbir hard-coded Türkçe/İngilizce
   metin yoktur).
+
+### 9.1 Panel entegrasyonu (Students + Parents REST'ine bağlanma)
+
+`templates/zone.php` (öğrenci yönetimi, `/admin` + `/sube`) ve
+`templates/parent-dashboard.php` (Veli ana sayfası, `/`) `assets/js/students-panel.js`
+ve `assets/js/parent-dashboard.js` ile ilgili REST uçlarını çağırır.
+
+- **Nonce farkı**: Security'nin `seviye/v1/auth/*` uçları oturum açılmadan
+  ÖNCE çağrıldığı için nonce gerektirmiyordu (bkz. bölüm 6, Security). Bu
+  panel script'leri ise **zaten oturum açmış** bir kullanıcıdan çağrılır —
+  tarayıcıda bir auth cookie zaten vardır. WordPress'in kendi
+  `rest_cookie_check_errors()`'ı (çekirdek davranış, her REST isteğinde
+  otomatik devrede) cookie ile kimliği doğrulanmış her istekte geçerli bir
+  `X-WP-Nonce` header'ı ister; yoksa 403 döner. Bu yüzden
+  `inc/assets.php`'deki `scp_enqueue_panel_assets()`, bu script'lere
+  `wp_create_nonce('wp_rest')` ile üretilen bir nonce'u da localize eder —
+  Core/Security/Branches/Students/Parents controller'larının hiçbirinde
+  ayrıca nonce doğrulaması **yazılmaz**; bu tamamen WordPress çekirdeğinin
+  işidir.
+- **Tek panel, iki bölge**: `/admin` ve `/sube` aynı `students-panel.js`'i ve
+  aynı `zone.php` işaretlemesini paylaşır, çünkü `seviye/v1/students`
+  zaten sunucu tarafında kapsamı belirliyor (Genel Merkez/Bölge Müdürü tüm
+  şubeleri, Şube Müdürü yalnızca kendisini görür — bkz. bölüm 10). JS
+  yalnızca `scpPanel.canManageAllBranches` bayrağına göre bir şube seçici
+  gösterip göstermeyeceğine karar verir; kapsam mantığını asla
+  tekrarlamaz.
+- **Dürüst yetki kontrolü**: `/sube`'a inen her rol `scp_manage_students`
+  taşımaz (Muhasebe, Depo, Satış Danışmanı, Rehberlik taşımaz). `zone.php`
+  paneli render etmeden önce `current_user_can('scp_manage_students')`'i
+  PHP'de kontrol eder — aksi halde bu roller, gönderildiğinde 403 dönecek
+  işlevsiz bir form görürdü.
+- **Eksik uç nokta bulundu ve eklendi**: Veli bağlama arayüzü inşa
+  edilirken, bir öğrencinin bağlı velilerini listeleyen bir REST uç
+  noktasının hiç yazılmadığı ortaya çıktı (yalnızca bağla/kaldır vardı).
+  `StudentsRestController::listParents()` (`GET /students/{id}/parents`) bu
+  yüzden bu milestone'da eklendi — "yarım kod üretme" ilkesinin somut bir
+  uygulanışı.
+- **`/` (Veli)**: `index.php`, kullanıcı `scp_view_own_children` veya
+  `scp_manage_own_profile` taşıyorsa `templates/parent-dashboard.php`'yi
+  dahil eder (WooCommerce/Seviye Commerce henüz yok); aksi halde normal WP
+  Loop'a/placeholder mesajına düşer. Öğrenci listesi salt okunurdur —
+  Students verinin tek sahibi olmaya devam eder, tema onu asla
+  kopyalamaz/önbelleklemez.
 
 ### 9. Şube yönetimi (Seviye Branches)
 

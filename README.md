@@ -38,7 +38,7 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Branches | ✅ Şube entity, Yetkililer (personel ataması), Contracts, REST, RBAC kuruldu; logo yükleme planlandı |
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
-| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol bazlı `/`, `/sube`, `/admin` yönlendirmesi kuruldu; panel içerikleri ilgili modüllerle gelecek |
+| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`) ve Veli ana sayfası (kendi öğrencileri + profil) kuruldu; şube/sipariş/finans panelleri planlandı |
 | Seviye Pricing, Commerce, Finance, Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -87,8 +87,8 @@ aktivasyonu yalnızca Core'u doğrular ve kendi migration'unu
 > statik kod standardı (PHPCS) ve tüm birim testleri doğrulandı, ancak canlı
 > bir WordPress + MySQL ortamında tarayıcıda görsel olarak test edilmedi.
 > Yayına almadan önce gerçek bir WordPress kurulumunda uçtan uca (giriş,
-> şifremi unuttum, ilk şifre oluştur, rol yönlendirmesi) test edilmesi
-> önerilir.
+> şifremi unuttum, ilk şifre oluştur, rol yönlendirmesi, `/sube`/`/admin`
+> öğrenci paneli, Veli ana sayfası) test edilmesi önerilir.
 
 ## Test
 
