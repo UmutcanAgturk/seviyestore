@@ -33,6 +33,15 @@ Kurulu olan kapsam:
   Yalnızca `scp_manage_branches` yetkisi olan roller (Genel Merkez, Bölge
   Müdürü) görür; `inc/zones.php`'deki `scp_current_zone()` yardımcısıyla
   bölge açıkça `admin` olarak doğrulanır.
+- **Fiyat kuralları paneli** (`/sube` VE `/admin`): `templates/zone.php`'ye
+  eklenen "Fiyat Kuralları" bölümü + `assets/js/pricing-panel.js`,
+  `seviye/v1/pricing/rules`'a bağlı gerçek liste/oluştur/düzenle/sil
+  arayüzü. `scp_manage_pricing` Şube Müdürü'ne de verildiğinden (Branches'ın
+  aksine), panel her iki bölgede de görünür; henüz bir ürün kataloğu
+  olmadığından kurallar bir ürün ID'si girilerek aranır. Şube-kapsamlı
+  roller "Genel" kapsam seçeneğini görmez ve BRANCH kapsamlı bir kural
+  oluştururken kendi şube ID'lerini girmeleri gerekmez (sunucu otomatik
+  olarak kendi şubelerine sabitler).
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 

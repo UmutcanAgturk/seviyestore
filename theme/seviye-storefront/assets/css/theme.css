@@ -13,6 +13,7 @@
   --scp-text-muted: #5b6270;
   --scp-border: #dde1e7;
   --scp-primary: #1d4ed8;
+  --scp-danger: #b91c1c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +24,7 @@
     --scp-text-muted: #9aa1ac;
     --scp-border: #2c313a;
     --scp-primary: #5b8def;
+    --scp-danger: #f87171;
   }
 }
 

@@ -48,6 +48,13 @@ function scp_enqueue_panel_assets(): void
         'parentLinked' => __('Veli bağlandı.', 'seviye-storefront'),
         'profileSaved' => __('Profiliniz güncellendi.', 'seviye-storefront'),
         'noChildren' => __('Sisteme bağlı bir öğrenci bulunamadı.', 'seviye-storefront'),
+        'scopeGeneral' => __('Genel', 'seviye-storefront'),
+        'scopeBranch' => __('Şube', 'seviye-storefront'),
+        'scopeStudent' => __('Öğrenci', 'seviye-storefront'),
+        'branchIdLabel' => __('Şube ID', 'seviye-storefront'),
+        'studentIdLabel' => __('Öğrenci ID', 'seviye-storefront'),
+        'confirmDeletePriceRule' => __('Bu fiyat kuralını silmek istediğinize emin misiniz?', 'seviye-storefront'),
+        'priceRuleDeleted' => __('Fiyat kuralı silindi.', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
@@ -63,6 +70,15 @@ function scp_enqueue_panel_assets(): void
         $handle = 'scp-branches-panel';
         wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/branches-panel.js', [], SCP_THEME_VERSION, true);
         wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_pricing')) {
+        $handle = 'scp-pricing-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/pricing-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageAllBranches' => current_user_can('scp_manage_branches'),
+        ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 

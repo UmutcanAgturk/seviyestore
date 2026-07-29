@@ -96,10 +96,18 @@ final class PricingRestController extends AbstractRestController
     public function store(WP_REST_Request $request): WP_REST_Response
     {
         $productId = (int) $request->get_param('product_id');
-        $scope = $this->parseScope($request);
+        $scopeType = PriceScopeType::tryFrom((string) $request->get_param('scope'));
 
-        if ($productId <= 0 || $scope === null) {
+        if ($productId <= 0 || $scopeType === null) {
             return new WP_REST_Response(['message' => __('Geçersiz ürün veya fiyat kapsamı.', 'seviye-pricing')], 422);
+        }
+
+        $scope = $this->resolveScopeForWrite($scopeType, $request);
+
+        if ($scope === null) {
+            $message = __('Geçersiz şube veya öğrenci kimliği.', 'seviye-pricing');
+
+            return new WP_REST_Response(['message' => $message], 422);
         }
 
         if (!$this->canWriteScope($scope)) {
@@ -185,12 +193,20 @@ final class PricingRestController extends AbstractRestController
         return $this->canWriteScope($rule->scope);
     }
 
-    private function parseScope(WP_REST_Request $request): ?PriceScope
+    /**
+     * Branch-scoped staff (Şube Müdürü) always write BRANCH-scoped rules
+     * into their own branch, regardless of what the request body says (the
+     * only value canWriteScope() would ever accept from them anyway) -
+     * mirrors Students' resolveBranchIdForWrite(). HQ must supply a
+     * target_id for BRANCH/STUDENT scopes. Returns null on a missing or
+     * non-positive target_id where one is required.
+     */
+    private function resolveScopeForWrite(PriceScopeType $scopeType, WP_REST_Request $request): ?PriceScope
     {
-        $scopeType = PriceScopeType::tryFrom((string) $request->get_param('scope'));
+        $ownBranchId = $this->currentUserBranchId();
 
-        if ($scopeType === null) {
-            return null;
+        if ($scopeType === PriceScopeType::BRANCH && $ownBranchId !== null) {
+            return PriceScope::forBranch($ownBranchId);
         }
 
         try {

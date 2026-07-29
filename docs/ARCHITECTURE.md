@@ -336,12 +336,13 @@ olarak bir cross-module bağımlılık biriktirmeyeceğinin bir kanıtı.
   kontrolünün ötesinde ayrıca bir sahiplik kontrolüne gerek yoktur.
 - REST: `GET/PUT seviye/v1/parents/me`.
 
-### 12. Panel entegrasyonu (Students + Parents + Branches REST'ine bağlanma)
+### 12. Panel entegrasyonu (Students + Parents + Branches + Pricing REST'ine bağlanma)
 
-`templates/zone.php` (öğrenci yönetimi + şube yönetimi, `/admin` + `/sube`)
-ve `templates/parent-dashboard.php` (Veli ana sayfası, `/`) sırasıyla
-`assets/js/students-panel.js`, `assets/js/branches-panel.js` ve
-`assets/js/parent-dashboard.js` ile ilgili REST uçlarını çağırır.
+`templates/zone.php` (öğrenci + şube + fiyat kuralları yönetimi, `/admin` +
+`/sube`) ve `templates/parent-dashboard.php` (Veli ana sayfası, `/`)
+sırasıyla `assets/js/students-panel.js`, `assets/js/branches-panel.js`,
+`assets/js/pricing-panel.js` ve `assets/js/parent-dashboard.js` ile ilgili
+REST uçlarını çağırır.
 
 - **Nonce farkı**: Security'nin `seviye/v1/auth/*` uçları oturum açılmadan
   ÖNCE çağrıldığı için nonce gerektirmiyordu (bkz. bölüm 6, Security). Bu
@@ -399,6 +400,33 @@ ve `templates/parent-dashboard.php` (Veli ana sayfası, `/`) sırasıyla
   formunda gösterilir (yeni şube her zaman `active` olarak oluşturulur,
   Branches modülünün kendi varsayılanıyla) — `students-panel.js`'in "yeni
   öğrenci" akışının aynı deseni.
+- **Fiyat kuralları paneli** (`/admin` VE `/sube`): Şube yönetiminin aksine
+  `pricing-panel.js` **her iki bölgede de** render edilir, çünkü
+  `scp_manage_branches`'ın tersine `scp_manage_pricing` Şube Müdürü'ne de
+  verilir (bkz. bölüm 13). Henüz bir ürün kataloğu olmadığından (Seviye
+  Commerce/WooCommerce entegrasyonu planlı), panel bir ürün seçici değil,
+  düz sayısal bir "Ürün ID" alanıyla kuralları arar — `students-panel.js`'in
+  "Veli Kullanıcı ID" girişiyle aynı dürüst desen: gerçek bir arama/seçim
+  arayüzü olmadığında ham ID istemek, sahte bir seçici kurmaktan daha
+  doğrudur. `scpPanel.canManageAllBranches` (Branches panelinin
+  `students-panel.js`'te kullandığı bayrağın aynısı) formdan "Genel" kapsam
+  seçeneğini tamamen kaldırır ve BRANCH kapsamı için hedef alanını
+  gizler — sunucu zaten `PricingRestController::resolveScopeForWrite()` ile
+  şube-kapsamlı yazarların BRANCH hedefini kendi şubelerine sabitliyor
+  (aşağıdaki madde), JS bunu tekrarlamaz, yalnızca gereksiz bir girişi
+  gizler.
+- **Panel inşa edilirken bulunan ve düzeltilen sunucu tarafı sorun**:
+  `pricing-panel.js` yazılırken, bir Şube Müdürü'nün BRANCH kapsamlı bir
+  kural oluştururken kendi şube ID'sini ezbere girmesi gerektiği ortaya
+  çıktı — REST `store()` yalnızca gönderilen `target_id`'yi doğruluyordu,
+  Students'ın `resolveBranchIdForWrite()`'ının aksine otomatik
+  ikame etmiyordu. Bu, `PricingRestController::resolveScopeForWrite()`
+  eklenerek düzeltildi: şube-kapsamlı bir yazar için BRANCH kapsamı her
+  zaman `request`'te ne gönderilirse gönderilsin kendi şubesine sabitlenir
+  (`canWriteScope()`'un zaten kabul edeceği tek değer). Bu, panel arayüzünü
+  inşa etmenin sunucu tarafında gerçek, önceden fark edilmemiş bir kullanım
+  kusuru ortaya çıkardığı bir başka örnek — bkz. yukarıdaki "Eksik uç nokta"
+  maddesi, Students'taki aynı desen.
 
 ### 13. Fiyatlandırma motoru (Seviye Pricing)
 

@@ -17,6 +17,13 @@
  * scp_manage_branches is granted only to Genel Merkez/Bölge Müdürü, who are
  * the only roles that ever land in the admin zone, but the explicit check
  * keeps this page correct even if that role/zone mapping ever changes.
+ *
+ * The price rules section, unlike branches, appears in BOTH zones: unlike
+ * scp_manage_branches, scp_manage_pricing is also granted to Şube Müdürü
+ * (who lands in /sube, not /admin) - see
+ * Seviye\Pricing\Http\PricingRestController::canWriteScope(). It requires a
+ * product id to look up (no product catalog exists yet - Seviye
+ * Commerce/WooCommerce integration is still planned).
  */
 
 declare(strict_types=1);
@@ -201,6 +208,89 @@ get_header();
                     </button>
                 </div>
             </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_manage_pricing')) : ?>
+        <section class="scp-card" id="scp-pricing-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Fiyat Kuralları', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <form class="scp-form scp-form--inline" data-scp-price-lookup-form>
+                <label>
+                    <span><?php esc_html_e('Ürün ID', 'seviye-storefront'); ?></span>
+                    <input type="number" min="1" name="product_id" required>
+                </label>
+                <button type="submit" class="scp-btn"><?php esc_html_e('Fiyatları Getir', 'seviye-storefront'); ?></button>
+            </form>
+
+            <p class="scp-status" data-scp-pricing-status></p>
+
+            <div data-scp-price-rules-results hidden>
+                <div class="scp-card__header">
+                    <span></span>
+                    <button type="button" class="scp-btn" data-scp-new-price-rule>
+                        <?php esc_html_e('Yeni Kural', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Kapsam', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Hedef', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-price-rules-body></tbody>
+                </table>
+
+                <form class="scp-form" data-scp-price-rule-form hidden>
+                    <input type="hidden" name="id">
+
+                    <div class="scp-form__row">
+                        <label data-scp-price-scope-field>
+                            <span><?php esc_html_e('Kapsam', 'seviye-storefront'); ?></span>
+                            <select name="scope">
+                                <option value="general" data-scp-scope-general><?php esc_html_e('Genel', 'seviye-storefront'); ?></option>
+                                <option value="branch"><?php esc_html_e('Şube', 'seviye-storefront'); ?></option>
+                                <option value="student"><?php esc_html_e('Öğrenci', 'seviye-storefront'); ?></option>
+                            </select>
+                        </label>
+                        <label data-scp-price-target-field hidden>
+                            <span data-scp-price-target-label></span>
+                            <input type="number" min="1" name="target_id">
+                        </label>
+                    </div>
+
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></span>
+                            <input type="number" min="0" step="0.01" name="price" required>
+                        </label>
+                        <label data-scp-price-status-field hidden>
+                            <span><?php esc_html_e('Durum', 'seviye-storefront'); ?></span>
+                            <select name="status">
+                                <option value="active"><?php esc_html_e('Aktif', 'seviye-storefront'); ?></option>
+                                <option value="inactive"><?php esc_html_e('Pasif', 'seviye-storefront'); ?></option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                        <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-price-rule>
+                            <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                        </button>
+                        <button type="button" class="scp-btn scp-btn--danger" data-scp-delete-price-rule hidden>
+                            <?php esc_html_e('Sil', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </section>
     <?php endif; ?>
 </div>

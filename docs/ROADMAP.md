@@ -28,7 +28,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/sube` ve `/admin` panelleri: öğrenci listesi/formu, veli bağlama | **Kuruldu** — `seviye/v1/students`'a bağlı, gerçek CRUD ekranı |
 | `/admin`'de şube yönetimi (liste/oluştur/düzenle) | **Kuruldu** — `seviye/v1/branches`'a bağlı, gerçek CRUD ekranı |
 | `/` (Veli ana sayfası): kendi öğrencileri (salt okunur liste) + profil formu | **Kuruldu** — `seviye/v1/students/mine` ve `seviye/v1/parents/me`'ye bağlı |
-| `/admin`'de fiyat kuralları yönetim ekranı | Planlandı — `seviye/v1/pricing/rules` REST'i hazır, tema henüz bağlanmadı |
+| `/admin` ve `/sube`'de fiyat kuralları yönetim ekranı | **Kuruldu** — `seviye/v1/pricing/rules`'a bağlı, gerçek CRUD ekranı |
 | Sipariş/finans panel içeriği | Planlandı (Seviye Commerce/Finance'ın sorumluluğu) |
 | E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
 | WooCommerce mağaza görünümü (Veli ana sayfası) | Planlandı (Seviye Commerce'in sorumluluğu) |
@@ -44,7 +44,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 7. ~~Tema: `/sube`/`/admin` öğrenci paneli + veli ana sayfası (kendi öğrencileri + profil), gerçek REST'e bağlı~~ ✅
 8. ~~Tema: `/admin`'de şube yönetimi ekranı (liste/oluştur/düzenle), `seviye/v1/branches`'a bağlı~~ ✅
 9. ~~Seviye Pricing (fiyat motoru: öğrenci/şube/genel kural CRUD'u + `PriceResolverInterface`, henüz sipariş yok)~~ ✅
-10. Tema: `/admin`'de fiyat kuralları yönetim ekranı, `seviye/v1/pricing/rules`'a bağlı
+10. ~~Tema: `/admin` ve `/sube`'de fiyat kuralları yönetim ekranı, `seviye/v1/pricing/rules`'a bağlı~~ ✅
 11. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme, `PriceResolverInterface`'i tüketen ilk modül) — Veli ana sayfasına mağaza içeriğini kazandırır
 12. Seviye Finance + Seviye Reports
 13. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
