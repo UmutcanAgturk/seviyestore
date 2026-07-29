@@ -11,7 +11,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 2 | Seviye Students | Öğrenci entity (şube/eğitim yılı/sınıf), veli (WP kullanıcı) ile çoktan-çoğa ilişki, REST | ✅ **Kuruldu** (bu milestone) |
 | 3 | Seviye Parents | Veli'ye özgü profil alanları (telefon, bildirim tercihi, KVKK onayı), REST | ✅ **Kuruldu** (bu milestone) |
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
-| 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→bölge→genel→WC varsayılan önceliği) | Planlandı |
+| 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→genel→WC varsayılan önceliği; "bölge" katmanı Branches'ta resmi bir Region entity'si olmadığından bu milestone'da bilinçli olarak ayrı bir katman değil — bkz. `docs/ARCHITECTURE.md` bölüm 13), Contracts (`PriceResolverInterface`), REST | ✅ **Kuruldu** |
 | 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | Planlandı |
 | 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | Planlandı |
 | 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
@@ -28,6 +28,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/sube` ve `/admin` panelleri: öğrenci listesi/formu, veli bağlama | **Kuruldu** — `seviye/v1/students`'a bağlı, gerçek CRUD ekranı |
 | `/admin`'de şube yönetimi (liste/oluştur/düzenle) | **Kuruldu** — `seviye/v1/branches`'a bağlı, gerçek CRUD ekranı |
 | `/` (Veli ana sayfası): kendi öğrencileri (salt okunur liste) + profil formu | **Kuruldu** — `seviye/v1/students/mine` ve `seviye/v1/parents/me`'ye bağlı |
+| `/admin`'de fiyat kuralları yönetim ekranı | Planlandı — `seviye/v1/pricing/rules` REST'i hazır, tema henüz bağlanmadı |
 | Sipariş/finans panel içeriği | Planlandı (Seviye Commerce/Finance'ın sorumluluğu) |
 | E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
 | WooCommerce mağaza görünümü (Veli ana sayfası) | Planlandı (Seviye Commerce'in sorumluluğu) |
@@ -42,10 +43,11 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 6. ~~Seviye Parents (veli'ye özgü profil alanları, REST, RBAC — Core-only, Contracts'a ihtiyaç duymayan ilk modül)~~ ✅
 7. ~~Tema: `/sube`/`/admin` öğrenci paneli + veli ana sayfası (kendi öğrencileri + profil), gerçek REST'e bağlı~~ ✅
 8. ~~Tema: `/admin`'de şube yönetimi ekranı (liste/oluştur/düzenle), `seviye/v1/branches`'a bağlı~~ ✅
-9. Seviye Pricing (fiyat motoru, henüz sipariş yok)
-10. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme) — Veli ana sayfasına mağaza içeriğini kazandırır
-11. Seviye Finance + Seviye Reports
-12. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
+9. ~~Seviye Pricing (fiyat motoru: öğrenci/şube/genel kural CRUD'u + `PriceResolverInterface`, henüz sipariş yok)~~ ✅
+10. Tema: `/admin`'de fiyat kuralları yönetim ekranı, `seviye/v1/pricing/rules`'a bağlı
+11. Seviye Commerce (WooCommerce entegrasyonu, sipariş akışı, hakediş tetikleme, `PriceResolverInterface`'i tüketen ilk modül) — Veli ana sayfasına mağaza içeriğini kazandırır
+12. Seviye Finance + Seviye Reports
+13. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

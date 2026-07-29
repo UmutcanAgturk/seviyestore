@@ -400,6 +400,89 @@ ve `templates/parent-dashboard.php` (Veli ana sayfası, `/`) sırasıyla
   Branches modülünün kendi varsayılanıyla) — `students-panel.js`'in "yeni
   öğrenci" akışının aynı deseni.
 
+### 13. Fiyatlandırma motoru (Seviye Pricing)
+
+WooCommerce'in kendi fiyat/kupon sistemini genişletmek yerine tamamen özel
+bir motor — spesifikasyonun kendisinin istediği tercih, çünkü
+şube/öğrenci/genel önceliklendirmesi WC'nin fiyat modeline temiz şekilde
+oturmuyor. Aynı anda hem Branches'ın hem Students'ın Contracts'ına bağımlı
+olan ilk modül — `seviye/pricing` composer paketi `seviye/core`,
+`seviye/branches` ve `seviye/students`'a `path` bağımlılığıdır.
+
+- `Domain\PriceScope`: bir kuralın hedefi — self-validating, Branches'ın
+  Iban/CommissionRate'inin kurduğu desenin devamı. Yalnızca üç adlandırılmış
+  kurucu (`general()`, `forBranch()`, `forStudent()`) mevcuttur, bu yüzden
+  `type` ile `branchId`/`studentId` arasında tutarsız bir kombinasyon asla
+  oluşamaz. `Domain\Money`: negatif olmayan, 2 ondalıklı TRY tutarı —
+  Finance'ın kuruş bazlı defter mantığı burada henüz gerekmediğinden
+  kasıtlı olarak asgari tutulmuştur (YAGNI).
+- **"Bölge" katmanı kasıtlı olarak eksik**: spesifikasyondaki öncelik
+  zinciri öğrenci→şube→**bölge**→genel→WC varsayılanı sayıyor, ama
+  platformda hiçbir yerde bir Region varlığı yok — Branches'ın RBAC'ı zaten
+  Bölge Müdürü'nü tam-HQ kapsamında ele alıyor (`scp_manage_branches`,
+  şube bölünmesi olmadan Genel Merkez ile paylaşılıyor, bkz. bölüm 9). Bu
+  yüzden ayrı, çözümlenebilir bir "bölge" katmanı için bağlanacak bir şube
+  grubu yok. Bu grupliği hiçbir modülün ihtiyaç duymadığı bir anda inşa
+  etmek spekülatif olurdu; `Contracts\PriceResolverInterface`'in imzası
+  (aşağıda) bu katmanı ileride, ihtiyaç doğduğunda, arayüzü değiştirmeden
+  eklemeye izin verecek şekilde tasarlandı — bkz. arayüzün kendi docblock'u.
+- `scp_price_rules.student_id` ve `.branch_id` her ikisi de nullable, gerçek
+  InnoDB FK'lı (`ON DELETE CASCADE` — silinen bir öğrenciye/şubeye bağlı bir
+  fiyat kuralının kalması anlamsız; bu, `scp_students.branch_id`'nin
+  kasıtlı `RESTRICT`'inden farklı bir risk sınıfı: tek bir kural satırının
+  kaybı, bir şubenin tüm öğrencilerinin sessizce silinmesiyle aynı
+  büyüklükte bir veri kaybı değil). `product_id`'nin FK'sı yok — bir
+  WooCommerce ürününe (`wp_posts.ID`) işaret eder, ve bu platform hiçbir
+  zaman WordPress çekirdek tablolarına FK koymaz.
+  **Aktif kural çakışması DB kısıtlamasıyla değil repository katmanında
+  önlenir**: MySQL'in unique index'leri NULL sütunları farklı kabul ettiği
+  için "(ürün, kapsam) başına en fazla bir aktif kural" kuralı temiz bir
+  composite UNIQUE ile ifade edilemiyor; bunun yerine
+  `PriceRuleRepositoryInterface::activeRuleExists()` yazma yolunda
+  (REST controller'ın `store()`'u) kontrol edilir ve çakışma 409 ile
+  reddedilir — Branches'ın `slugExists()` ön-kontrolüyle aynı disiplin.
+- `Contracts\PriceResolverInterface::resolve(productId, ?studentId,
+  ?branchId, fallbackPrice): ResolvedPrice`: motorun asıl teslimatı.
+  Öncelik: öğrenci kuralı > şube kuralı > genel kural > `$fallbackPrice`.
+  `$fallbackPrice` çağıran tarafından verilir (WooCommerce'in kendi ürün
+  fiyatı) — Pricing'i WooCommerce'in kurulu/aktif olmasından tamamen
+  ayrıştırır ve WordPress'siz birim testini mümkün kılar. `branchId`
+  verilmezse ama `studentId` verilmişse, şube Students'ın
+  `StudentLookupInterface`'inden türetilir — çağıranın aynı bilgiyi iki kez
+  vermesini gerektirmez. `ResolvedPrice.source` (`PriceSource` enum'u)
+  hangi katmanın kazandığını da döndürür — Commerce'in bir Veli'ye "neden bu
+  fiyatı görüyor" diye açıklayabilmesi için ucuz ve doğrudan faydalı bir
+  şeffaflık, spekülatif bir ekleme değil.
+- **WooCommerce filtre entegrasyonu bilinçli olarak bu milestone'da değil**:
+  `woocommerce_product_get_price` gibi filtrelere kancalanmak, hangi
+  öğrenci için fiyatlandığını bilmeyi gerektirir — bu bağlam yalnızca
+  sepete-ekleme anında, bir Veli'nin hangi çocuğu seçtiğine göre belli olur,
+  ki bu tamamen Seviye Commerce'in (henüz kurulmamış) sorumluluğudur.
+  Pricing bunu şimdiden varsaymak yerine yalnızca `PriceResolverInterface`'i
+  yayınlar; Commerce kurulduğunda bu Contract'ı doğrudan, REST üzerinden
+  değil in-process olarak (Students'ın Branches'ı tükettiği gibi) çağıracak.
+  Bu, önceki bir mimari notunun ("Seviye Pricing modülü bunu WooCommerce'in
+  filtrelerine entegre edecek") düzeltilmiş hâlidir — asıl kısıtın ne
+  olduğu bu modül inşa edilirken netleşti.
+- **REST'te `resolve` uç noktası yok**: `/pricing/resolve` gibi bir REST
+  uç noktasının bugün gerçek bir çağıranı yok (Commerce, kurulduğunda,
+  `PriceResolverInterface`'i in-process çağıracak, REST'e ihtiyaç duymadan).
+  Hiçbir çağıranı olmayan REST yüzeyi eklemek spekülatif olurdu; yalnızca
+  kural CRUD'u (`GET/POST /pricing/rules`, `PUT/DELETE /pricing/rules/{id}`)
+  REST'e açıktır — bunun gerçek bir çağıranı var: bu modülün yönetim ekranı
+  (tema paneli, ileride).
+- RBAC: `scp_manage_pricing` — Genel Merkez, Bölge Müdürü VE Şube Müdürü
+  aynı capability'yi taşır (Students'ın `scp_manage_students`'ıyla aynı
+  desen); kapsam farkı çalışma zamanında, `PricingRestController`'ın
+  Branches'ın `BranchMembershipInterface::branchIdForUser()`'ını sorup
+  sonuca göre karar vermesiyle uygulanır: HQ (null) her kapsamı
+  (GENERAL dahil) yazabilir; şube-kapsamlı roller yalnızca kendi
+  şubelerine ait BRANCH kurallarını ve kendi şubelerinin öğrencilerine ait
+  STUDENT kurallarını yazabilir, GENERAL asla yazamaz (platform geneli fiyat
+  yalnızca HQ'nun kararıdır). Listeleme (`index()`) ise GENERAL kuralları
+  şeffaflık için şube-kapsamlı rollere de gösterir — yalnızca *yazma*
+  GENERAL için engellidir.
+
 ## Tablo adlandırma kuralı
 
 `{$wpdb->prefix}scp_{entity}` — bkz. `database/README.md`. Bu, tek bir yerde
@@ -422,8 +505,12 @@ adını elle birleştirmemelidir.
 - **WooCommerce fiyat/kupon sistemini genişletmek yerine tamamen özel
   fiyatlandırma motoru** (spesifikasyonda zaten belirtilmiş): doğru tercih,
   çünkü şube/öğrenci/kardeş/burs önceliklendirmesi WC'nin fiyat modeline
-  temiz şekilde oturmuyor. Seviye Pricing modülü bunu WooCommerce'in
-  `woocommerce_product_get_price` filtrelerine son katmanda entegre edecek.
+  temiz şekilde oturmuyor. Seviye Pricing bunu artık kurdu (bkz. bölüm 13) —
+  `Contracts\PriceResolverInterface` yayınlıyor; WooCommerce'in
+  `woocommerce_product_get_price` filtrelerine kancalanmak ise Pricing'in
+  değil, Seviye Commerce'in sorumluluğu (yalnızca Commerce, sepete-ekleme
+  anında hangi öğrenci için fiyatlandığını bilir — bkz. bölüm 13'ün
+  gerekçesi).
 - **Doğrudan WP hook'ları yerine EventBus**: yukarıda 2. maddede açıklandı.
 - **FK kısıtlamaları**: WordPress çekirdek tabloları geleneksel olarak FK
   kullanmaz, ama `scp_*` tabloları InnoDB üzerinde gerçek FK kısıtlamalarıyla
