@@ -81,11 +81,19 @@ final class NotificationsModule implements ModuleInterface
 
         $container->get(MigrationRunner::class)->register(new CreateNotificationsTable());
 
-        $listener = new PasswordResetNotificationListener($container->get(NotificationDispatcherInterface::class));
-        $container->get(EventBusInterface::class)->listen(
-            'security.password_reset_requested',
-            [$listener, 'onPasswordResetRequested']
-        );
+        // Deferred to `init` (not resolved here in boot()): NotificationDispatcherInterface's
+        // factory resolves Parents' Contracts\ParentContactLookupInterface. Like
+        // Commerce's WooCommerce hooks (see CommerceModule::boot()), this module
+        // cannot rely on Parents' module having booted first - ModuleRegistry::bootAll()
+        // boots modules in plugin registration order, not dependency order. `init`
+        // always fires after every module's boot() has run.
+        add_action('init', static function () use ($container): void {
+            $listener = new PasswordResetNotificationListener($container->get(NotificationDispatcherInterface::class));
+            $container->get(EventBusInterface::class)->listen(
+                'security.password_reset_requested',
+                [$listener, 'onPasswordResetRequested']
+            );
+        });
 
         $container->get(RbacManager::class)->grantCapability(
             Role::GENEL_MERKEZ,
