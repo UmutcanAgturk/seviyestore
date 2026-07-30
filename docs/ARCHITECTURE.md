@@ -94,12 +94,27 @@ temanın kurulum sihirbazı "zaten etkin, adımı atla" desin, ikisi de aynı
 migration hiçbir zaman çalışmadan kalabilir. `Plugin::boot()`, tüm
 modüller `bootAll()` ile kendi migration'larını kaydettikten SONRA, her
 wp-admin sayfa yüklemesinde (`is_admin()`, storefront'ta değil)
-`MigrationRunner::run()`'ı da çağırır - `run()` zaten idempotent
-(`scp_migrations` tablosunda hangi versiyonların uygulandığını takip
-eder, zaten uygulanmışsa no-op), bu yüzden her istekte çalıştırmak
-güvenli ve ucuz; sonuç, hangi yoldan güncellenirse güncellensin (fresh
-aktivasyon veya zip değiştirme), şema bir sonraki wp-admin ziyaretinde
-kendiliğinden güncel hale gelir.
+`MigrationRunner::run()`'ı da çağırır; sonuç, hangi yoldan güncellenirse
+güncellensin (fresh aktivasyon veya zip değiştirme), şema bir sonraki
+wp-admin ziyaretinde kendiliğinden güncel hale gelir.
+
+**`MigrationRunner::run()` artık "zaten uygulandı" kaydını bir GATE olarak
+kullanmıyor** - bu satırlar canlıda gerçekten yaşandı: `dbDelta()` (bu
+kod tabanındaki HER migration'ın `up()`'ının tek mekanizması) başarısız
+olduğunda asla exception fırlatmaz; eski `run()` bir migration'ı
+`scp_migrations`'a "uygulandı" olarak kaydettikten sonra bir daha ASLA
+tekrar denemiyordu - `dbDelta()` ilk seferinde sessizce hiçbir şey
+yaratmamış olsa bile. Sonuç: `scp_user_identities` tablosu hiç
+oluşmamışken kayıtlarda "uygulandı" görünüyordu, ve her yeni
+`MigrationRunner::run()` çağrısı (aktivasyonda da, yeni eklenen
+wp-admin-sayfa-başı otomatik çalıştırmada da) bunu sessizce atlıyordu -
+tablo asla kendiliğinden iyileşemiyordu. Düzeltme: `run()` artık HER
+kayıtlı migration'ın `up()`'ını HER çağrıda çalıştırır (dbDelta zaten
+idempotent - şemayı canlı durumla kıyaslar, yalnızca eksik olanı
+uygular); `scp_migrations` yalnızca "ilk ne zaman uygulandı" bilgisini
+tutan bir denetim kaydı olarak kalıyor, bir daha çalıştırmayı engelleyen
+bir kapı değil. Bu sayede kaybolmuş ya da hiç oluşmamış bir tablo, bir
+sonraki `run()` çağrısında kendiliğinden onarılıyor.
 
 ## Neden bu tasarım
 

@@ -29,8 +29,15 @@ final class MigrationRunnerTest extends TestCase
         self::assertCount(2, $connection->inserted);
     }
 
-    public function testRunSkipsAlreadyAppliedMigrations(): void
+    public function testRunReExecutesAlreadyAppliedMigrationsButDoesNotRecordAgain(): void
     {
+        // up() is dbDelta() everywhere in this codebase, itself idempotent -
+        // re-running an already-applied migration on every call is what
+        // self-heals a table lost or never actually created despite being
+        // recorded as applied (dbDelta never throws on failure). Only the
+        // scp_migrations bookkeeping (the audit-log insert, and the
+        // "newly applied" return value) is skipped for a version already on
+        // record.
         $connection = new FakeConnection();
         $connection->resultsToReturn = [
             ['version' => '2026_01_01'],
@@ -44,7 +51,7 @@ final class MigrationRunnerTest extends TestCase
         $executed = $runner->run();
 
         self::assertSame([], $executed);
-        self::assertSame([], $order);
+        self::assertSame(['2026_01_01'], $order);
         self::assertCount(0, $connection->inserted);
     }
 

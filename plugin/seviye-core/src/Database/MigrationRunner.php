@@ -7,13 +7,24 @@ namespace Seviye\Core\Database;
 use Psr\Log\LoggerInterface;
 
 /**
- * Tracks and executes registered migrations exactly once, in version order.
+ * Executes every registered migration, in version order, on every call -
+ * safe because every migration's up() in this codebase is a dbDelta() CREATE
+ * TABLE statement, and dbDelta() is itself idempotent (diffs against the
+ * live schema, only applies what's actually missing). scp_migrations is
+ * still kept, but purely as a first-applied audit log, not a gate: dbDelta()
+ * never throws on failure, so a version that failed to create anything
+ * (a MySQL privilege issue, a transient error, ...) could previously get
+ * permanently marked "applied" by a naive run-once tracker, silently
+ * leaving its table missing forever after. Always re-invoking up() means a
+ * table lost or never actually created self-heals on the very next call
+ * instead.
  *
  * Each Seviye module owns its own MigrationRunner usage: it registers its
  * migrations against the shared runner instance (resolved from Core's
- * container) during its own plugin activation. Rollback (down()) is defined
- * per-migration but not yet orchestrated here - see docs/ARCHITECTURE.md for
- * the planned CLI-driven rollback workflow.
+ * container) during its own plugin activation, and again on every wp-admin
+ * page load via Plugin::boot() (see docs/ARCHITECTURE.md, "Üçüncü kural").
+ * Rollback (down()) is defined per-migration but not yet orchestrated here -
+ * see docs/ARCHITECTURE.md for the planned CLI-driven rollback workflow.
  */
 final class MigrationRunner
 {
@@ -32,9 +43,11 @@ final class MigrationRunner
     }
 
     /**
-     * Executes every registered migration that has not yet run, in version order.
+     * Re-applies every registered migration's up() (dbDelta - idempotent,
+     * see class docblock) and records first-time applications in
+     * scp_migrations for audit purposes.
      *
-     * @return list<string> Versions executed during this call.
+     * @return list<string> Versions applied for the first time during this call.
      */
     public function run(): array
     {
@@ -47,11 +60,12 @@ final class MigrationRunner
         ksort($migrations);
 
         foreach ($migrations as $version => $migration) {
+            $migration->up($this->connection);
+
             if (in_array($version, $applied, true)) {
                 continue;
             }
 
-            $migration->up($this->connection);
             $this->recordMigration($migration);
             $executed[] = $version;
 
