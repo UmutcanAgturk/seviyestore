@@ -1,8 +1,14 @@
 /**
- * Login screen behaviour: view switching between login / forgot-password /
- * first-password / set-password, and talking to Seviye Security's
- * seviye/v1/auth/* REST endpoints. No framework/build step - this is a
- * single, small, self-contained screen.
+ * Login screen behaviour: view switching between login / 2fa /
+ * forgot-password / first-password / set-password, and talking to Seviye
+ * Security's seviye/v1/auth/* REST endpoints. No framework/build step -
+ * this is a single, small, self-contained screen.
+ *
+ * The 2fa view only ever appears as a redirect from a successful `login`
+ * call whose response carries `requires_2fa: true` - a password match
+ * alone never sets the auth cookie for an account with 2FA enabled (see
+ * Seviye\Security\Http\AuthRestController::login()). Its pending_token
+ * hidden field is populated from that response, not typed by the user.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
  *   scpAuth     { restUrl, token }
@@ -66,6 +72,12 @@
         }
         if (view === 'login') {
             return scpAuthText.invalidCredentials;
+        }
+        if (view === '2fa' && result.data && result.data.reason === 'invalid_token') {
+            return scpAuthText.twoFactorSessionExpired;
+        }
+        if (view === '2fa') {
+            return scpAuthText.invalidCode;
         }
         if (view === 'set-password' && result.data && result.data.reason === 'weak_password') {
             return scpAuthText.weakPassword;
@@ -133,6 +145,31 @@
                 tc_no: form.tc_no.value.trim(),
                 password: form.password.value,
                 remember: form.remember ? form.remember.checked : false
+            };
+        },
+        function (data) {
+            if (data.requires_2fa) {
+                var pendingField = views['2fa'] && views['2fa'].pending_token;
+
+                if (pendingField) {
+                    pendingField.value = data.pending_token;
+                }
+
+                showView('2fa');
+                return;
+            }
+
+            window.location.href = data.redirect_url || '/';
+        }
+    );
+
+    bindForm(
+        '2fa',
+        'login/2fa',
+        function (form) {
+            return {
+                pending_token: form.pending_token.value,
+                code: form.code.value.trim()
             };
         },
         function (data) {

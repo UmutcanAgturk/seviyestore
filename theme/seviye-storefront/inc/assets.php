@@ -62,6 +62,10 @@ function scp_enqueue_panel_assets(): void
         'methodOther' => __('Diğer', 'seviye-storefront'),
         'settlementRecorded' => __('Tahsilat kaydedildi.', 'seviye-storefront'),
         'noSettlements' => __('Henüz tahsilat kaydı yok.', 'seviye-storefront'),
+        'twoFactorEnabled' => __('İki adımlı doğrulama etkinleştirildi.', 'seviye-storefront'),
+        'twoFactorDisabled' => __('İki adımlı doğrulama devre dışı bırakıldı.', 'seviye-storefront'),
+        'twoFactorInvalidCode' => __('Kod hatalı. Lütfen tekrar deneyin.', 'seviye-storefront'),
+        'twoFactorWrongPassword' => __('Şifre hatalı.', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
@@ -110,6 +114,20 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
+    // Every logged-in user manages their own account's 2FA, in every zone -
+    // unlike every other script above, this one is never capability-gated.
+    $handle = 'scp-account-security';
+    wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/account-security.js', [], SCP_THEME_VERSION, true);
+    wp_localize_script($handle, 'scpPanel', $localized);
+    wp_localize_script($handle, 'scpPanelText', $text);
+
+    if ($zone === 'admin' && current_user_can('scp_manage_security_settings')) {
+        $handle = 'scp-ip-allowlist-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/ip-allowlist-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
     if (function_exists('is_product') && is_product() && current_user_can('scp_view_own_children')) {
         $handle = 'scp-product-student-picker';
         wp_enqueue_script(
@@ -144,6 +162,8 @@ function scp_enqueue_auth_assets(): void
         'passwordMismatch' => __('Şifreler eşleşmiyor.', 'seviye-storefront'),
         'resetLinkSent' => __('T.C. Kimlik No sistemde kayıtlıysa, bağlantı gönderildi.', 'seviye-storefront'),
         'passwordSet' => __('Şifreniz oluşturuldu. Giriş ekranına yönlendiriliyorsunuz...', 'seviye-storefront'),
+        'invalidCode' => __('Kod hatalı.', 'seviye-storefront'),
+        'twoFactorSessionExpired' => __('Doğrulama süresi doldu, lütfen tekrar giriş yapın.', 'seviye-storefront'),
     ]);
 }
 

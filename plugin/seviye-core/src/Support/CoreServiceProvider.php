@@ -23,6 +23,8 @@ use Seviye\Core\Rbac\RoleGatewayInterface;
 use Seviye\Core\Rbac\RoleRegistrar;
 use Seviye\Core\Rbac\WpRoleGateway;
 use Seviye\Core\Security\RateLimiter;
+use Seviye\Core\Settings\SettingsRepositoryInterface;
+use Seviye\Core\Settings\WpdbSettingsRepository;
 
 /**
  * Binds every Core service into the container and registers Core's own
@@ -70,6 +72,13 @@ final class CoreServiceProvider
         );
 
         $container->singleton(RestApiRegistrar::class, static fn (): RestApiRegistrar => new RestApiRegistrar());
+
+        $container->singleton(
+            SettingsRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbSettingsRepository => new WpdbSettingsRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
 
         $container->singleton(ModuleRegistry::class, static fn (): ModuleRegistry => new ModuleRegistry());
 

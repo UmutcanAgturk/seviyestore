@@ -60,6 +60,23 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
             </div>
         </form>
 
+        <form class="scp-auth-form" data-scp-view="2fa" hidden>
+            <p class="scp-auth-hint"><?php esc_html_e('Kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.', 'seviye-storefront'); ?></p>
+
+            <input type="hidden" name="pending_token">
+
+            <label class="scp-auth-field">
+                <span><?php esc_html_e('Doğrulama Kodu', 'seviye-storefront'); ?></span>
+                <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+            </label>
+
+            <button type="submit" class="scp-auth-submit"><?php esc_html_e('Doğrula', 'seviye-storefront'); ?></button>
+
+            <div class="scp-auth-links">
+                <a href="#" data-scp-switch="login"><?php esc_html_e('Girişe dön', 'seviye-storefront'); ?></a>
+            </div>
+        </form>
+
         <form class="scp-auth-form" data-scp-view="forgot-password" hidden>
             <p class="scp-auth-hint"><?php esc_html_e('T.C. Kimlik No\'nuzu girin, şifre sıfırlama bağlantısını gönderelim.', 'seviye-storefront'); ?></p>
 

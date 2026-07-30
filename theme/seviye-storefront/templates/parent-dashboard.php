@@ -3,8 +3,10 @@
 /**
  * Veli home view: a link into the WooCommerce shop (Seviye Commerce),
  * "Öğrencilerim" (own children, read-only here - Students remains the
- * single owner of that data) and "Profilim" (Seviye Parents). Included
- * directly by index.php when the current user holds either of the
+ * single owner of that data), "Profilim" (Seviye Parents) and "Hesap
+ * Güvenliği" (2FA - see templates/partials/account-security.php, the same
+ * shared partial templates/zone.php also includes). Included directly by
+ * index.php when the current user holds either of the profile/children
  * capabilities checked below.
  */
 
@@ -74,4 +76,6 @@ if (!defined('ABSPATH')) {
             </form>
         </section>
     <?php endif; ?>
+
+    <?php include SCP_THEME_DIR . '/templates/partials/account-security.php'; ?>
 </div>

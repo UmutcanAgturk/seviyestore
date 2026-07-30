@@ -23,5 +23,6 @@ define('SCP_THEME_URL', get_template_directory_uri());
 require SCP_THEME_DIR . '/inc/setup.php';
 require SCP_THEME_DIR . '/inc/access-gate.php';
 require SCP_THEME_DIR . '/inc/zones.php';
+require SCP_THEME_DIR . '/inc/ip-restriction.php';
 require SCP_THEME_DIR . '/inc/woocommerce.php';
 require SCP_THEME_DIR . '/inc/assets.php';

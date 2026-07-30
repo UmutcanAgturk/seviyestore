@@ -34,14 +34,14 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Plugin/Tema | Durum |
 |---|---|
 | Seviye Core | ✅ Kuruldu |
-| Seviye Security | 🟡 TC Kimlik No auth, rate limiting, şifre token'ları, rol→bölge yönlendirme politikası kuruldu; 2FA/IP kısıtlama planlandı |
+| Seviye Security | ✅ TC Kimlik No auth, rate limiting, şifre token'ları, rol→bölge yönlendirme politikası, 2FA (TOTP, RFC 6238) ve `/admin` IP kısıtlaması kuruldu |
 | Seviye Branches | ✅ Şube entity, Yetkililer (personel ataması), Contracts, REST, RBAC kuruldu; logo yükleme planlandı |
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
 | Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`, KDV tutarı dahil) ve split payment + hakediş event tetikleme kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
 | Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar, KDV tutarı dahil), cari bakiye REST'i, tahsilat (settlement) defteri + REST'i ve tema paneli kuruldu; iade akışı planlandı |
-| Seviye Storefront (tema) | 🟡 Giriş ekranı, içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), cari bakiye + tahsilat paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans raporlama panelleri planlandı |
+| Seviye Storefront (tema) | 🟡 Giriş ekranı (2FA kod adımı dahil), içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), cari bakiye + tahsilat paneli (`/sube`, `/admin`), Hesap Güvenliği (2FA) paneli (her bölgede), IP kısıtlaması ayarı (`/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu; sipariş/finans raporlama panelleri planlandı |
 | Seviye Reports, Notifications, API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).

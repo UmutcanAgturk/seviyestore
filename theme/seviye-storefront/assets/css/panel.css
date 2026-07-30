@@ -156,7 +156,8 @@
 }
 
 .scp-form input,
-.scp-form select {
+.scp-form select,
+.scp-form textarea {
   width: 100%;
   padding: 8px 10px;
   font-size: 0.875rem;
@@ -167,8 +168,13 @@
   border-radius: 8px;
 }
 
+.scp-form textarea {
+  resize: vertical;
+}
+
 .scp-form input:focus,
-.scp-form select:focus {
+.scp-form select:focus,
+.scp-form textarea:focus {
   outline: none;
   border-color: var(--scp-primary);
   box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);

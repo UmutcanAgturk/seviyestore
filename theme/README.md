@@ -10,7 +10,11 @@ Kurulu olan kapsam:
 - **Giriş ekranı**: TC Kimlik No, Şifre, Giriş Yap, Şifremi Unuttum, İlk
   Şifre Oluştur — `Seviye Security`'nin `seviye/v1/auth/*` REST uçlarını
   `assets/js/auth.js` üzerinden çağırır. Backend doğrulama/rate-limit/token
-  mantığının tamamı Security'de yaşar; tema yalnızca arayüzdür.
+  mantığının tamamı Security'de yaşar; tema yalnızca arayüzdür. Hesabında
+  2FA açık bir kullanıcı için `login`, cookie set etmeden
+  `requires_2fa: true` + kısa ömürlü bir `pending_token` döner; ekran
+  otomatik olarak bir "Doğrulama Kodu" adımına geçer ve
+  `seviye/v1/auth/login/2fa`'yı çağırır.
 - **Rol bazlı bölge yönlendirmesi**: `/` (Veli), `/sube` (Şube Paneli),
   `/admin` (Genel Merkez) — bölge kuralı `Seviye\Security\Routing\RoleRouter`
   tarafından belirlenir (test edilebilir, WordPress'ten bağımsız saf PHP);
@@ -57,6 +61,22 @@ Kurulu olan kapsam:
   görünümünde örtük olarak kendi şubesi), ama tahsilat kaydetme formu
   (`POST /finance/hakedis/settlements`) yalnızca `scp_record_hakedis_settlement`
   (Genel Merkez/Muhasebe) taşıyanlarda görünür.
+- **Hesap Güvenliği (2FA) paneli** (`/`, `/sube` VE `/admin` — her rol için):
+  `templates/partials/account-security.php`, hem `templates/zone.php` hem
+  `templates/parent-dashboard.php` tarafından include edilen tek bir
+  paylaşılan partial (temanın ilk `include` deseni — her rol kendi 2FA'sını
+  aynı şekilde yönettiğinden markup'ı iki template'te kopyalamaya gerek
+  yoktu) + `assets/js/account-security.js`, `seviye/v1/security/2fa/*`'a
+  bağlı. Üç durum: kapalı → kurulum (anahtar/otpauth URI gösterilir, kod
+  ister) → açık (devre dışı bırakmak için şifre ister). Hiçbir yetki
+  kontrolüne bağlı değildir — yalnızca oturum açık olması yeterlidir.
+- **IP Kısıtlaması ayarı** (yalnızca `/admin`): `templates/zone.php`'ye
+  eklenen bölüm + `assets/js/ip-allowlist-panel.js`,
+  `seviye/v1/security/ip-allowlist`'e bağlı. Yalnızca
+  `scp_manage_security_settings` (Genel Merkez) yetkisi olanlara görünür;
+  her satıra bir IP/CIDR olacak şekilde düz bir metin alanı — sunucu
+  tarafındaki ayrıştırma/doğrulama mantığı tek bir yerde
+  (`Seviye\Security\Routing\IpAllowlist`) yaşar.
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca

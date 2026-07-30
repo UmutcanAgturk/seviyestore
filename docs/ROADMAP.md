@@ -7,7 +7,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 
 | # | Plugin | Sorumluluk | Durum |
 |---|---|---|---|
-| 1 | Seviye Core | DI container, event bus, RBAC, migration runner, audit log, REST altyapısı | ✅ **Kuruldu** |
+| 1 | Seviye Core | DI container, event bus, RBAC, migration runner, audit log, ayarlar (key/value), REST altyapısı | ✅ **Kuruldu** |
 | 2 | Seviye Students | Öğrenci entity (şube/eğitim yılı/sınıf), veli (WP kullanıcı) ile çoktan-çoğa ilişki, REST | ✅ **Kuruldu** (bu milestone) |
 | 3 | Seviye Parents | Veli'ye özgü profil alanları (telefon, bildirim tercihi, KVKK onayı), REST | ✅ **Kuruldu** (bu milestone) |
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
@@ -17,7 +17,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
-| 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası | 🟡 **Kısmen kuruldu**; 2FA, IP kısıtlama planlandı |
+| 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 |
 
 ## Tema ve giriş akışı
 
@@ -39,6 +39,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/admin` ve `/sube`'de cari bakiye görüntüleme paneli + tahsilat geçmişi/kaydı | **Kuruldu** — `Seviye Storefront` teması |
 | KDV tutarının sipariş kaleminden hakediş defterine kadar yakalanması | **Kuruldu** — `Seviye Commerce` + `Seviye Finance` (henüz raporlanmıyor) |
 | İade akışı | Planlandı (Seviye Finance'ın sorumluluğu) |
+| Hesap Güvenliği paneli (2FA kurulum/onay/devre dışı bırakma, `/`, `/sube`, `/admin`'de ortak partial) + girişte 2FA kod adımı + `/admin`'de IP kısıtlaması ayarı | **Kuruldu** — `Seviye Security` + `Seviye Storefront` teması |
 
 ## Milestone sırası önerisi
 
@@ -63,7 +64,14 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     - ~~12c. Tema: `/admin` ve `/sube`'de cari bakiye görüntüleme paneli~~ ✅
     - ~~12d. Tahsilat işaretleme (`scp_hakedis_settlements` defteri, hakediş kaydının ne zaman/nasıl ödendiğini takip etme, REST, RBAC, tema paneli) + KDV takibi (Commerce'ten hakediş defterine kadar `vat_amount` yakalama - raporlama Seviye Reports'un işi)~~ ✅
     - Seviye Reports
-13. Seviye Notifications + Seviye API + Seviye Security'nin geri kalanı (2FA, IP kısıtlama)
+13. ~~Seviye Security'nin geri kalanı: 2FA (`TwoFactor\Totp`/`Base32`/`Encryptor`,
+    RFC 6238 test vektörleriyle doğrulandı; girişte iki adımlı akış;
+    self-servis `seviye/v1/security/2fa/*`; tema "Hesap Güvenliği" partial'ı)
+    + IP kısıtlaması (`Routing\IpAllowlist`, Core'un yeni
+    `Settings\SettingsRepositoryInterface`'i üzerinden yapılandırılır,
+    `/admin`'de `template_redirect` önceliği 6'da uygulanır) — bkz.
+    `docs/ARCHITECTURE.md` bölüm 16~~ ✅
+14. Seviye Notifications + Seviye API
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

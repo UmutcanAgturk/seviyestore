@@ -873,6 +873,108 @@ bölümün kapsamı dışında kalır (spesifikasyonun "iade" maddesi).
 (`ConnectionInterface::table()`) merkezileştirilmiştir; hiçbir modül tablo
 adını elle birleştirmemelidir.
 
+### 16. İki adımlı doğrulama (2FA) + IP kısıtlaması (Seviye Security)
+
+Spesifikasyonun Security satırındaki son iki madde: "2FA" ve "IP
+kısıtlama". İkisi de kasıtlı olarak birbirinden bağımsız, farklı tehdit
+modellerine cevap veriyor — 2FA bir hesabın çalınmış şifreyle ele
+geçirilmesini zorlaştırır, IP kısıtlaması /admin'e nereden erişilebileceğini
+sınırlar.
+
+- **Core'a yeni bir genel amaçlı parça eklendi: `Settings\SettingsRepositoryInterface`**,
+  `scp_settings` tablosunun (Core'un ilk milestone'undan beri var olan ama
+  hiç gerçek tüketicisi olmayan bir anahtar/değer deposu) üzerine ince bir
+  repository. İlk gerçek tüketicisi IP allowlist ayarı — "hiç kullanılmayan
+  bir soyutlama kurma" yerine, gerçek bir ihtiyaç doğduğunda platform-geneli
+  bir parçayı Core'a eklemenin canlı bir örneği.
+- **TOTP (RFC 6238) sıfırdan, üçüncü taraf paket olmadan yazıldı**:
+  `TwoFactor\Base32` (RFC 4648 kodlama/çözme) ve `TwoFactor\Totp`
+  (HMAC-SHA1, 30 saniyelik adım, 6 hane) tamamen saf PHP — bu iki sınıfın
+  doğruluğu RFC 6238 Ek B'nin resmi test vektörlerine karşı doğrulandı
+  (bkz. `TotpTest`). Sonuç, Google Authenticator/Authy gibi her standart
+  authenticator uygulamasıyla uyumlu, tek bir yeni Composer bağımlılığı
+  gerektirmeyen bir 2FA.
+- **`TwoFactor\Encryptor`, TOTP sırrını (secret) veritabanında düz metin
+  saklamaz**: libsodium'un `secretbox`'ı (XSalsa20-Poly1305) ile
+  şifrelenir. Anahtar constructor'a düz bir argüman olarak verilir —
+  `wp_salt()` çağrısı sınıfın içine gömülmez — böylece
+  `WpCredentialGateway`'in `AuthService`'ten ayrı tutulmasıyla aynı
+  gerekçeyle tamamen birim test edilebilir kalır; gerçek WordPress sırrını
+  kullanan tek çağıran `SecurityModule::boot()`'taki
+  `Encryptor::fromSecret(wp_salt('secure_auth'))` satırı.
+- **`scp_two_factor_secrets`, hakediş defterinin aksine değişmez bir defter
+  DEĞİL**: bu, canlı ve değişebilir kimlik bilgisi durumu — tıpkı bir şifre
+  hash'i gibi — bu yüzden yerinde güncelleme (confirm/disable) burada
+  ilkeyi çiğnemiyor. `confirmed_at` NULL iken (kurulum başlatıldı ama henüz
+  bir kodla doğrulanmadı) `AuthService`'in giriş akışı bu satırı asla
+  "2FA açık" saymaz — yarım bırakılmış bir kurulum kimseyi kilitlemez.
+- **Girişte iki adımlı akış, `AuthRestController::login()`'ı bozmadan
+  eklendi**: şifre doğru ama 2FA açıksa cookie HENÜZ set edilmez —
+  `TwoFactor\PendingTwoFactorLoginService` (Core'un `CacheInterface`'i
+  üzerinde, 5 dakikalık bir transient — `RateLimiter`'ın deneme
+  sayaçlarıyla aynı "bu durum kalıcı değil" gerekçesi) kısa ömürlü,
+  tek-kullanımlık bir `pending_token` üretir. Gerçek girişi tamamlayan
+  kod (`wp_set_current_user`/`wp_set_auth_cookie` + rol/redirect yanıtı)
+  `finishLogin()`'e çıkarıldı, hem şifre-yeten hem 2FA-kod-yeten yoldan
+  çağrılır — kod tekrarı yok.
+- **`pending_token` her denemede tüketilir, kod doğru olsa da olmasa da**:
+  bir 6 haneli kodu kaba kuvvetle denemenin tek yolu, her denemede
+  `AuthService`'in kendi throttle'ından geçen taze bir şifre girişi
+  gerektirir. Buna ek olarak `login2fa()` kullanıcı başına ayrı bir
+  `RateLimiter` anahtarı (`'2fa:' . userId`) tutar — `AuthService`'in
+  MAX_ATTEMPTS/DECAY_SECONDS deseninin birebir aynısı — çünkü doğru
+  şifreyi zaten bilen bir saldırgan, başarılı her girişte rate limiter'ı
+  sıfırlayan (`clear()`) mevcut şifre-throttle'ından geçip sınırsız taze
+  `pending_token` üretebilirdi; bu ikinci, bağımsız throttle o boşluğu
+  kapatıyor.
+- **`Http\TwoFactorRestController`, bu platformdaki "kapasiteye değil,
+  kimliğe bağlı" ilk REST yüzeyi**: `seviye/v1/security/2fa/*` hiçbir RBAC
+  yeteneği istemez, yalnızca `is_user_logged_in()` — çünkü her rol kendi
+  hesabının 2FA'sını yönetir, bu paylaşılan bir kaynak değil. Devre dışı
+  bırakma (`disable()`) yine de şifrenin yeniden girilmesini ister —
+  yalnızca aktif bir oturumun yeterli olmadığı, güvenliği düşüren tek
+  eylem.
+- **IP allowlist saf bir eşleştirici (`Routing\IpAllowlist`) + Core'un
+  Settings'i üzerine ince bir REST/enforcement katmanı**: `isAllowed()`
+  IPv4/IPv6 ve CIDR'ı `inet_pton()`'un ikili biçimiyle karşılaştırır (düz
+  metin karşılaştırma "::1" ile "0:0:0:0:0:0:0:1"'in aynı adres olduğunu
+  kaçırırdı). Boş bir liste = özellik kapalı — IP kısıtlaması varsayılan
+  değil, açıkça yapılandırılan bir opt-in, tıpkı komisyon oranları gibi
+  platformun her yerinde tekrarlanan "gerçek yapılandırma olmadan hiçbir
+  kısıtlama uygulanmaz" ilkesi.
+- **Uygulama sınırı, RoleRouter'ın zone-gate'iyle BİREBİR aynı, kasıtlı
+  olarak**: `theme/inc/ip-restriction.php`, `inc/access-gate.php`'nin
+  rol→bölge kontrolüyle aynı `template_redirect` mekanizmasını kullanır
+  (öncelik 6 — 5'ten sonra, 10'dan önce) ve yalnızca sayfa render'ını
+  kapatır, REST çağrılarını değil. Bu, IP kısıtlamasının açtığı yeni bir
+  boşluk değil — platformun REST uç noktaları zaten yalnızca kendi RBAC
+  yetenek kontrollerine güveniyor, zone/IP kapılarına değil; çalınmış bir
+  oturum çerezi bugün de her iki kapıyı eşit şekilde atlar. Bu sınır
+  kararı, bir gözden kaçırma gibi okunmasın diye kod içinde açıkça
+  belgelendi.
+- **`SecurityCapability::MANAGE_SECURITY_SETTINGS`, Security'nin ilk RBAC
+  yeteneği**: önceki her uç nokta ya oturum-öncesi/herkese açık
+  (`seviye/v1/auth/*`) ya da kimliğe bağlı self-servisti
+  (`seviye/v1/security/2fa/*`). IP allowlist'i yapılandırmak platform
+  genelinde bir güvenlik politikası, kişisel bir ayar değil — bu yüzden
+  yalnızca Genel Merkez'e verildi, `MANAGE_BRANCHES`'ın tersine Bölge
+  Müdürü'ne bile değil.
+- **Tema: "Hesap Güvenliği" kartı `templates/partials/account-security.php`
+  olarak paylaşılan tek bir partial** — `templates/zone.php` (`/admin`,
+  `/sube`) VE `templates/parent-dashboard.php` (`/`) tarafından include
+  edilir, çünkü her rol kendi 2FA'sını aynı şekilde yönetir. Bu, temanın
+  şimdiye kadar hiç kullanmadığı bir `include` deseni — üç template'e
+  aynı ~50 satırlık işaretlemeyi kopyalamak yerine, gerçekten aynı
+  markup'ın birden fazla yerde ihtiyaç duyduğu ilk durum. `assets/js/
+  account-security.js` de `getElementById` ile hangi sayfada olursa olsun
+  aynı elemente bağlanır — panelin kendisi gibi tek bir script iki yerde
+  render edilebilir.
+- **QR kodu görsel olarak üretilmez**: `TwoFactorSetup::$otpauthUri`
+  standart bir `otpauth://` URI'si — telefonda bir authenticator
+  uygulaması bu şemayı kayıtlıysa bağlantı doğrudan uygulamada açılır; aksi
+  halde ham `secret` elle girilebilir. Yeni bir QR-üretme bağımlılığı
+  eklemeden tam işlevsel bir kurulum akışı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

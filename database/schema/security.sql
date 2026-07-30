@@ -3,7 +3,12 @@
 -- The authoritative schema lives in:
 --   plugin/seviye-security/src/Database/Migrations/CreateUserIdentitiesTable.php
 --   plugin/seviye-security/src/Database/Migrations/CreatePasswordTokensTable.php
+--   plugin/seviye-security/src/Database/Migrations/CreateTwoFactorSecretsTable.php
 -- Replace the {prefix} placeholder with your WordPress table prefix (default: wp_).
+--
+-- The /admin IP allowlist has no table of its own - it lives in Core's
+-- generic scp_settings key/value store (see database/schema/core.sql)
+-- under the key "security.admin_ip_allowlist".
 
 CREATE TABLE {prefix}scp_user_identities (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -26,4 +31,14 @@ CREATE TABLE {prefix}scp_password_tokens (
     UNIQUE KEY token_hash (token_hash),
     KEY user_id (user_id),
     KEY expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE {prefix}scp_two_factor_secrets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL,
+    secret_encrypted TEXT NOT NULL,
+    confirmed_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

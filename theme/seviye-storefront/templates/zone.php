@@ -39,6 +39,15 @@
  * holders (Genel Merkez / Muhasebe) - a Bölge Müdürü sees the same
  * settlement history a Muhasebe user does, but never the record form.
  *
+ * The "Hesap Güvenliği" (2FA) section renders for EVERY role in both
+ * zones, unconditionally - unlike every other section here, it is not
+ * gated by a capability check, because it manages the current user's own
+ * account, not a permission-scoped resource (see
+ * Seviye\Security\Http\TwoFactorRestController). The "IP Kısıtlaması"
+ * section is the opposite extreme: /admin-only AND gated on
+ * scp_manage_security_settings, Genel Merkez's single most privileged,
+ * newly-introduced capability (see Seviye\Security\Rbac\SecurityCapability).
+ *
  * The quicknav at the top of the page is built from the exact same
  * capability (+ zone) checks each section below already gates on ($scp_
  * -prefixed locals, computed once before get_header()) - it never invents a
@@ -74,6 +83,12 @@ if (current_user_can('scp_manage_pricing')) {
 
 if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
     $scp_sections['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
+}
+
+$scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
+
+if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) {
+    $scp_sections['#scp-ip-allowlist-panel'] = __('IP Kısıtlaması', 'seviye-storefront');
 }
 
 get_header();
@@ -431,6 +446,32 @@ get_header();
                     </div>
                 </form>
             </div>
+        </section>
+    <?php endif; ?>
+
+    <?php include SCP_THEME_DIR . '/templates/partials/account-security.php'; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) : ?>
+        <section class="scp-card" id="scp-ip-allowlist-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('IP Kısıtlaması', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-ip-allowlist-status></p>
+
+            <p>
+                <?php esc_html_e('Genel Merkez paneline (/admin) yalnızca aşağıdaki IP adreslerinden/aralıklarından erişilebilir. Boş bırakılırsa kısıtlama uygulanmaz.', 'seviye-storefront'); ?>
+            </p>
+
+            <form class="scp-form" data-scp-ip-allowlist-form>
+                <label>
+                    <span><?php esc_html_e('IP Adresleri (her satıra bir tane, CIDR desteklenir)', 'seviye-storefront'); ?></span>
+                    <textarea name="entries" rows="6" placeholder="203.0.113.5&#10;198.51.100.0/24"></textarea>
+                </label>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                </div>
+            </form>
         </section>
     <?php endif; ?>
 </div>
