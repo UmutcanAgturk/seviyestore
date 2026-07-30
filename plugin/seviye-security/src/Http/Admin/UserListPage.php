@@ -75,9 +75,10 @@ final class UserListPage
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th><?php esc_html_e('Ad / E-posta', 'seviye-security'); ?></th>
+                        <th><?php esc_html_e('Ad Soyad / E-posta', 'seviye-security'); ?></th>
                         <th><?php esc_html_e('Seviye Rolü', 'seviye-security'); ?></th>
                         <th><?php esc_html_e('T.C. Kimlik No', 'seviye-security'); ?></th>
+                        <th><?php esc_html_e('Şifre', 'seviye-security'); ?></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -88,6 +89,12 @@ final class UserListPage
                 </tbody>
             </table>
         </div>
+        <style>
+        .scp-user-row-fields td { padding: 4px 10px 4px 0; vertical-align: top; }
+        .scp-user-row-fields input[type="text"],
+        .scp-user-row-fields input[type="email"],
+        .scp-user-row-fields select { width: 100%; max-width: 220px; }
+        </style>
         <script>
         function scpGenerateUserListPassword(fieldId) {
             var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#!?%';
@@ -177,35 +184,75 @@ final class UserListPage
         $currentRole = $this->currentSeviyeRole($user);
         $currentTcNo = $this->identities->findTcNumberByUserId($user->ID);
         $deleteConfirm = __('Bu kullanıcıyı kalıcı olarak silmek istediğinize emin misiniz?', 'seviye-security');
+        $fieldSuffix = (string) $user->ID;
 
         ?>
         <tr>
-            <td>
+            <td colspan="5">
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field(self::NONCE_ACTION); ?>
                     <input type="hidden" name="action" value="scp_save_user_details">
-                    <input type="hidden" name="user_id" value="<?php echo esc_attr((string) $user->ID); ?>">
+                    <input type="hidden" name="user_id" value="<?php echo esc_attr($fieldSuffix); ?>">
                     <input type="hidden" name="redirect_slug" value="<?php echo esc_attr($slug); ?>">
-                    <input
-                        type="text"
-                        name="display_name"
-                        value="<?php echo esc_attr($user->display_name); ?>"
-                        required
-                    ><br>
-                    <input
-                        type="email"
-                        name="email"
-                        value="<?php echo esc_attr($user->user_email); ?>"
-                        required
-                    ><br>
-                    <button type="submit" class="button">
-                        <?php esc_html_e('Kaydet', 'seviye-security'); ?>
-                    </button>
+                    <table class="scp-user-row-fields">
+                        <tr>
+                            <td>
+                                <input
+                                    type="text"
+                                    name="display_name"
+                                    value="<?php echo esc_attr($user->display_name); ?>"
+                                    required
+                                ><br>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value="<?php echo esc_attr($user->user_email); ?>"
+                                    required
+                                >
+                            </td>
+                            <td>
+                                <select name="role" required>
+                                    <?php foreach (Role::cases() as $role) : ?>
+                                        <option
+                                            value="<?php echo esc_attr($role->value); ?>"
+                                            <?php selected($currentRole === $role); ?>
+                                        ><?php echo esc_html($role->label()); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                            <td>
+                                <input
+                                    type="text"
+                                    name="tc_no"
+                                    maxlength="11"
+                                    pattern="[0-9]{11}"
+                                    placeholder="<?php esc_attr_e('11 haneli T.C. Kimlik No', 'seviye-security'); ?>"
+                                    value="<?php echo esc_attr($currentTcNo?->value() ?? ''); ?>"
+                                    required
+                                >
+                            </td>
+                            <td>
+                                <input
+                                    type="text"
+                                    name="password"
+                                    id="scp_row_password_<?php echo esc_attr($fieldSuffix); ?>"
+                                    autocomplete="new-password"
+                                    placeholder="<?php esc_attr_e('Şifreyi değiştirmek için doldurun', 'seviye-security'); ?>"
+                                ><br>
+                                <button
+                                    type="button"
+                                    class="button"
+                                    onclick="scpGenerateUserListPassword('scp_row_password_<?php echo esc_attr($fieldSuffix); ?>')"
+                                ><?php esc_html_e('Rastgele oluştur', 'seviye-security'); ?></button>
+                            </td>
+                            <td>
+                                <button type="submit" class="button button-primary">
+                                    <?php esc_html_e('Kaydet', 'seviye-security'); ?>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
                 </form>
-            </td>
-            <td><?php echo $currentRole !== null ? esc_html($currentRole->label()) : '—'; ?></td>
-            <td><?php echo $currentTcNo !== null ? esc_html($currentTcNo->value()) : '—'; ?></td>
-            <td>
                 <form
                     method="post"
                     action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
@@ -213,10 +260,10 @@ final class UserListPage
                 >
                     <?php wp_nonce_field(self::NONCE_ACTION); ?>
                     <input type="hidden" name="action" value="scp_delete_user">
-                    <input type="hidden" name="user_id" value="<?php echo esc_attr((string) $user->ID); ?>">
+                    <input type="hidden" name="user_id" value="<?php echo esc_attr($fieldSuffix); ?>">
                     <input type="hidden" name="redirect_slug" value="<?php echo esc_attr($slug); ?>">
                     <button type="submit" class="button-link-delete">
-                        <?php esc_html_e('Sil', 'seviye-security'); ?>
+                        <?php esc_html_e('Kullanıcıyı Sil', 'seviye-security'); ?>
                     </button>
                 </form>
             </td>
@@ -358,7 +405,16 @@ final class UserListPage
         $displayName = isset($_POST['display_name']) ? sanitize_text_field(wp_unslash($_POST['display_name'])) : '';
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
         $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $roleValue = isset($_POST['role']) ? sanitize_key(wp_unslash($_POST['role'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $tcNoInput = isset($_POST['tc_no']) ? trim(sanitize_text_field(wp_unslash($_POST['tc_no']))) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $passwordInput = isset($_POST['password']) ? (string) wp_unslash($_POST['password']) : '';
 
+        // Validate every field before applying any of them - a rejected
+        // T.C. No or password must not leave the name/email change (or
+        // role change) applied on its own.
         if ($displayName === '' || $email === '' || !is_email($email)) {
             $this->redirectWithNotice($redirectSlug, 'error', __('Ad ve geçerli bir e-posta gerekli.', 'seviye-security'));
         }
@@ -373,7 +429,62 @@ final class UserListPage
             );
         }
 
+        $role = Role::tryFrom($roleValue);
+
+        if ($role === null) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Geçerli bir Seviye rolü seçin.', 'seviye-security'));
+        }
+
+        if ($tcNoInput === '' || !TcNumber::isValid($tcNoInput)) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Geçersiz T.C. Kimlik No.', 'seviye-security'));
+        }
+
+        $tcNumber = TcNumber::fromString($tcNoInput);
+        $existingTcOwnerId = $this->identities->findUserIdByTcNumber($tcNumber);
+
+        if ($existingTcOwnerId !== null && $existingTcOwnerId !== $userId) {
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'error',
+                __('Bu T.C. Kimlik No zaten başka bir kullanıcıya bağlı.', 'seviye-security')
+            );
+        }
+
+        if ($passwordInput !== '' && mb_strlen($passwordInput) < self::MIN_PASSWORD_LENGTH) {
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'error',
+                sprintf(
+                    /* translators: %d: minimum password length */
+                    __('Şifre en az %d karakter olmalı.', 'seviye-security'),
+                    self::MIN_PASSWORD_LENGTH
+                )
+            );
+        }
+
         wp_update_user(['ID' => $userId, 'display_name' => $displayName, 'user_email' => $email]);
+        $user->set_role($role->value);
+
+        $currentTcNo = $this->identities->findTcNumberByUserId($userId);
+
+        if ($currentTcNo === null || $currentTcNo->value() !== $tcNumber->value()) {
+            $this->identities->unlink($userId);
+            $this->identities->link($tcNumber, $userId);
+        }
+
+        if ($passwordInput !== '') {
+            wp_set_password($passwordInput, $userId);
+
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'success',
+                sprintf(
+                    /* translators: %s: the new plaintext password, shown once so it can be handed to the user */
+                    __('Kaydedildi. Yeni şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek.', 'seviye-security'),
+                    $passwordInput
+                )
+            );
+        }
 
         $this->redirectWithNotice($redirectSlug, 'success', __('Kaydedildi.', 'seviye-security'));
     }

@@ -1226,9 +1226,18 @@ sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
   belirlenmiş bir şifreyi sonradan görüntülemek DEĞİL.
 - **Seviye Kullanıcılar / Veli — aynı sınıf, farklı rol filtresi**:
   `Http\Admin\UserListPage`, `administrator` OLMAYAN her kullanıcıyı (veya
-  yalnızca `Role::VELI` olanları) listeler; her satırda ad/e-posta
-  düzenleme + hesap silme var. Rol/T.C. No/şifre değiştirme kasıtlı olarak
-  BURADA değil — o, tek sorumluluk ilkesiyle Yetkilendirme sayfasının işi.
+  yalnızca `Role::VELI` olanları) listeler; her satırda ad/e-posta/rol/T.C.
+  No/şifre düzenleme + hesap silme, hepsi TEK formda. İlk sürümde rol/T.C.
+  No/şifre kasıtlı olarak ayrı bir sayfada (Yetkilendirme) tutulmuştu, ama
+  gerçek kullanımda bu "iki sayfaya bölünmüş tek işlem" hissi kafa
+  karıştırdı — bir kullanıcı oluşturuldu ama T.C. No hiç eklenmediği için
+  giriş yapamadı, ve o kullanıcının satırında T.C. No alanı GÖRÜNMEDİĞİ
+  için "veritabanına kaydedilmiyor" sanıldı (aslında sadece o sayfada
+  gösterilmiyordu). `UserListPage::handleSave()` artık
+  `UserAuthorizationAdminPage::handleSave()` ile aynı doğrula-sonra-uygula
+  mantığını taşıyor; iki sınıf arasında bilinçli bir kod tekrarı var
+  (Yetkilendirme sayfası hâlâ ayrı bir odaklı görünüm olarak duruyor, ama
+  artık Kullanıcılar/Veli'nin kendisi de tamamen kendi kendine yeterli).
 - **"Yeni Kullanıcı Ekle" formu da bu sayfada, `UserListPage::handleCreate()`** -
   bu, wp-admin'de brand-new bir WP kullanıcısı oluşturabilen TEK yer:
   Genel Merkez'in native `create_users` capability'si hiç olmadığı için,
