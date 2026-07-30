@@ -143,10 +143,11 @@ final class UserListPage
                             maxlength="11"
                             pattern="[0-9]{11}"
                             class="regular-text"
+                            required
                         >
                         <p class="description">
                             <?php esc_html_e(
-                                'Boş bırakılırsa kullanıcı Seviye giriş ekranından giriş yapamaz.',
+                                'Zorunlu: kullanıcının Seviye giriş ekranından giriş yapabilmesi için gerekli.',
                                 'seviye-security'
                             ); ?>
                         </p>
@@ -270,22 +271,26 @@ final class UserListPage
             );
         }
 
-        $tcNumber = null;
+        if ($tcNoInput === '') {
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'error',
+                __('T.C. Kimlik No zorunlu - girilmezse kullanıcı giriş yapamaz.', 'seviye-security')
+            );
+        }
 
-        if ($tcNoInput !== '') {
-            if (!TcNumber::isValid($tcNoInput)) {
-                $this->redirectWithNotice($redirectSlug, 'error', __('Geçersiz T.C. Kimlik No.', 'seviye-security'));
-            }
+        if (!TcNumber::isValid($tcNoInput)) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Geçersiz T.C. Kimlik No.', 'seviye-security'));
+        }
 
-            $tcNumber = TcNumber::fromString($tcNoInput);
+        $tcNumber = TcNumber::fromString($tcNoInput);
 
-            if ($this->identities->findUserIdByTcNumber($tcNumber) !== null) {
-                $this->redirectWithNotice(
-                    $redirectSlug,
-                    'error',
-                    __('Bu T.C. Kimlik No zaten başka bir kullanıcıya bağlı.', 'seviye-security')
-                );
-            }
+        if ($this->identities->findUserIdByTcNumber($tcNumber) !== null) {
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'error',
+                __('Bu T.C. Kimlik No zaten başka bir kullanıcıya bağlı.', 'seviye-security')
+            );
         }
 
         $userId = wp_insert_user([
@@ -300,9 +305,7 @@ final class UserListPage
             $this->redirectWithNotice($redirectSlug, 'error', $userId->get_error_message());
         }
 
-        if ($tcNumber !== null) {
-            $this->identities->link($tcNumber, (int) $userId);
-        }
+        $this->identities->link($tcNumber, (int) $userId);
 
         $this->redirectWithNotice(
             $redirectSlug,
