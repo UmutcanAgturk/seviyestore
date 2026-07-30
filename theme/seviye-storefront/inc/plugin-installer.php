@@ -240,7 +240,29 @@ function scp_handle_setup_step(): void
         wp_send_json_error(['message' => __('Geçersiz kurulum adımı.', 'seviye-storefront')], 400);
     }
 
-    $result = scp_run_setup_step($step);
+    try {
+        $result = scp_run_setup_step($step);
+    } catch (\Throwable $exception) {
+        // A raw PHP fatal here (uncaught in a module's own activation code)
+        // would otherwise surface as an opaque HTTP 500 with no JSON body -
+        // exactly what admin-ajax.php returns on an uncaught exception, and
+        // exactly what setup-wizard.js's generic "Bağlantı hatası" message
+        // means. Catching \Throwable (covers both Exception and Error -
+        // TypeError, undefined method calls, ...) turns that into a real,
+        // visible message instead - the one class of failure this can't
+        // catch is a genuinely unrecoverable fatal (memory exhaustion, a
+        // parse error), which stays a raw 500.
+        wp_send_json_error([
+            'message' => sprintf(
+                /* translators: 1: exception class, 2: exception message, 3: file, 4: line */
+                __('%1$s: %2$s (%3$s:%4$d)', 'seviye-storefront'),
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ),
+        ], 500);
+    }
 
     if (!$result['success']) {
         wp_send_json_error($result);
