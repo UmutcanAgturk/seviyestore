@@ -8,6 +8,7 @@ use Seviye\Branches\Contracts\BranchLookupInterface;
 use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Branches\Database\Migrations\CreateBranchesTable;
 use Seviye\Branches\Database\Migrations\CreateBranchUsersTable;
+use Seviye\Branches\Http\Admin\BranchAdminPage;
 use Seviye\Branches\Http\BranchesRestController;
 use Seviye\Branches\Rbac\BranchCapability;
 use Seviye\Branches\Repository\BranchRepositoryInterface;
@@ -63,12 +64,27 @@ final class BranchesModule implements ModuleInterface
             $rbac->grantCapability($role, BranchCapability::VIEW_OWN_BRANCH->value);
         }
 
+        // WordPress' native `administrator` role isn't one of Core's nine
+        // Role enum cases, so RbacManager::grantCapability() (which only
+        // accepts a Role) can't grant it this capability - added directly
+        // so the site's real WordPress administrator can also use the
+        // native "Seviye Şubeler" wp-admin page below without needing a
+        // Seviye role of their own, same pattern as Security's
+        // Http\Admin\AdminAccess.
+        $administratorRole = get_role('administrator');
+
+        if ($administratorRole !== null) {
+            $administratorRole->add_cap(BranchCapability::MANAGE_BRANCHES->value);
+        }
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): BranchesRestController => new BranchesRestController(
                 $container->get(BranchRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class)
             )
         );
+
+        (new BranchAdminPage($container->get(BranchRepositoryInterface::class)))->register();
     }
 
     /**

@@ -284,11 +284,27 @@ function scp_run_setup_step(array $step): array
     }
 
     $pluginFile = $step['file'];
+    $alreadyInstalled = file_exists(WP_PLUGIN_DIR . '/' . $pluginFile);
+    $wasActive = $alreadyInstalled && is_plugin_active($pluginFile);
 
-    if (!file_exists(WP_PLUGIN_DIR . '/' . $pluginFile)) {
-        $installed = $step['type'] === 'bundled'
-            ? scp_install_bundled_plugin($step['slug'])
-            : scp_install_from_wordpress_org($step['slug']);
+    // Bundled (privately-owned) plugins are always (re)installed from this
+    // package's zip, even if a version is already present - this IS the
+    // update mechanism: running the wizard again with a newer theme
+    // package should upgrade every bundled plugin's code in place, the
+    // same way WordPress' own "Update Now" replaces an active plugin's
+    // files without deactivating it first. Without this, the only way to
+    // pick up a code change was deleting the plugin and reinstalling from
+    // scratch. wordpress.org plugins (WooCommerce) are still only
+    // installed once - core's own updater already owns their version
+    // management, this installer has no business overwriting it.
+    if ($step['type'] === 'bundled') {
+        $installed = scp_install_bundled_plugin($step['slug'], $alreadyInstalled);
+
+        if (!$installed['success']) {
+            return $installed;
+        }
+    } elseif (!$alreadyInstalled) {
+        $installed = scp_install_from_wordpress_org($step['slug']);
 
         if (!$installed['success']) {
             return $installed;
@@ -298,7 +314,9 @@ function scp_run_setup_step(array $step): array
     if (is_plugin_active($pluginFile)) {
         return ['success' => true, 'message' => sprintf(
             /* translators: %s: plugin/module label */
-            __('%s zaten etkindi.', 'seviye-storefront'),
+            $wasActive
+                ? __('%s güncellendi (zaten etkindi).', 'seviye-storefront')
+                : __('%s kuruldu ve etkinleştirildi.', 'seviye-storefront'),
             $step['label']
         )];
     }
@@ -319,7 +337,7 @@ function scp_run_setup_step(array $step): array
 /**
  * @return array{success: bool, message?: string}
  */
-function scp_install_bundled_plugin(string $slug): array
+function scp_install_bundled_plugin(string $slug, bool $overwrite = false): array
 {
     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 
@@ -334,7 +352,11 @@ function scp_install_bundled_plugin(string $slug): array
     }
 
     $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
-    $result = $upgrader->install($zipPath);
+    // 'overwrite_package' (WP 5.5+) is the exact same flag WordPress' own
+    // "Yükle → Mevcut olanla değiştir" confirmation uses - lets install()
+    // replace an existing plugin directory instead of erroring
+    // "Bu klasör zaten var" when $overwrite is requested.
+    $result = $upgrader->install($zipPath, $overwrite ? ['overwrite_package' => true] : []);
 
     return scp_upgrader_result_to_step_result($result, $slug);
 }

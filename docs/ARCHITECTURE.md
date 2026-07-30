@@ -1356,6 +1356,38 @@ sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
 - Hiçbiri unit test edilmedi, bu koddaki her doğrudan WP-admin-dokunan
   adaptörle aynı gerekçeyle (bkz. "Test stratejisi").
 
+### 21. Native wp-admin'de "Seviye Şubeler" sayfası + kurulum sihirbazı gerçek güncelleme (Seviye Branches, tema)
+
+Bölüm 20'nin Branches karşılığı, aynı gerekçeyle: temanın kendi `/admin`
+Şube Yönetimi paneli yalnızca Seviye rolü taşıyan bir WP kullanıcısına
+açık, siteyi işleten gerçek WordPress `administrator` hesabına değil.
+`Http\Admin\BranchAdminPage`, `BranchCapability::MANAGE_BRANCHES`
+capability'siyle kapılı (artık `BranchesModule::boot()`'ta hem
+`Role::GENEL_MERKEZ`/`Role::BOLGE_MUDURU`'ya HEM DE doğrudan native
+`administrator` rolüne veriliyor, Security'nin `AdminAccess` deseninin
+aynısı) — liste/oluştur/düzenle tek sayfada, `UserListPage`'in satır-içi
+form desenini birebir izliyor.
+
+**Kurulum sihirbazı artık zaten-aktif bir bundled eklentiyi gerçekten
+GÜNCELLİYOR, atlamıyor** — canlıda gerçekten yaşandı: sihirbaz her
+adımda "zaten etkin mi" diye bakıp öyleyse hiçbir şey yapmadan
+geçiyordu, yani paketteki daha yeni bir eklenti zip'i asla devreye
+girmiyordu; kullanıcı her güncellemede eklentiyi manuel SİLİP yeniden
+kurmak zorunda kalıyordu (ki bu, aktivasyon sırasına bağlı modül-boot
+hatalarını YENİDEN tetikleme riski taşıyor). `scp_run_setup_step()`
+artık `bundled` tipteki her adım için `scp_install_bundled_plugin()`'i
+HER ZAMAN çağırıyor (yalnızca hiç kurulu değilse değil),
+`Plugin_Upgrader::install()`'a `'overwrite_package' => true` geçirerek —
+WordPress'in kendi "Yükle → Mevcut olanla değiştir" onay ekranının
+kullandığı AYNI bayrak (WP 5.5+). WordPress.org eklentileri
+(WooCommerce) bu davranıştan muaf — onların sürüm yönetimi çekirdeğin
+kendi güncelleyicisinin işi, bu kurulumcu asla üzerine yazmıyor. Sonuç:
+paketi güncelleyip sihirbazı tekrar çalıştırmak artık gerçekten
+güncelliyor; temanın kendisi zaten WordPress'in native "temayı yükle,
+mevcut olanla değiştir" akışını kullanabiliyor (ek kod gerekmedi, sadece
+silmeden üzerine yükleme).
+- Hiçbiri unit test edilmedi, aynı gerekçeyle.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
