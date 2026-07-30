@@ -11,20 +11,18 @@ use WP_User;
 
 /**
  * Native wp-admin counterpart to the theme's custom /admin, /sube panels:
- * a "Seviye Yetkilendirme" page under Kullanıcılar (assign a Seviye role +
- * link a T.C. Kimlik No to any WP user), plus a T.C. Kimlik No field on
- * WordPress' own "Kullanıcıyı Düzenle" screen. Gated on `manage_options`
- * (the site's actual WordPress administrator), not any Seviye capability -
- * Seviye roles intentionally have no native wp-admin user-management
- * capabilities (`edit_users` etc.), so this page exists for the person who
- * provisions accounts, not for Genel Merkez staff using the theme's own
- * /admin zone. Not unit tested, same as every other WordPress-touching
- * adapter in this codebase (see docs/ARCHITECTURE.md, "Test stratejisi").
+ * a "Seviye Yetkilendirme" page under the "Seviye Kullanıcılar" top-level
+ * menu (assign a Seviye role, link a T.C. Kimlik No, set a password for
+ * any WP user), plus a T.C. Kimlik No field on WordPress' own
+ * "Kullanıcıyı Düzenle" screen. Gated on {@see AdminAccess} - reachable by
+ * both Genel Merkez staff and the site's real WordPress administrator; see
+ * {@see SeviyeUsersMenu} for the menu tree this page lives in. Not unit
+ * tested, same as every other WordPress-touching adapter in this codebase
+ * (see docs/ARCHITECTURE.md, "Test stratejisi").
  */
 final class UserAuthorizationAdminPage
 {
-    private const CAPABILITY = 'manage_options';
-    private const MENU_SLUG = 'scp-yetkilendirme';
+    public const MENU_SLUG = 'scp-yetkilendirme';
     private const NONCE_ACTION = 'scp_user_authorization';
     private const MIN_PASSWORD_LENGTH = 8;
 
@@ -32,9 +30,8 @@ final class UserAuthorizationAdminPage
     {
     }
 
-    public function register(): void
+    public function registerActions(): void
     {
-        add_action('admin_menu', [$this, 'registerPage']);
         add_action('admin_post_scp_save_authorization', [$this, 'handleSave']);
         add_action('admin_post_scp_unlink_tc_no', [$this, 'handleUnlink']);
 
@@ -45,21 +42,9 @@ final class UserAuthorizationAdminPage
         add_action('edit_user_profile_update', [$this, 'saveProfileField']);
     }
 
-    public function registerPage(): void
-    {
-        add_submenu_page(
-            'users.php',
-            __('Seviye Yetkilendirme', 'seviye-security'),
-            __('Seviye Yetkilendirme', 'seviye-security'),
-            self::CAPABILITY,
-            self::MENU_SLUG,
-            [$this, 'render']
-        );
-    }
-
     public function render(): void
     {
-        if (!current_user_can(self::CAPABILITY)) {
+        if (!AdminAccess::current()) {
             wp_die(esc_html__('Bu sayfayı görüntüleme yetkiniz yok.', 'seviye-security'));
         }
 
@@ -183,7 +168,7 @@ final class UserAuthorizationAdminPage
     {
         check_admin_referer(self::NONCE_ACTION);
 
-        if (!current_user_can(self::CAPABILITY)) {
+        if (!AdminAccess::current()) {
             wp_die(esc_html__('Bu işlem için yetkiniz yok.', 'seviye-security'));
         }
 
@@ -276,7 +261,7 @@ final class UserAuthorizationAdminPage
     {
         check_admin_referer(self::NONCE_ACTION);
 
-        if (!current_user_can(self::CAPABILITY)) {
+        if (!AdminAccess::current()) {
             wp_die(esc_html__('Bu işlem için yetkiniz yok.', 'seviye-security'));
         }
 
@@ -291,7 +276,7 @@ final class UserAuthorizationAdminPage
 
     public function renderProfileField(WP_User $user): void
     {
-        if (!current_user_can(self::CAPABILITY)) {
+        if (!AdminAccess::current()) {
             return;
         }
 
@@ -331,7 +316,7 @@ final class UserAuthorizationAdminPage
      */
     public function validateProfileField($errors, $update, ?object $user = null): void
     {
-        if (!isset($_POST['scp_tc_no_nonce']) || !current_user_can(self::CAPABILITY)) {
+        if (!isset($_POST['scp_tc_no_nonce']) || !AdminAccess::current()) {
             return;
         }
 
@@ -367,7 +352,7 @@ final class UserAuthorizationAdminPage
     public function saveProfileField(int $userId): void
     {
         if (
-            !current_user_can(self::CAPABILITY)
+            !AdminAccess::current()
             || !isset($_POST['scp_tc_no_nonce'])
             // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified on the next line.
             || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['scp_tc_no_nonce'])), self::NONCE_ACTION)
@@ -425,7 +410,7 @@ final class UserAuthorizationAdminPage
     {
         set_transient('scp_auth_notice_' . get_current_user_id(), ['type' => $type, 'message' => $message], 30);
 
-        wp_safe_redirect(admin_url('users.php?page=' . self::MENU_SLUG));
+        wp_safe_redirect(admin_url('admin.php?page=' . self::MENU_SLUG));
 
         exit;
     }

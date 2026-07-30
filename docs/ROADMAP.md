@@ -43,7 +43,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/admin` ve `/sube`'de Raporlar paneli (şube/ürün/kategori/dönem filtreleri, JSON görünüm + CSV/Excel indirme) | **Kuruldu** — `seviye/v1/reports/sales`'a bağlı |
 | Panel-içi bildirim çanı (her bölgede, `header.php`) + `/admin`'de SMS ayarları (NetGSM) formu | **Kuruldu** — `seviye/v1/notifications/mine/*` + `seviye/v1/notifications/sms-settings`'e bağlı |
 | `/admin`'de API anahtarları yönetim paneli (oluştur/listele/iptal et) | **Kuruldu** — `seviye/v1/api-keys`'e bağlı |
-| wp-admin → Kullanıcılar → Seviye Yetkilendirme (rol ata + T.C. Kimlik No eşleştir) + "Kullanıcıyı Düzenle" ekranında T.C. Kimlik No alanı | **Kuruldu** — `Seviye Security`, native WordPress ekranları, `manage_options` yetkisiyle kapılı |
+| wp-admin → **Seviye Kullanıcılar** üst menüsü: Seviye Kullanıcılar (liste/düzenle/sil), Seviye Yetkilendirme (rol + T.C. Kimlik No + şifre ata), Veli (rol filtreli liste), Öğrenci (salt okunur dizin) + "Kullanıcıyı Düzenle" ekranında T.C. Kimlik No alanı | **Kuruldu** — `Seviye Security`, native WordPress ekranları, `scp_manage_security_settings` yetkisiyle kapılı (Genel Merkez + gerçek WP yöneticisi) |
 
 ## Milestone sırası önerisi
 

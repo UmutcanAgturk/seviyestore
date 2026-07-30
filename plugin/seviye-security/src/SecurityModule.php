@@ -22,7 +22,10 @@ use Seviye\Security\Auth\WpCredentialGateway;
 use Seviye\Security\Database\Migrations\CreatePasswordTokensTable;
 use Seviye\Security\Database\Migrations\CreateTwoFactorSecretsTable;
 use Seviye\Security\Database\Migrations\CreateUserIdentitiesTable;
+use Seviye\Security\Http\Admin\SeviyeUsersMenu;
+use Seviye\Security\Http\Admin\StudentDirectoryPage;
 use Seviye\Security\Http\Admin\UserAuthorizationAdminPage;
+use Seviye\Security\Http\Admin\UserListPage;
 use Seviye\Security\Http\AuthRestController;
 use Seviye\Security\Http\SecuritySettingsRestController;
 use Seviye\Security\Http\TwoFactorRestController;
@@ -148,12 +151,29 @@ final class SecurityModule implements ModuleInterface
             SecurityCapability::MANAGE_SECURITY_SETTINGS->value
         );
 
+        // WordPress' native `administrator` role isn't one of Core's nine
+        // Role enum cases, so RbacManager::grantCapability() (which only
+        // accepts a Role) can't grant it this capability - added directly
+        // so the site's real WordPress administrator can reach the
+        // "Seviye Kullanıcılar" menu tree too, alongside Genel Merkez.
+        $administratorRole = get_role('administrator');
+
+        if ($administratorRole !== null) {
+            $administratorRole->add_cap(SecurityCapability::MANAGE_SECURITY_SETTINGS->value);
+        }
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): SecuritySettingsRestController => new SecuritySettingsRestController(
                 $container->get(SettingsRepositoryInterface::class)
             )
         );
 
-        (new UserAuthorizationAdminPage($container->get(IdentityGatewayInterface::class)))->register();
+        $identities = $container->get(IdentityGatewayInterface::class);
+
+        (new SeviyeUsersMenu(
+            new UserListPage($identities),
+            new UserAuthorizationAdminPage($identities),
+            new StudentDirectoryPage($container)
+        ))->register();
     }
 }

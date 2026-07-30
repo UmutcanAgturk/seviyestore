@@ -1198,33 +1198,68 @@ docblock'unda bu kapsam kararı kasıtlı olarak açıkça yazılı.
   hangi entegrasyonun ne zaman bir anahtara sahip olduğu ve ne zaman iptal
   edildiği bilgisi korunur.
 
-### 20. Native wp-admin'de kullanıcı yetkilendirme (Seviye Security)
+### 20. Native wp-admin'de "Seviye Kullanıcılar" menü ağacı (Seviye Security)
 
 Şu ana kadar bir kullanıcıya Seviye rolü + T.C. Kimlik No eşleşmesi vermenin
 tek yolu kurulum sihirbazının tek seferlik demo-admin adımıydı — sıradan bir
-personel hesabı açmanın native bir yolu yoktu.
-`Http\Admin\UserAuthorizationAdminPage`, bunu Security modülüne, tema
-katmanına hiç dokunmadan native WordPress admin ekranlarına ekliyor:
+personel hesabı açmanın native bir yolu yoktu. Bu bölüm, wp-admin'de
+kendi başına duran bir **"Seviye Kullanıcılar"** üst menüsü olarak dört
+sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
+**Öğrenci**.
 
-- **Kullanıcılar → Seviye Yetkilendirme** sayfası: `administrator` OLMAYAN
-  her WP kullanıcısını listeler, her satırda bir Seviye rolü `<select>`'i +
-  T.C. Kimlik No alanı + Kaydet butonu. `administrator` rolündeki
-  kullanıcılar listede görünmez — bu sayfayı kullanan kişinin kendi WP admin
-  yetkisini yanlışlıkla bir Seviye rolüyle DEĞİŞTİRMESİNİ (native
-  `WP_User::set_role()` mevcut TÜM rolleri tek bir role indirger) önlemek
-  için kasıtlı bir güvenlik önlemi.
-- **WordPress'in kendi "Kullanıcıyı Düzenle" ekranına bir T.C. Kimlik No
-  alanı eklendi** (`show_user_profile`/`edit_user_profile` +
-  `user_profile_update_errors` + `personal_options_update`/`edit_user_profile_update`
-  hook'ları) — Seviye rolü zaten WordPress'in kendi native Rol
-  `<select>`'inde otomatik görünür, çünkü `RoleRegistrar` bu 9 rolü GERÇEK
-  WP rolleri olarak kaydeder; eksik olan tek şey T.C. No eşleşmesiydi.
-- **Kasıtlı olarak `manage_options` (native WP capability) ile kapılı, bir
-  Seviye capability'siyle DEĞİL** — Seviye rolleri bu platformda hiçbir
-  zaman native wp-admin kullanıcı yönetimi capability'si (`edit_users` vb.)
-  almadı; bu sayfa Genel Merkez personeli için değil, hesapları açan gerçek
-  WordPress yöneticisi (hosting seviyesinde) için var. Genel Merkez kendi
-  yetkilendirme işlerini temanın `/admin` bölgesinden yürütmeye devam eder.
+- **Neden `Kullanıcılar` alt menüsü değil, kendi başına üst menü**:
+  ilk sürüm `manage_options` ile kapılıydı ve WordPress'in native
+  `Kullanıcılar` menüsü altına eklenmişti — ama Genel Merkez'in native
+  `list_users`/`edit_users` capability'si hiç olmadı, yani o menüyü hiç
+  GÖREMİYORDU bile. `Http\Admin\AdminAccess`, tek bir capability'ye
+  (`SecurityCapability::MANAGE_SECURITY_SETTINGS`) geçirdi — bu hem
+  Role::GENEL_MERKEZ'e (zaten vardı) HEM DE `SecurityModule::boot()`'ta
+  artık native `administrator` rolüne de (`get_role('administrator')->add_cap(...)`,
+  RbacManager'ın yalnızca Core'un 9 Role'ünü kabul etmesi yüzünden
+  doğrudan WP rol API'siyle) veriliyor — tek capability, tek menü ağacı,
+  hem Genel Merkez hem gerçek WordPress yöneticisi erişebiliyor.
+- **Şifreler asla düz metin olarak "görülemez"** — bu platformdaki her
+  şifre/T.C. No hash'i gibi (bkz. bölüm 6-7) tek yönlü. `Http\Admin\UserAuthorizationAdminPage`'in
+  şifre alanı bunu ihlal etmiyor: Genel Merkez yeni bir şifre BELİRLER,
+  kaydettiği anda o şifreyi bir kerelik düz metin olarak (30 saniyelik
+  transient tabanlı bildirimde) görür ve ilgiliye iletir — daha önce
+  belirlenmiş bir şifreyi sonradan görüntülemek DEĞİL.
+- **Seviye Kullanıcılar / Veli — aynı sınıf, farklı rol filtresi**:
+  `Http\Admin\UserListPage`, `administrator` OLMAYAN her kullanıcıyı (veya
+  yalnızca `Role::VELI` olanları) listeler; her satırda ad/e-posta
+  düzenleme + hesap silme var. Rol/T.C. No/şifre ataması kasıtlı olarak
+  BURADA değil — o, tek sorumluluk ilkesiyle Yetkilendirme sayfasının işi.
+- **Hesap silme, Security'nin kendi tablosunu temizler, başka hiçbir
+  modülünkini DEĞİL**: `handleDelete()` önce `IdentityGatewayInterface::unlink()`
+  ile `scp_user_identities`'i temizler (bu tablonun `wp_users`'a FK'sı yok,
+  bkz. `CreateUserIdentitiesTable`'ın docblock'u), sonra native
+  `wp_delete_user()`'ı çağırır. `scp_student_parents.parent_user_id`,
+  `scp_branch_users.user_id` gibi BAŞKA modüllerin user_id'ye referans
+  veren satırları KASITLI OLARAK dokunulmadan bırakır — Security'nin o
+  tablolara erişim yetkisi yok (bkz. "Kural"), bu bilinen ve belgelenmiş
+  bir sınırlama.
+- **Öğrenci sayfası: yeni bir Contract, Students'tan** — öğrenciler WP
+  kullanıcısı değil (ayrı `scp_students` varlığı), bu yüzden bu sayfa
+  Students'ın YENİ yayınladığı `Contracts\StudentDirectoryInterface`
+  (+ zengin okuma modeli `StudentDirectoryEntry` - sınıf/eğitim
+  yılı/durum dahil, `StudentSummary`'den daha zengin çünkü admin dizini
+  farklı bir tüketici ihtiyacı) ve Branches'ın `BranchLookupInterface`'i
+  üzerinden çalışıyor. Salt okunur: tam CRUD zaten temanın `/admin`,
+  `/sube` panellerinde var, burası sadece wp-admin'den çıkmadan görme
+  kolaylığı.
+- **Security artık Branches'a VE Students'a bağımlı (`composer.json`)** —
+  bu platformda ilk kez, Security kendi dışında bir modülün Contract'ına
+  bağımlı oluyor. Ama bilinçli olarak plugin başlığının
+  `Requires Plugins`'ine EKLENMEDİ: Security erken/temel bir modül (auth
+  her şeyden önce çalışmalı), Students/Branches kurulu olmasa bile
+  aktifleşebilmeli ve çalışabilmeli kalmalı. `Http\Admin\StudentDirectoryPage`
+  bunu, resolve edilmiş bir instance değil `ServiceContainer`'ın kendisini
+  enjekte ederek çözüyor — `$container->has(StudentDirectoryInterface::class)`
+  kontrolü ve gerçek `get()` çağrısı yalnızca `render()` içinde,
+  sayfa gerçekten yüklendiğinde çalışıyor; `SecurityModule::boot()` içinde
+  ASLA — orada yapılsaydı, tam olarak Commerce'in ve Notifications'ın
+  daha önce düzeltilen modül-boot-sırası fatal'ini tekrar ederdi (bkz. bu
+  dosyanın başındaki "İkinci kural").
 - **`IdentityGatewayInterface` iki yeni metotla genişledi**:
   `findTcNumberByUserId()` (ters arama - mevcut değeri formda göstermek
   için) ve `unlink()` (bir T.C. No'yu değiştirmek, `scp_user_identities`
@@ -1232,12 +1267,13 @@ katmanına hiç dokunmadan native WordPress admin ekranlarına ekliyor:
   önce eskisini silmeyi gerektirir). Var olan tek çağıran (kurulum
   sihirbazının demo-admin adımı) `link()`'in imzasını hiç değiştirmediği
   için bozulmadı.
-- **Doğrulama, uygulamadan önce tamamen biter**: `handleSave()` hem rolü
-  hem T.C. No'yu önce doğrular (format + başka bir kullanıcıya zaten bağlı
-  mı), YALNIZCA ikisi de geçerliyse ikisini de uygular — geçersiz bir T.C.
-  No, rol değişikliğini yarım bırakmış halde uygulanmış bırakmaz.
-- Not unit tested, bu koddaki her doğrudan WP-admin-dokunan adaptörle aynı
-  gerekçeyle (bkz. "Test stratejisi").
+- **Doğrulama, uygulamadan önce tamamen biter**: `handleSave()` rolü, T.C.
+  No'yu ve şifreyi önce doğrular (format + başka bir kullanıcıya zaten
+  bağlı mı + minimum uzunluk), YALNIZCA hepsi geçerliyse uygular —
+  geçersiz bir alan, diğerlerini yarım bırakmış halde uygulanmış
+  bırakmaz.
+- Hiçbiri unit test edilmedi, bu koddaki her doğrudan WP-admin-dokunan
+  adaptörle aynı gerekçeyle (bkz. "Test stratejisi").
 
 ## Test stratejisi
 

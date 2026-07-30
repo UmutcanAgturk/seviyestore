@@ -5,7 +5,9 @@
     "license": "proprietary",
     "require": {
         "php": ">=8.2",
-        "seviye/core": "*"
+        "seviye/core": "*",
+        "seviye/branches": "*",
+        "seviye/students": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5"
@@ -24,6 +26,14 @@
         {
             "type": "path",
             "url": "../seviye-core"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-branches"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-students"
         }
     ],
     "scripts": {
