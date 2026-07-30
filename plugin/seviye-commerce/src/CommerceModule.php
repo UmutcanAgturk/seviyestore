@@ -69,19 +69,29 @@ final class CommerceModule implements ModuleInterface
             return;
         }
 
-        $cartHooks = new WooCommerceCartHooks(
-            $container->get(CartPricingService::class),
-            $container->get(StudentLookupInterface::class)
-        );
-        $cartHooks->register();
+        // Deferred to `init` (not resolved here in boot()): CartPricingService and
+        // OrderPersistenceHooks depend on other modules' Contracts (Students,
+        // Branches), and ModuleRegistry::bootAll() boots modules in plugin
+        // *registration* order, not dependency order - that order tracks each
+        // plugin's activation history on the site, which this module cannot rely
+        // on. `init` always fires after every module's boot() has run, so by then
+        // every Contract binding this needs is guaranteed to exist regardless of
+        // which module booted first.
+        add_action('init', static function () use ($container): void {
+            $cartHooks = new WooCommerceCartHooks(
+                $container->get(CartPricingService::class),
+                $container->get(StudentLookupInterface::class)
+            );
+            $cartHooks->register();
 
-        $orderHooks = new OrderPersistenceHooks(
-            $container->get(OrderLineItemRepositoryInterface::class),
-            $container->get(StudentLookupInterface::class),
-            $container->get(BranchLookupInterface::class),
-            new SplitPaymentCalculator(),
-            $container->get(EventBusInterface::class)
-        );
-        $orderHooks->register();
+            $orderHooks = new OrderPersistenceHooks(
+                $container->get(OrderLineItemRepositoryInterface::class),
+                $container->get(StudentLookupInterface::class),
+                $container->get(BranchLookupInterface::class),
+                new SplitPaymentCalculator(),
+                $container->get(EventBusInterface::class)
+            );
+            $orderHooks->register();
+        });
     }
 }
