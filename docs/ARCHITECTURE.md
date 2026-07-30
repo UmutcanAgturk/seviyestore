@@ -83,6 +83,24 @@ erteleme için de geçerli — bkz. `CommerceModule::boot()`'taki WooCommerce
 kanca kaydı ve `NotificationsModule::boot()`'taki şifre sıfırlama
 dinleyicisi, ikisi de bu yüzden `init`'e ertelenmiştir.
 
+**Üçüncü kural (migration'lar sadece aktivasyonda çalışmaz):** Her
+modülün `Support\Activator::activate()`'ı kendi `MigrationRunner::run()`'ını
+çağırır, ama bu yalnızca WordPress'in `register_activation_hook`'u
+tetiklendiğinde çalışır - yani bir eklenti PASİF'ten AKTİF'e geçtiğinde.
+Zaten AKTİF bir eklentinin zip'ini daha yeni bir sürümle DEĞİŞTİRMEK (bir
+site kendi wp-admin'inden "Yükle → Mevcut olanla değiştir" yapsın ya da
+temanın kurulum sihirbazı "zaten etkin, adımı atla" desin, ikisi de aynı
+şekilde) bu hook'u BİR DAHA tetiklemez - yeni bir sürümde eklenen bir
+migration hiçbir zaman çalışmadan kalabilir. `Plugin::boot()`, tüm
+modüller `bootAll()` ile kendi migration'larını kaydettikten SONRA, her
+wp-admin sayfa yüklemesinde (`is_admin()`, storefront'ta değil)
+`MigrationRunner::run()`'ı da çağırır - `run()` zaten idempotent
+(`scp_migrations` tablosunda hangi versiyonların uygulandığını takip
+eder, zaten uygulanmışsa no-op), bu yüzden her istekte çalıştırmak
+güvenli ve ucuz; sonuç, hangi yoldan güncellenirse güncellensin (fresh
+aktivasyon veya zip değiştirme), şema bir sonraki wp-admin ziyaretinde
+kendiliğinden güncel hale gelir.
+
 ## Neden bu tasarım
 
 ### 1. Ports & Adapters ile WordPress'ten ayrıştırma

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Core;
 
 use Seviye\Core\Container\ServiceContainer;
+use Seviye\Core\Database\MigrationRunner;
 use Seviye\Core\Events\Event;
 use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Http\RestApiRegistrar;
@@ -63,6 +64,24 @@ final class Plugin
             $this->modules()->bootAll($this->container);
             $this->container->get(RestApiRegistrar::class)->boot();
             $this->container->get(EventBusInterface::class)->dispatch(new Event('core.booted'));
+
+            // Each module's own Support\Activator only runs MigrationRunner::run()
+            // on a fresh activation (register_activation_hook only fires on the
+            // inactive→active transition) - replacing an ALREADY-ACTIVE plugin's
+            // zip with a newer version (the normal update path, including the
+            // theme's own bundled-plugin installer re-running an "already
+            // active, skip" step) never fires that hook again, so a migration
+            // added in an update would otherwise never run. MigrationRunner::run()
+            // is cheap and idempotent (tracks applied versions in scp_migrations,
+            // a no-op once everything registered this request is already
+            // applied), so running it here on every wp-admin page load - after
+            // every active module has registered its migrations via bootAll()
+            // above - is a safe, standard "catch up on schema changes"
+            // safety net. Skipped on the storefront to avoid the extra query
+            // on every public page view.
+            if (is_admin()) {
+                $this->container->get(MigrationRunner::class)->run();
+            }
         }, 20);
     }
 }
