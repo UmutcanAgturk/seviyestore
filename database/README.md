@@ -58,6 +58,7 @@ migration sınıflarıdır** (`plugin/*/src/Database/Migrations/*.php`); buradak
 | `scp_order_line_items` | Commerce | `CreateOrderLineItemsTable` | Sipariş kalemi başına öğrenci/şube/komisyon oranı/fiyat anlık görüntüsü (hakediş hesaplaması için), WC sipariş durumuyla senkron |
 | `scp_hakedis_entries` | Finance | `CreateHakedisEntriesTable` | Değişmez, yalnızca-ekleme hakediş defteri — Commerce'in event'lerinden üretilen işaretli (EARNED pozitif, REVERSED negatif) kayıtlar |
 | `scp_notifications` | Notifications | `CreateNotificationsTable` | E-posta/SMS/panel-içi bildirim günlüğü — durumu (`status`, `sent_at`, `read_at`) yerinde güncellenen tek istisna tablo, bkz. `docs/ARCHITECTURE.md` bölüm 18 |
+| `scp_api_keys` | API | `CreateApiKeysTable` | API anahtarı kimlik doğrulaması — yalnızca SHA-256 özeti saklanır, düz metin asla; `revoked_at` yumuşak silme (denetim izi), bkz. `docs/ARCHITECTURE.md` bölüm 19 |
 
 WooCommerce hâlâ sepet/sipariş verisinin sahibi — `scp_order_line_items`
 onun yerini almaz, yalnızca hakediş hesaplaması için gereken bilgiyi
@@ -111,4 +112,4 @@ Diğer tüm tablolar (`scp_stock`, `scp_shipments`, `scp_campaigns`, ...)
 ilgili modül geliştirildiğinde, o modülün kendi migration'ları olarak
 eklenecek — bkz. `docs/ROADMAP.md`.
 
-Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql), [`schema/parents.sql`](schema/parents.sql), [`schema/pricing.sql`](schema/pricing.sql), [`schema/commerce.sql`](schema/commerce.sql), [`schema/finance.sql`](schema/finance.sql), [`schema/notifications.sql`](schema/notifications.sql).
+Referans DDL: [`schema/core.sql`](schema/core.sql), [`schema/security.sql`](schema/security.sql), [`schema/branches.sql`](schema/branches.sql), [`schema/students.sql`](schema/students.sql), [`schema/parents.sql`](schema/parents.sql), [`schema/pricing.sql`](schema/pricing.sql), [`schema/commerce.sql`](schema/commerce.sql), [`schema/finance.sql`](schema/finance.sql), [`schema/notifications.sql`](schema/notifications.sql), [`schema/api.sql`](schema/api.sql).

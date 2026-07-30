@@ -1,0 +1,37 @@
+{
+    "name": "seviye/api",
+    "description": "Seviye Commerce Platform - seviye/v1 REST namespace için API anahtarı tabanlı kimlik doğrulama (ERP/CRM/muhasebe/mobil entegrasyonu).",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "seviye/core": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Seviye\\Api\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Seviye\\Api\\Tests\\": "tests/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../seviye-core"
+        }
+    ],
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

@@ -16,7 +16,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri, cari bakiye REST'i, tahsilat (settlement) defteri + REST'i (`POST`/`GET /finance/hakedis/settlements/*`, RBAC) ve tema paneli kuruldu; KDV tutarı Commerce'ten uçtan uca yakalanıp ledger'a yazılıyor ve artık Seviye Reports üzerinden raporlanıyor; iade akışı planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
 | 8 | Seviye Reports | Excel/CSV raporlama (şube/ürün/kategori/dönem bazlı satış) | ✅ **Kuruldu** — `GET seviye/v1/reports/sales` (JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden; PDF raporlama planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 17 |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | ✅ **Kuruldu** — `scp_notifications` günlüğü, `security.password_reset_requested` dinleyicisi, e-posta (`wp_mail()`) + SMS (NetGSM, `seviye/v1/notifications/sms-settings`) + panel-içi (`seviye/v1/notifications/mine/*`, tema bildirim çanı) kanalları; SMS bugün yalnızca telefon numarası kayıtlı veli hesapları için çalışır (Parents'ın yayınladığı `ParentContactLookupInterface`), bkz. `docs/ARCHITECTURE.md` bölüm 18 |
-| 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
+| 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | ✅ **Kuruldu** — API anahtarı tabanlı kimlik doğrulama (`rest_authentication_errors`, `Authorization: Bearer`), `seviye/v1/api-keys` (yalnızca Genel Merkez, oluştur/listele/iptal et); yeni iş mantığı uç noktası eklemez, mevcut her modülün `seviye/v1/*` uçlarını cookie+nonce dışında da erişilebilir kılar, bkz. `docs/ARCHITECTURE.md` bölüm 19 |
 | 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 |
 
 ## Tema ve giriş akışı
@@ -42,6 +42,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | Hesap Güvenliği paneli (2FA kurulum/onay/devre dışı bırakma, `/`, `/sube`, `/admin`'de ortak partial) + girişte 2FA kod adımı + `/admin`'de IP kısıtlaması ayarı | **Kuruldu** — `Seviye Security` + `Seviye Storefront` teması |
 | `/admin` ve `/sube`'de Raporlar paneli (şube/ürün/kategori/dönem filtreleri, JSON görünüm + CSV/Excel indirme) | **Kuruldu** — `seviye/v1/reports/sales`'a bağlı |
 | Panel-içi bildirim çanı (her bölgede, `header.php`) + `/admin`'de SMS ayarları (NetGSM) formu | **Kuruldu** — `seviye/v1/notifications/mine/*` + `seviye/v1/notifications/sms-settings`'e bağlı |
+| `/admin`'de API anahtarları yönetim paneli (oluştur/listele/iptal et) | **Kuruldu** — `seviye/v1/api-keys`'e bağlı |
 
 ## Milestone sırası önerisi
 
@@ -86,7 +87,14 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     REST + tema bildirim çanı, `header.php`) kanalları, ilk gerçek
     `security.password_reset_requested` dinleyicisi — bkz.
     `docs/ARCHITECTURE.md` bölüm 18~~ ✅
-16. Seviye API
+16. ~~Seviye API: `scp_api_keys` (SHA-256 özetlenmiş, düz metin asla
+    saklanmaz), `ApiKeyAuthenticator` (IP başına throttle edilmiş) +
+    `rest_authentication_errors` filtresi (platformun ilk kullanımı,
+    mevcut cookie+nonce akışını asla bozmayacak şekilde), `seviye/v1/api-keys`
+    (yalnızca Genel Merkez) — yeni iş mantığı uç noktası eklemez, tamamen
+    mevcut `seviye/v1/*` uçlarını API anahtarıyla erişilebilir kılan bir
+    kimlik doğrulama katmanı, tema "API Anahtarları" paneli — bkz.
+    `docs/ARCHITECTURE.md` bölüm 19~~ ✅
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

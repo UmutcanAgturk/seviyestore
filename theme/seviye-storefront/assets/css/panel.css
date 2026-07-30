@@ -268,3 +268,25 @@
 .scp-hakedis-stat__value--primary {
   color: var(--scp-primary);
 }
+
+.scp-api-key-reveal {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--scp-bg);
+  border: 1px solid var(--scp-primary);
+  border-radius: 10px;
+}
+
+.scp-api-key-reveal p {
+  margin: 0 0 8px;
+}
+
+.scp-api-key-reveal code {
+  display: block;
+  padding: 8px 10px;
+  overflow-wrap: break-word;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+}

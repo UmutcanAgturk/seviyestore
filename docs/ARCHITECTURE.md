@@ -1119,6 +1119,69 @@ EventBus'ı üzerinden tetiklenir.
   kimlik bilgisi saklayan ilk form, "değiştirmeye çalışmadığın bir sırrı
   boşaltma" UX'i ilk kez burada uygulandı.
 
+### 19. Programatik erişim: API anahtarı kimlik doğrulaması (Seviye API)
+
+**Kapsam kararı, en başta açıkça belgelendi**: "Seviye API" yeni bir iş
+mantığı REST yüzeyi DEĞİL — her modül zaten kendi `seviye/v1/*`
+uçlarının sahibi. Bu modülün tek işi, o AYNI uçları bir tarayıcı
+cookie+nonce oturumu OLMADAN erişilebilir kılmak — ERP/muhasebe/mobil
+entegrasyonlarının ihtiyaç duyduğu şey tam olarak bu. `ApiModule`'ün
+docblock'unda bu kapsam kararı kasıtlı olarak açıkça yazılı.
+
+- **Anahtar, düz metin olarak asla saklanmaz** — yalnızca SHA-256 özeti
+  (`Support\ApiKeyGenerator::hash()`). Bu, Security'nin parola/TC Kimlik No
+  için kullandığı YAVAŞ, tuzlu (bcrypt tarzı) hash'ten kasıtlı olarak
+  farklı: bir parola düşük entropili, insan seçimlidir ve çevrimdışı
+  tahmine karşı direnç gerektirir (yavaş hash'in tüm amacı budur); bir API
+  anahtarı ise zaten `random_bytes(24)`'ün 192 bit'i — tahmin edilemez —
+  bu yüzden hash'lemenin tek amacı sırrı düz metin saklamamaktır, ve hızlı,
+  deterministik bir özet `WHERE key_hash = ?` sorgusunu O(1) bir aramaya
+  çevirir (tuzlu bir bcrypt/Argon2 hash'i deterministik olmadığından bu
+  şekilde aranamaz). GitHub/Stripe tarzı platform API anahtarlarının
+  kullandığı aynı gerekçe.
+- **`Auth\ApiKeyAuthenticator` tamamen saf ve birim test edilebilir** —
+  yalnızca bu modülün kendi repository'sine ve Core'un `RateLimiter`'ına
+  dokunur, `wp_set_current_user()`'ı asla doğrudan çağırmaz.
+  `Http\ApiKeyAuthHook` (WP'nin `rest_authentication_errors` filtresini
+  bağlayan ince adaptör) tek gerçek WordPress bağımlılığını taşır ve test
+  edilmedi — bu koddaki her doğrudan WP hook adaptöründeki aynı desen.
+  IP başına throttle edilir (anahtarın kendisine göre değil — bir
+  saldırgan anahtarı serbestçe değiştirebilir), Security'nin giriş
+  throttle'ıyla aynı MAX_ATTEMPTS/DECAY_SECONDS şekli.
+- **`rest_authentication_errors`, bu platformdaki ilk kullanımı** —
+  `rest_cookie_check_errors()`'ın da kullandığı aynı WP çekirdek uzantı
+  noktası. WP çekirdeğinin kendi deyimini birebir izler:
+  `if (!empty($result)) return $result;` en üstte — bu, hangi filtre
+  callback'inin önce çalıştığından BAĞIMSIZ olarak, bu filtrenin başka bir
+  yöntemin ürettiği bir kimlik doğrulama sonucunu (başarı veya hata) asla
+  ezmemesini garanti eder; iki taraf da aynı deyimi kullandığından sıralama
+  önemsizleşir. `Authorization: Bearer` başlığı yoksa `$result` dokunulmadan
+  döner — düz bir tarayıcı isteği her zamanki gibi cookie+nonce'a düşer,
+  bu uç nokta mevcut panelleri asla bozmaz.
+- **RBAC, kişisel değil paylaşılan bir kaynak modeli** —
+  `ApiCapability::MANAGE_API_KEYS` yalnızca Genel Merkez'e verilir
+  (`MANAGE_SECURITY_SETTINGS`/`MANAGE_NOTIFICATION_SETTINGS`'in aynı
+  "platform genelinde en yetkili tek rol" deseni). `ApiKeysRestController`,
+  2FA/Notifications'ın "yalnızca kendi kaynağın" self-servis desenini
+  İZLEMEZ — Genel Merkez platform genelindeki HER anahtarı görür/yönetir,
+  çünkü bir anahtarın sahibi (`user_id`) genellikle anahtarı oluşturan
+  Genel Merkez kullanıcısı değil, belirli bir dış entegrasyon için
+  wp-admin'de oluşturulmuş bir `Sistem` rolü hesabıdır (spesifikasyonun 9
+  rolünden biri, bu modülden önce hiç kullanılmamıştı) — `POST /api-keys`
+  isteğe bağlı bir `user_id` kabul eder, verilmezse çağıran kullanıcıya
+  düşer.
+- **Bir anahtarın düz değeri yalnızca oluşturma anında, bir kez
+  gösterilir** (`Domain\GeneratedApiKey`) — sunucu bunu hiçbir zaman
+  saklamaz, bu yüzden ondan sonra hiçbir REST çağrısı onu geri
+  döndüremez. Tema tarafı bunu `POST` yanıtından doğrudan gösterir,
+  kaybolursa yeni bir anahtar oluşturmaktan başka çare yoktur — bu bir
+  eksiklik değil, sırrın tek bir yerde var olmasını sağlayan kasıtlı bir
+  tasarım.
+- **`revoked_at`, iptal edilen bir anahtarın satırını SİLMEZ** —
+  Notifications'ın `status` sütunlarıyla aynı denetim-izi gerekçesi:
+  hangi entegrasyonun ne zaman bir anahtara sahip olduğu ve ne zaman iptal
+  edildiği bilgisi korunur.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

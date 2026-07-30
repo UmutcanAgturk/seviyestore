@@ -59,6 +59,14 @@
  * authenticated page (including WooCommerce shop/product pages), not just
  * this zone's own panel.
  *
+ * The "API Anahtarları" section is /admin-only AND gated on
+ * scp_manage_api_keys (Genel Merkez only) - it issues/lists/revokes the API
+ * keys external ERP/muhasebe/mobil entegrasyonları use to authenticate
+ * against seviye/v1 without a browser session (see
+ * Seviye\Api\Http\ApiKeysRestController). A newly created key's plain value
+ * is shown exactly once, client-side, and never requested again from the
+ * server.
+ *
  * The "Hesap Güvenliği" (2FA) section renders for EVERY role in both
  * zones, unconditionally - unlike every other section here, it is not
  * gated by a capability check, because it manages the current user's own
@@ -117,6 +125,10 @@ if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_sett
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) {
     $scp_sections['#scp-sms-settings-panel'] = __('SMS Ayarları', 'seviye-storefront');
+}
+
+if (scp_current_zone() === 'admin' && current_user_can('scp_manage_api_keys')) {
+    $scp_sections['#scp-api-keys-panel'] = __('API Anahtarları', 'seviye-storefront');
 }
 
 get_header();
@@ -590,6 +602,68 @@ get_header();
                     <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
                 </div>
             </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_api_keys')) : ?>
+        <section class="scp-card" id="scp-api-keys-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('API Anahtarları', 'seviye-storefront'); ?></h2>
+                <button type="button" class="scp-btn" data-scp-new-api-key>
+                    <?php esc_html_e('Yeni Anahtar', 'seviye-storefront'); ?>
+                </button>
+            </div>
+
+            <p class="scp-status" data-scp-api-keys-status></p>
+
+            <div class="scp-api-key-reveal" data-scp-api-key-reveal hidden>
+                <p>
+                    <strong>
+                        <?php esc_html_e('Bu anahtar yalnızca bir kez gösterilir. Şimdi kopyalayın.', 'seviye-storefront'); ?>
+                    </strong>
+                </p>
+                <code data-scp-api-key-value></code>
+                <div class="scp-form__actions">
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-dismiss-api-key>
+                        <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </div>
+
+            <form class="scp-form" data-scp-api-key-form hidden>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Etiket', 'seviye-storefront'); ?></span>
+                        <input type="text" name="label" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Kullanıcı ID (boş = ben)', 'seviye-storefront'); ?></span>
+                        <input type="number" min="1" name="user_id">
+                    </label>
+                </div>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Oluştur', 'seviye-storefront'); ?></button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-api-key>
+                        <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </form>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Etiket', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Anahtar', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Kullanıcı ID', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Son Kullanım', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-api-keys-body></tbody>
+                </table>
+            </div>
         </section>
     <?php endif; ?>
 </div>

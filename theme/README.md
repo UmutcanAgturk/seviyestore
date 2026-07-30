@@ -105,6 +105,15 @@ Kurulu olan kapsam:
   görünür. Şifre alanı sunucudan asla geri dönmez (yalnızca kullanıcı
   kodu/başlık); boş bırakılan bir şifre mevcut şifreyi değiştirmez -
   platformun üçüncü taraf bir kimlik bilgisi sakladığı ilk form.
+- **API Anahtarları paneli** (yalnızca `/admin`): `templates/zone.php`'ye
+  eklenen bölüm + `assets/js/api-keys-panel.js`, `seviye/v1/api-keys`'e
+  bağlı. Yalnızca `scp_manage_api_keys` (Genel Merkez) yetkisi olanlara
+  görünür; platform genelindeki HER anahtarı listeler (2FA/Bildirimler'in
+  "yalnızca kendi kaynağın" desenini izlemez — bir anahtarın sahibi
+  genellikle anahtarı oluşturan Genel Merkez kullanıcısı değil, belirli
+  bir entegrasyon için ayrı bir hesaptır). Yeni bir anahtar oluşturulduğunda
+  düz değeri yalnızca `POST` yanıtından, bir kez gösterilir — sayfa
+  yenilendiğinde veya panel kapatıldığında bir daha asla görüntülenemez.
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca

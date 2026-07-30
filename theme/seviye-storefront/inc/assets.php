@@ -67,6 +67,10 @@ function scp_enqueue_panel_assets(): void
         'noNotifications' => __('Bildirim yok.', 'seviye-storefront'),
         'smsConfigured' => __('NetGSM bağlantısı yapılandırıldı.', 'seviye-storefront'),
         'smsNotConfigured' => __('NetGSM bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
+        'apiKeyActive' => __('Aktif', 'seviye-storefront'),
+        'apiKeyRevoked' => __('İptal Edildi', 'seviye-storefront'),
+        'apiKeyRevokeAction' => __('İptal Et', 'seviye-storefront'),
+        'confirmRevokeApiKey' => __('Bu API anahtarını iptal etmek istediğinize emin misiniz?', 'seviye-storefront'),
         'twoFactorEnabled' => __('İki adımlı doğrulama etkinleştirildi.', 'seviye-storefront'),
         'twoFactorDisabled' => __('İki adımlı doğrulama devre dışı bırakıldı.', 'seviye-storefront'),
         'twoFactorInvalidCode' => __('Kod hatalı. Lütfen tekrar deneyin.', 'seviye-storefront'),
@@ -153,6 +157,13 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_VERSION,
             true
         );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && current_user_can('scp_manage_api_keys')) {
+        $handle = 'scp-api-keys-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/api-keys-panel.js', [], SCP_THEME_VERSION, true);
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
