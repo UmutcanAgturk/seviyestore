@@ -14,16 +14,17 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
     {
         $connection = new FakeConnection();
         $connection->nextInsertId = 9;
-        $connection->resultsToReturn = [$this->row(9, 500, 3, 42, 7, '12.50', '89.90', '16.18', 'processing')];
+        $connection->resultsToReturn = [$this->row(9, 500, 3, 42, 7, 55, '12.50', '89.90', '16.18', 'processing')];
         $repository = new WpdbOrderLineItemRepository($connection);
 
-        $item = $repository->create(500, 3, 42, 7, 12.5, 89.90, 16.18, 'processing');
+        $item = $repository->create(500, 3, 42, 7, 55, 12.5, 89.90, 16.18, 'processing');
 
         self::assertSame(9, $item->id);
         self::assertSame(500, $item->orderId);
         self::assertSame(3, $item->orderItemId);
         self::assertSame(42, $item->studentId);
         self::assertSame(7, $item->branchId);
+        self::assertSame(55, $item->productId);
         self::assertSame(12.5, $item->commissionRate);
         self::assertSame(89.90, $item->price);
         self::assertSame(16.18, $item->vatAmount);
@@ -32,6 +33,7 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
         [$table, $data] = $connection->inserted[0];
         self::assertSame('test_scp_order_line_items', $table);
         self::assertSame(500, $data['order_id']);
+        self::assertSame(55, $data['product_id']);
         self::assertSame(16.18, $data['vat_amount']);
         self::assertSame('processing', $data['status']);
     }
@@ -50,8 +52,8 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
     {
         $connection = new FakeConnection();
         $connection->resultsToReturn = [
-            $this->row(1, 500, 3, 42, 7, '12.50', '89.90', '16.18', 'processing'),
-            $this->row(2, 500, 4, 43, 7, '12.50', '49.90', '8.98', 'processing'),
+            $this->row(1, 500, 3, 42, 7, 55, '12.50', '89.90', '16.18', 'processing'),
+            $this->row(2, 500, 4, 43, 7, 56, '12.50', '49.90', '8.98', 'processing'),
         ];
         $repository = new WpdbOrderLineItemRepository($connection);
 
@@ -60,6 +62,8 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
         self::assertCount(2, $items);
         self::assertSame(42, $items[0]->studentId);
         self::assertSame(43, $items[1]->studentId);
+        self::assertSame(55, $items[0]->productId);
+        self::assertSame(56, $items[1]->productId);
     }
 
     /**
@@ -71,6 +75,7 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
         int $orderItemId,
         int $studentId,
         int $branchId,
+        int $productId,
         string $commissionRate,
         string $price,
         string $vatAmount,
@@ -82,6 +87,7 @@ final class WpdbOrderLineItemRepositoryTest extends TestCase
             'order_item_id' => (string) $orderItemId,
             'student_id' => (string) $studentId,
             'branch_id' => (string) $branchId,
+            'product_id' => (string) $productId,
             'commission_rate' => $commissionRate,
             'price' => $price,
             'vat_amount' => $vatAmount,

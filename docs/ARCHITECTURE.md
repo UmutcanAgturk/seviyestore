@@ -975,6 +975,74 @@ sınırlar.
   halde ham `secret` elle girilebilir. Yeni bir QR-üretme bağımlılığı
   eklemeden tam işlevsel bir kurulum akışı.
 
+### 17. Şube/ürün/kategori/dönem bazlı satış raporları (Seviye Reports)
+
+Spesifikasyondaki "Raporlar" modülü — kendi `scp_*` tablosu ve migration'ı
+YOK; tamamen diğer modüllerin yayınladığı Contracts üzerine kurulu, salt
+okunur bir katman.
+
+- **Commerce'ten yeni bir Contract yayınlandı, sadece Reports için**:
+  `Seviye\Commerce\Contracts\OrderLineItemQueryInterface` +
+  `OrderLineItemRecord` + `OrderLineItemFilter`. Bu, mevcut
+  `OrderLineItemRepositoryInterface`'in aynısı değil — o, Commerce'in kendi
+  iç `Domain\OrderLineItem`'ini döndürür ve başka bir modülün bağımlı
+  olması için tasarlanmadı. `WpdbStudentLookup`/`WpdbBranchLookup`
+  deseninin birebir tekrarı: ayrı, minimal bir `WpdbOrderLineItemQuery`
+  adaptörü, dinamik `WHERE` cümlesini yalnızca dolu filtre alanlarından
+  kurar.
+- **`OrderLineItemRecord`, "Domain sınıfı gerçek bir tüketici olmadan ham
+  zaman damgası taşımaz" ilkesinin `HakedisSettlement`'tan sonraki ikinci
+  belgeli istisnası**: `createdAt` taşır, çünkü Reports'un dönem bazlı
+  filtreleme için "ne zaman" bilgisine gerçekten ihtiyacı var; Commerce'in
+  kendi iç `Domain\OrderLineItem`'i hâlâ `createdAt` taşımıyor.
+- **Kategori, sipariş anında ASLA snapshot'lanmaz**: `productId` (bir fiyat
+  gerçeği gibi sipariş-anı bilgisi) snapshot'lanırken, ürünün kategorisi
+  rapor ANINDA WooCommerce'in kendi canlı taksonomisinden çözülür
+  (`has_term($categoryId, 'product_cat', $productId)`) —
+  `Domain\OrderLineItem`'ın docblock'unda "bir raporun canlı çözebileceği
+  güncel-durum bilgisi" olarak, `commission_rate`/`price` gibi
+  sipariş-anı-gerçeklerinden ayrı belgelendi.
+- **Satış raporu yalnızca `completed` sipariş kalemlerini sayar**:
+  `ReportsRestController::REPORT_STATUS`, Finance'in kendi hakediş-tetikleme
+  tanımıyla ("gerçekten gerçekleşmiş, hâlâ iade edilebilir değil" —
+  `processing` değil) birebir aynı, kasıtlı olarak sabit kodlanmış — hâlâ
+  iade edilebilecek parayı gösteren bir rapor, eksik değil, yanıltıcı
+  olurdu.
+- **RBAC, Finance'in `HakedisCapability`'sinin birebir aynası**:
+  `ReportCapability::VIEW_REPORTS` (Genel Merkez/Bölge Müdürü, her şube)
+  ve `VIEW_OWN_REPORTS` (Şube Müdürü, yalnızca kendi şubesi).
+  `ReportsRestController::effectiveBranchId()`, "sunucu kapsamı çözer,
+  istemciye asla güvenmez" kuralının Students/Pricing'in yazma
+  uçlarından sonra bir OKUMA uç noktasına uygulandığı ilk yer: şube-scoped
+  bir rol için, isteğin gönderdiği `branch_id` ne olursa olsun kendi şubesi
+  her zaman kazanır.
+- **Excel export, PhpSpreadsheet gibi ağır bir Composer bağımlılığı
+  eklemeden sıfırdan yazıldı**: `Support\XlsxExporter`, `ZipArchive` ile
+  minimal ama gerçekten geçerli 5 parçalık bir OOXML üretir
+  (`[Content_Types].xml`, `_rels/.rels`, `xl/workbook.xml`,
+  `xl/_rels/workbook.xml.rels`, `xl/worksheets/sheet1.xml`) — 2FA'nın
+  TOTP'si için verilen "dar, iyi anlaşılmış bir format için ağır bağımlılıktan
+  kaçın" kararının aynısı. Üretilen dosya gerçekten `openpyxl` ile
+  okutularak doğrulandı (sayfa adı, başlık satırı, Türkçe karakterler,
+  sayısal tipler).
+- **CSV export, `fputcsv()`'nin kendisinden fazlasını gerektirmedi** — UTF-8
+  BOM önekli, RFC 4180 uyumlu, Excel'in Türkçe karakterleri doğru
+  göstermesi için.
+- **Dosya indirme, bu kod tabanındaki ilk gerçek dosya-indirme REST
+  uç noktası**: `format=csv|xlsx`, `WP_REST_Server`'ın normal JSON
+  zarfını tamamen atlar — `header()` + `echo` + `exit`, callback döneden
+  ÖNCE, sınıfın docblock'unda belgelenen standart WP REST dosya-servis
+  deseni. Bir `<a href>` indirme tıklaması `fetch()`'in aksine özel başlık
+  taşıyamadığından, nonce `X-WP-Nonce` başlığı yerine bir `_wpnonce` sorgu
+  parametresi olarak taşınır (`rest_cookie_check_errors()` ikisini de
+  kabul eder) — tema tarafında `assets/js/reports-panel.js`'nin CSV/Excel
+  butonları bu deseni kullanır.
+- **Tema: "Raporlar" bölümü, "Cari Bakiye"nin HQ/kendi-şube ayrımını
+  birebir tekrarlar** — `scp_view_reports` (HQ) bir şube filtresi görür
+  (boş = her şube), `scp_view_own_reports` (Şube Müdürü) sessizce kendi
+  şubesine kilitlenir. "Getir" JSON görünümünü sayfa içinde yükler; CSV/Excel
+  butonları ise tarayıcıyı doğrudan indirme URL'sine yönlendirir.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

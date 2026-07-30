@@ -13,8 +13,8 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 4 | Seviye Branches | Şube entity (IBAN, komisyon, telefon, adres), Yetkililer (personel-şube ataması), Contracts, REST | ✅ **Kuruldu** (logo yükleme henüz yok) |
 | 5 | Seviye Pricing | Özel fiyatlandırma motoru (öğrenci→şube→genel→WC varsayılan önceliği; "bölge" katmanı Branches'ta resmi bir Region entity'si olmadığından bu milestone'da bilinçli olarak ayrı bir katman değil — bkz. `docs/ARCHITECTURE.md` bölüm 13), Contracts (`PriceResolverInterface`), REST | ✅ **Kuruldu** |
 | 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | ✅ **Kuruldu** — sepet fiyatlandırma, tema tarafı, sipariş kalıcılığı, split payment hesaplaması ve hakediş event tetikleme (tamamlama + iade/iptal ters çevirme) kuruldu; asıl hakediş/cari kaydını tutmak Seviye Finance'ın işi (henüz kurulmadı), bkz. `docs/ARCHITECTURE.md` bölüm 14 |
-| 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri, cari bakiye REST'i, tahsilat (settlement) defteri + REST'i (`POST`/`GET /finance/hakedis/settlements/*`, RBAC) ve tema paneli kuruldu; KDV tutarı Commerce'ten uçtan uca yakalanıp ledger'a yazılıyor (henüz raporlanmıyor — Seviye Reports'un işi); iade akışı planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
-| 8 | Seviye Reports | Excel/CSV/PDF raporlama (şube/ürün/kategori/dönem bazlı) | Planlandı |
+| 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri, cari bakiye REST'i, tahsilat (settlement) defteri + REST'i (`POST`/`GET /finance/hakedis/settlements/*`, RBAC) ve tema paneli kuruldu; KDV tutarı Commerce'ten uçtan uca yakalanıp ledger'a yazılıyor ve artık Seviye Reports üzerinden raporlanıyor; iade akışı planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
+| 8 | Seviye Reports | Excel/CSV raporlama (şube/ürün/kategori/dönem bazlı satış) | ✅ **Kuruldu** — `GET seviye/v1/reports/sales` (JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden; PDF raporlama planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 17 |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
 | 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 |
@@ -37,9 +37,10 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | Split payment hesaplaması + hakediş event tetikleme (tamamlama + iade/iptal ters çevirme) | **Kuruldu** — `Seviye Commerce`; asıl hakediş/cari kaydı Seviye Finance'ın sorumluluğu |
 | Hakediş defteri (`scp_hakedis_entries`, event tüketimi) + cari bakiye REST'i | **Kuruldu** — `Seviye Finance` |
 | `/admin` ve `/sube`'de cari bakiye görüntüleme paneli + tahsilat geçmişi/kaydı | **Kuruldu** — `Seviye Storefront` teması |
-| KDV tutarının sipariş kaleminden hakediş defterine kadar yakalanması | **Kuruldu** — `Seviye Commerce` + `Seviye Finance` (henüz raporlanmıyor) |
+| KDV tutarının sipariş kaleminden hakediş defterine kadar yakalanması | **Kuruldu** — `Seviye Commerce` + `Seviye Finance` + `Seviye Reports` (artık raporlanıyor) |
 | İade akışı | Planlandı (Seviye Finance'ın sorumluluğu) |
 | Hesap Güvenliği paneli (2FA kurulum/onay/devre dışı bırakma, `/`, `/sube`, `/admin`'de ortak partial) + girişte 2FA kod adımı + `/admin`'de IP kısıtlaması ayarı | **Kuruldu** — `Seviye Security` + `Seviye Storefront` teması |
+| `/admin` ve `/sube`'de Raporlar paneli (şube/ürün/kategori/dönem filtreleri, JSON görünüm + CSV/Excel indirme) | **Kuruldu** — `seviye/v1/reports/sales`'a bağlı |
 
 ## Milestone sırası önerisi
 
@@ -63,7 +64,6 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     - ~~12b. Cari bakiye REST: `GET /finance/hakedis/balance/me` + `GET /finance/hakedis/balance/{branch_id}`, RBAC (`scp_view_hakedis`: HQ tüm şubeleri; `scp_view_own_hakedis`: yalnızca Şube Müdürü + Muhasebe, kendi şubesi) — `BranchesRestController`'ın `/branches/me` desenini izler~~ ✅
     - ~~12c. Tema: `/admin` ve `/sube`'de cari bakiye görüntüleme paneli~~ ✅
     - ~~12d. Tahsilat işaretleme (`scp_hakedis_settlements` defteri, hakediş kaydının ne zaman/nasıl ödendiğini takip etme, REST, RBAC, tema paneli) + KDV takibi (Commerce'ten hakediş defterine kadar `vat_amount` yakalama - raporlama Seviye Reports'un işi)~~ ✅
-    - Seviye Reports
 13. ~~Seviye Security'nin geri kalanı: 2FA (`TwoFactor\Totp`/`Base32`/`Encryptor`,
     RFC 6238 test vektörleriyle doğrulandı; girişte iki adımlı akış;
     self-servis `seviye/v1/security/2fa/*`; tema "Hesap Güvenliği" partial'ı)
@@ -71,7 +71,12 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     `Settings\SettingsRepositoryInterface`'i üzerinden yapılandırılır,
     `/admin`'de `template_redirect` önceliği 6'da uygulanır) — bkz.
     `docs/ARCHITECTURE.md` bölüm 16~~ ✅
-14. Seviye Notifications + Seviye API
+14. ~~Seviye Reports: Commerce'ten yayınlanan `OrderLineItemQueryInterface`
+    Contract'ı üzerinden şube/ürün/kategori/dönem bazlı satış raporu
+    (`GET seviye/v1/reports/sales`, JSON/CSV/XLSX), RBAC
+    (`VIEW_REPORTS`/`VIEW_OWN_REPORTS`, Finance'in hakediş RBAC'ının aynası),
+    tema "Raporlar" paneli — bkz. `docs/ARCHITECTURE.md` bölüm 17~~ ✅
+15. Seviye Notifications + Seviye API
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

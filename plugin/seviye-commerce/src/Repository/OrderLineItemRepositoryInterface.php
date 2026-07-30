@@ -13,6 +13,7 @@ interface OrderLineItemRepositoryInterface
         int $orderItemId,
         int $studentId,
         int $branchId,
+        int $productId,
         float $commissionRate,
         float $price,
         float $vatAmount,

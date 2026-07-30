@@ -19,6 +19,16 @@ namespace Seviye\Commerce\Domain;
  * a derived value (vatAmount / price) that could drift from what's stored,
  * not an independent fact captured at order time.
  *
+ * `productId` is WooCommerce's own post ID for the purchased product
+ * (`WC_Order_Item_Product::get_product_id()`) - no FK (this platform never
+ * puts FKs on WordPress/WooCommerce core tables), captured purely so Seviye
+ * Reports can group by product/category without re-deriving it from raw WC
+ * order item meta. Category is deliberately NOT snapshotted alongside it:
+ * unlike commission_rate/price (facts about what actually happened at
+ * order time), a product's category assignment is current-state
+ * information a report can resolve live from WooCommerce's own taxonomy at
+ * report-generation time.
+ *
  * `status` deliberately stays a plain string mirroring WooCommerce's own
  * order status slug (`wc_get_order_statuses()` is an open, extensible
  * dictionary - third-party payment/subscription plugins add their own
@@ -33,6 +43,7 @@ final class OrderLineItem
         public readonly int $orderItemId,
         public readonly int $studentId,
         public readonly int $branchId,
+        public readonly int $productId,
         public readonly float $commissionRate,
         public readonly float $price,
         public readonly float $vatAmount,

@@ -1,0 +1,55 @@
+{
+    "name": "seviye/reports",
+    "description": "Seviye Commerce Platform - şube/ürün/kategori/dönem bazlı satış raporlama (CSV/Excel).",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "seviye/core": "*",
+        "seviye/branches": "*",
+        "seviye/commerce": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Seviye\\Reports\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Seviye\\Reports\\Tests\\": "tests/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../seviye-core"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-branches"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-students"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-pricing"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-commerce"
+        }
+    ],
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

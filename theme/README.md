@@ -77,6 +77,18 @@ Kurulu olan kapsam:
   her satıra bir IP/CIDR olacak şekilde düz bir metin alanı — sunucu
   tarafındaki ayrıştırma/doğrulama mantığı tek bir yerde
   (`Seviye\Security\Routing\IpAllowlist`) yaşar.
+- **Raporlar paneli** (`/sube` VE `/admin`): `templates/zone.php`'ye eklenen
+  "Raporlar" bölümü + `assets/js/reports-panel.js`, `seviye/v1/reports/sales`'a
+  bağlı. Cari bakiye paneliyle aynı HQ/kendi-şube ayrımı: `scp_view_reports`
+  (Genel Merkez, Bölge Müdürü) bir şube filtresi (boş = tüm şubeler, seçenekler
+  `GET /branches`'tan doldurulur) görür; `scp_view_own_reports` (Şube Müdürü)
+  şube alanını hiç görmez, sunucu kendi şubesine sabitler. Ürün ID/kategori
+  ID/tarih aralığı filtreleriyle "Getir" düğmesi raporu JSON olarak tablo
+  içinde yükler; "CSV İndir"/"Excel İndir" düğmeleri ise tarayıcıyı doğrudan
+  `GET /reports/sales?format=csv|xlsx&_wpnonce=...`'a yönlendirir — gerçek bir
+  dosya indirmesi `fetch()` üzerinden sürülemediğinden, REST nonce'ı
+  `X-WP-Nonce` başlığı yerine bir sorgu parametresi olarak taşınır (bkz.
+  `docs/ARCHITECTURE.md` bölüm 17).
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca
@@ -109,8 +121,7 @@ Kurulu olan kapsam:
 
 Kapsam dışı (henüz kurulmadı, ilgili modüller geldiğinde eklenecek):
 
-- İade akışı, KDV raporlaması (Seviye Reports'un işi — tutar zaten
-  yakalanıyor, bkz. yukarıdaki cari bakiye maddesi).
+- İade akışı (Seviye Finance'ın işi).
 
 Tema, diğer tüm bileşenler gibi yalnızca Seviye Core'un (ve ilgili modüllerin)
 yayınladığı public API'ler / REST uç noktaları üzerinden veri okur; doğrudan

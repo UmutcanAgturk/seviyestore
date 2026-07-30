@@ -39,6 +39,16 @@
  * holders (Genel Merkez / Muhasebe) - a Bölge Müdürü sees the same
  * settlement history a Muhasebe user does, but never the record form.
  *
+ * The "Raporlar" section (both zones) mirrors the cari bakiye section's
+ * split exactly: scp_view_reports (HQ) sees a branch filter (blank = every
+ * branch) and scp_view_own_reports (Şube Müdürü) is silently locked to
+ * their own branch - see Seviye\Reports\Http\ReportsRestController. "Getir"
+ * loads the JSON view inline; the CSV/Excel buttons instead navigate the
+ * browser straight to GET /reports/sales?format=csv|xlsx (a real file
+ * download can't go through fetch()+JS, so the REST nonce rides along as a
+ * `_wpnonce` query param instead of the X-WP-Nonce header every other call
+ * here uses).
+ *
  * The "Hesap Güvenliği" (2FA) section renders for EVERY role in both
  * zones, unconditionally - unlike every other section here, it is not
  * gated by a capability check, because it manages the current user's own
@@ -83,6 +93,10 @@ if (current_user_can('scp_manage_pricing')) {
 
 if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
     $scp_sections['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
+}
+
+if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) {
+    $scp_sections['#scp-reports-panel'] = __('Raporlar', 'seviye-storefront');
 }
 
 $scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
@@ -445,6 +459,64 @@ get_header();
                         </button>
                     </div>
                 </form>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) : ?>
+        <section class="scp-card" id="scp-reports-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Raporlar', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-reports-status></p>
+
+            <form class="scp-form scp-form--inline" data-scp-report-form>
+                <label data-scp-report-branch-field hidden>
+                    <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
+                    <select></select>
+                </label>
+                <label>
+                    <span><?php esc_html_e('Ürün ID', 'seviye-storefront'); ?></span>
+                    <input type="number" min="1" name="product_id">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Kategori ID', 'seviye-storefront'); ?></span>
+                    <input type="number" min="1" name="category_id">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Başlangıç', 'seviye-storefront'); ?></span>
+                    <input type="date" name="from">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Bitiş', 'seviye-storefront'); ?></span>
+                    <input type="date" name="to">
+                </label>
+
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Getir', 'seviye-storefront'); ?></button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-report-csv>
+                        <?php esc_html_e('CSV İndir', 'seviye-storefront'); ?>
+                    </button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-report-xlsx>
+                        <?php esc_html_e('Excel İndir', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </form>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table" data-scp-reports-table hidden>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Ürün', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Sipariş Sayısı', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Toplam Tutar (TRY)', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Toplam KDV (TRY)', 'seviye-storefront'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-reports-body></tbody>
+                </table>
             </div>
         </section>
     <?php endif; ?>

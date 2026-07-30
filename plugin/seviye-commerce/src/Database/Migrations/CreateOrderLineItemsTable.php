@@ -24,6 +24,8 @@ use Seviye\Core\Database\MigrationInterface;
  * (see Domain\OrderLineItem) - added alongside price/commission_rate rather
  * than in a separate migration, since this table has never been deployed
  * to a live install yet (see root README.md's "headless session" note).
+ * product_id (Seviye Reports' product/category grouping) was added the
+ * same way.
  */
 final class CreateOrderLineItemsTable implements MigrationInterface
 {
@@ -50,6 +52,7 @@ final class CreateOrderLineItemsTable implements MigrationInterface
             order_item_id BIGINT UNSIGNED NOT NULL,
             student_id BIGINT UNSIGNED NOT NULL,
             branch_id BIGINT UNSIGNED NOT NULL,
+            product_id BIGINT UNSIGNED NOT NULL,
             commission_rate DECIMAL(5,2) NOT NULL,
             price DECIMAL(10,2) NOT NULL,
             vat_amount DECIMAL(10,2) NOT NULL,
@@ -60,6 +63,7 @@ final class CreateOrderLineItemsTable implements MigrationInterface
             UNIQUE KEY order_item (order_id, order_item_id),
             KEY student_id (student_id),
             KEY branch_id (branch_id),
+            KEY product_id (product_id),
             KEY status (status)
         ) {$charsetCollate};";
 

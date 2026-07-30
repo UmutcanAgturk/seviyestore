@@ -94,6 +94,7 @@ final class OrderPersistenceHooks
                 (int) $orderItemId,
                 $studentId,
                 $branchSummary->id,
+                $item->get_product_id(),
                 $branchSummary->commissionRate,
                 (float) $item->get_total(),
                 (float) $item->get_total_tax(),

@@ -62,6 +62,8 @@ function scp_enqueue_panel_assets(): void
         'methodOther' => __('Diğer', 'seviye-storefront'),
         'settlementRecorded' => __('Tahsilat kaydedildi.', 'seviye-storefront'),
         'noSettlements' => __('Henüz tahsilat kaydı yok.', 'seviye-storefront'),
+        'allBranches' => __('Tüm Şubeler', 'seviye-storefront'),
+        'noReportData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
         'twoFactorEnabled' => __('İki adımlı doğrulama etkinleştirildi.', 'seviye-storefront'),
         'twoFactorDisabled' => __('İki adımlı doğrulama devre dışı bırakıldı.', 'seviye-storefront'),
         'twoFactorInvalidCode' => __('Kod hatalı. Lütfen tekrar deneyin.', 'seviye-storefront'),
@@ -110,6 +112,17 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_hakedis'),
             'canRecordSettlement' => current_user_can('scp_record_hakedis_settlement'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    $canViewReports = current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
+        $handle = 'scp-reports-panel';
+        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/reports-panel.js', [], SCP_THEME_VERSION, true);
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canViewAllBranches' => current_user_can('scp_view_reports'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

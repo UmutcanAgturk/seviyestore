@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Seviye\Commerce;
 
 use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
+use Seviye\Commerce\Repository\WpdbOrderLineItemQuery;
 use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Support\CartPricingService;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
@@ -50,6 +52,13 @@ final class CommerceModule implements ModuleInterface
         $container->singleton(
             OrderLineItemRepositoryInterface::class,
             static fn (ServiceContainer $c): WpdbOrderLineItemRepository => new WpdbOrderLineItemRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            OrderLineItemQueryInterface::class,
+            static fn (ServiceContainer $c): WpdbOrderLineItemQuery => new WpdbOrderLineItemQuery(
                 $c->get(ConnectionInterface::class)
             )
         );

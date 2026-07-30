@@ -13,6 +13,7 @@ CREATE TABLE {prefix}scp_order_line_items (
     order_item_id BIGINT UNSIGNED NOT NULL,
     student_id BIGINT UNSIGNED NOT NULL,
     branch_id BIGINT UNSIGNED NOT NULL,
+    product_id BIGINT UNSIGNED NOT NULL,
     commission_rate DECIMAL(5,2) NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     vat_amount DECIMAL(10,2) NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE {prefix}scp_order_line_items (
     UNIQUE KEY order_item (order_id, order_item_id),
     KEY student_id (student_id),
     KEY branch_id (branch_id),
+    KEY product_id (product_id),
     KEY status (status),
     CONSTRAINT scp_order_line_items_student_id_fk
         FOREIGN KEY (student_id) REFERENCES {prefix}scp_students (id),
