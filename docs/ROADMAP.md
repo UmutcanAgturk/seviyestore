@@ -17,7 +17,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 8 | Seviye Reports | Excel/CSV raporlama (şube/ürün/kategori/dönem bazlı satış) | ✅ **Kuruldu** — `GET seviye/v1/reports/sales` (JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden; PDF raporlama planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 17 |
 | 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | ✅ **Kuruldu** — `scp_notifications` günlüğü, `security.password_reset_requested` dinleyicisi, e-posta (`wp_mail()`) + SMS (NetGSM, `seviye/v1/notifications/sms-settings`) + panel-içi (`seviye/v1/notifications/mine/*`, tema bildirim çanı) kanalları; SMS bugün yalnızca telefon numarası kayıtlı veli hesapları için çalışır (Parents'ın yayınladığı `ParentContactLookupInterface`), bkz. `docs/ARCHITECTURE.md` bölüm 18 |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | ✅ **Kuruldu** — API anahtarı tabanlı kimlik doğrulama (`rest_authentication_errors`, `Authorization: Bearer`), `seviye/v1/api-keys` (yalnızca Genel Merkez, oluştur/listele/iptal et); yeni iş mantığı uç noktası eklemez, mevcut her modülün `seviye/v1/*` uçlarını cookie+nonce dışında da erişilebilir kılar, bkz. `docs/ARCHITECTURE.md` bölüm 19 |
-| 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 |
+| 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması, native wp-admin kullanıcı yetkilendirme | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 ve 20 |
 
 ## Tema ve giriş akışı
 
@@ -43,6 +43,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/admin` ve `/sube`'de Raporlar paneli (şube/ürün/kategori/dönem filtreleri, JSON görünüm + CSV/Excel indirme) | **Kuruldu** — `seviye/v1/reports/sales`'a bağlı |
 | Panel-içi bildirim çanı (her bölgede, `header.php`) + `/admin`'de SMS ayarları (NetGSM) formu | **Kuruldu** — `seviye/v1/notifications/mine/*` + `seviye/v1/notifications/sms-settings`'e bağlı |
 | `/admin`'de API anahtarları yönetim paneli (oluştur/listele/iptal et) | **Kuruldu** — `seviye/v1/api-keys`'e bağlı |
+| wp-admin → Kullanıcılar → Seviye Yetkilendirme (rol ata + T.C. Kimlik No eşleştir) + "Kullanıcıyı Düzenle" ekranında T.C. Kimlik No alanı | **Kuruldu** — `Seviye Security`, native WordPress ekranları, `manage_options` yetkisiyle kapılı |
 
 ## Milestone sırası önerisi
 

@@ -15,7 +15,11 @@ interface IdentityGatewayInterface
 {
     public function findUserIdByTcNumber(TcNumber $tcNumber): ?int;
 
+    public function findTcNumberByUserId(int $userId): ?TcNumber;
+
     public function tcNumberExists(TcNumber $tcNumber): bool;
 
     public function link(TcNumber $tcNumber, int $userId): void;
+
+    public function unlink(int $userId): void;
 }

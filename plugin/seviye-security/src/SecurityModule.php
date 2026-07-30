@@ -22,6 +22,7 @@ use Seviye\Security\Auth\WpCredentialGateway;
 use Seviye\Security\Database\Migrations\CreatePasswordTokensTable;
 use Seviye\Security\Database\Migrations\CreateTwoFactorSecretsTable;
 use Seviye\Security\Database\Migrations\CreateUserIdentitiesTable;
+use Seviye\Security\Http\Admin\UserAuthorizationAdminPage;
 use Seviye\Security\Http\AuthRestController;
 use Seviye\Security\Http\SecuritySettingsRestController;
 use Seviye\Security\Http\TwoFactorRestController;
@@ -152,5 +153,7 @@ final class SecurityModule implements ModuleInterface
                 $container->get(SettingsRepositoryInterface::class)
             )
         );
+
+        (new UserAuthorizationAdminPage($container->get(IdentityGatewayInterface::class)))->register();
     }
 }

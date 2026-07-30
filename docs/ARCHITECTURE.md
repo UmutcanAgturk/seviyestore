@@ -67,6 +67,22 @@ tabloları arasında gerçek bir InnoDB FK kısıtlaması olması PHP sınıf
 bağımlılığı yaratmaz (bkz. `scp_branch_users.branch_id → scp_branches.id`)
 ve spesifikasyonun kendisi FK ilişkilerini açıkça istiyor.
 
+**İkinci kural (boot sırası):** `ModuleRegistry::bootAll()` modülleri
+*kayıt sırasına* göre boot eder, bu da her eklentinin sitede hangi sırayla
+etkinleştirildiğine bağlıdır — deklare edilmiş bir bağımlılık grafiğine
+göre değil. Bir modülün `boot()` metodu, başka bir modülün yayınladığı
+Contract'ı **doğrudan `$container->get(...)` ile çözümlerse** (bir
+`RestApiRegistrar::register()` closure'ı içinde DEĞİL), o modül henüz boot
+olmamışsa `NotFoundException` fırlatır — ve bu, hangi eklentinin önce
+etkinleştirildiğine bağlı olarak *bazı* isteklerde patlayan, bazılarında
+patlamayan kırılgan bir hata sınıfı üretir (ör. `admin-ajax.php`'nin her
+çağrısı, Heartbeat dahil). `RestApiRegistrar`'ın kendi closure'ları güvenli
+çünkü yalnızca `rest_api_init`'te (tüm modüller boot olduktan sonra)
+çalışır; aynı ilke başka bir WordPress hook'una (`add_action('init', ...)`)
+erteleme için de geçerli — bkz. `CommerceModule::boot()`'taki WooCommerce
+kanca kaydı ve `NotificationsModule::boot()`'taki şifre sıfırlama
+dinleyicisi, ikisi de bu yüzden `init`'e ertelenmiştir.
+
 ## Neden bu tasarım
 
 ### 1. Ports & Adapters ile WordPress'ten ayrıştırma
@@ -1181,6 +1197,47 @@ docblock'unda bu kapsam kararı kasıtlı olarak açıkça yazılı.
   Notifications'ın `status` sütunlarıyla aynı denetim-izi gerekçesi:
   hangi entegrasyonun ne zaman bir anahtara sahip olduğu ve ne zaman iptal
   edildiği bilgisi korunur.
+
+### 20. Native wp-admin'de kullanıcı yetkilendirme (Seviye Security)
+
+Şu ana kadar bir kullanıcıya Seviye rolü + T.C. Kimlik No eşleşmesi vermenin
+tek yolu kurulum sihirbazının tek seferlik demo-admin adımıydı — sıradan bir
+personel hesabı açmanın native bir yolu yoktu.
+`Http\Admin\UserAuthorizationAdminPage`, bunu Security modülüne, tema
+katmanına hiç dokunmadan native WordPress admin ekranlarına ekliyor:
+
+- **Kullanıcılar → Seviye Yetkilendirme** sayfası: `administrator` OLMAYAN
+  her WP kullanıcısını listeler, her satırda bir Seviye rolü `<select>`'i +
+  T.C. Kimlik No alanı + Kaydet butonu. `administrator` rolündeki
+  kullanıcılar listede görünmez — bu sayfayı kullanan kişinin kendi WP admin
+  yetkisini yanlışlıkla bir Seviye rolüyle DEĞİŞTİRMESİNİ (native
+  `WP_User::set_role()` mevcut TÜM rolleri tek bir role indirger) önlemek
+  için kasıtlı bir güvenlik önlemi.
+- **WordPress'in kendi "Kullanıcıyı Düzenle" ekranına bir T.C. Kimlik No
+  alanı eklendi** (`show_user_profile`/`edit_user_profile` +
+  `user_profile_update_errors` + `personal_options_update`/`edit_user_profile_update`
+  hook'ları) — Seviye rolü zaten WordPress'in kendi native Rol
+  `<select>`'inde otomatik görünür, çünkü `RoleRegistrar` bu 9 rolü GERÇEK
+  WP rolleri olarak kaydeder; eksik olan tek şey T.C. No eşleşmesiydi.
+- **Kasıtlı olarak `manage_options` (native WP capability) ile kapılı, bir
+  Seviye capability'siyle DEĞİL** — Seviye rolleri bu platformda hiçbir
+  zaman native wp-admin kullanıcı yönetimi capability'si (`edit_users` vb.)
+  almadı; bu sayfa Genel Merkez personeli için değil, hesapları açan gerçek
+  WordPress yöneticisi (hosting seviyesinde) için var. Genel Merkez kendi
+  yetkilendirme işlerini temanın `/admin` bölgesinden yürütmeye devam eder.
+- **`IdentityGatewayInterface` iki yeni metotla genişledi**:
+  `findTcNumberByUserId()` (ters arama - mevcut değeri formda göstermek
+  için) ve `unlink()` (bir T.C. No'yu değiştirmek, `scp_user_identities`
+  tablosunun `tc_no`/`user_id` üzerindeki UNIQUE kısıtlarıyla çakışmadan
+  önce eskisini silmeyi gerektirir). Var olan tek çağıran (kurulum
+  sihirbazının demo-admin adımı) `link()`'in imzasını hiç değiştirmediği
+  için bozulmadı.
+- **Doğrulama, uygulamadan önce tamamen biter**: `handleSave()` hem rolü
+  hem T.C. No'yu önce doğrular (format + başka bir kullanıcıya zaten bağlı
+  mı), YALNIZCA ikisi de geçerliyse ikisini de uygular — geçersiz bir T.C.
+  No, rol değişikliğini yarım bırakmış halde uygulanmış bırakmaz.
+- Not unit tested, bu koddaki her doğrudan WP-admin-dokunan adaptörle aynı
+  gerekçeyle (bkz. "Test stratejisi").
 
 ## Test stratejisi
 
