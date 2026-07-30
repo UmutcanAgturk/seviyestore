@@ -1339,6 +1339,20 @@ sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
   fırlatılıyor; `UserListPage`/`UserAuthorizationAdminPage`'in dört
   çağrı noktası da (`handleSave`, `handleCreate`, `saveProfileField`) bunu
   yakalayıp gerçek veritabanı hatasını kırmızı bildirimde gösteriyor.
+- **Kendi şifrenizi bu sayfadan değiştirmek sizi ATMAZ** — `wp_set_password()`
+  WordPress çekirdeğinin kendi davranışı gereği o kullanıcının TÜM oturum
+  token'larını yok eder, işlemi yapan tarayıcı sekmesi dahil. Canlıda
+  gerçekten yaşandı: bir operatör kendi hesabının şifresini bu panelden
+  değiştirdi, sayfa yenilenmeden aynı sekmede başka bir işlem (şube
+  ekleme) denedi ve WordPress'in kendi genel `rest_forbidden` / 401
+  hatasını aldı - REST isteği o an gerçekten "giriş yapılmamış" görünüyordu,
+  görünürde hâlâ oturum açıkken. `handleSave()`, hedef kullanıcı
+  (`$userId`) o an giriş yapmış kullanıcının (`get_current_user_id()`)
+  kendisiyse `wp_set_password()`'dan hemen sonra `wp_clear_auth_cookie()` +
+  `wp_set_auth_cookie($userId)` çağırıyor - WordPress'in kendi
+  "Kullanıcıyı Düzenle" ekranının (`wp-admin/user-edit.php`,
+  `IS_PROFILE_PAGE` dalı) kendi şifresini değiştiren bir kullanıcı için
+  yaptığı AYNI şey.
 - Hiçbiri unit test edilmedi, bu koddaki her doğrudan WP-admin-dokunan
   adaptörle aynı gerekçeyle (bkz. "Test stratejisi").
 

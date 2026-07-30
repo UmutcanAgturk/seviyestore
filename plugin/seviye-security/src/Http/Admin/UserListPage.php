@@ -484,6 +484,19 @@ final class UserListPage
         if ($passwordInput !== '') {
             wp_set_password($passwordInput, $userId);
 
+            // wp_set_password() destroys every session token for this
+            // user, including the one behind the browser tab that just
+            // submitted this form if the operator changed their OWN
+            // password - the next request (any REST call from the panel,
+            // e.g. creating a branch) would otherwise see them as logged
+            // out. Re-issuing the auth cookie immediately is exactly what
+            // WordPress' own "Kullanıcıyı Düzenle" screen does in the same
+            // situation (wp-admin/user-edit.php, IS_PROFILE_PAGE branch).
+            if ($userId === get_current_user_id()) {
+                wp_clear_auth_cookie();
+                wp_set_auth_cookie($userId);
+            }
+
             $this->redirectWithNotice(
                 $redirectSlug,
                 'success',
