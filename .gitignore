@@ -54,6 +54,11 @@ wp-config.php
 /plugin/*/vendor/
 node_modules/
 
+# Bundled plugin zips (inc/plugin-installer.php's install source) are a
+# packaging-time build artifact, the same as /plugin/*/vendor/ - rebuilt
+# fresh from /plugin/* for each delivered theme package, never committed.
+/theme/seviye-storefront/inc/bundled-plugins/*.zip
+
 # PHPUnit / PHPCS caches
 .phpunit.result.cache
 .phpunit.cache/

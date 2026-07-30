@@ -21,6 +21,7 @@ define('SCP_THEME_DIR', get_template_directory());
 define('SCP_THEME_URL', get_template_directory_uri());
 
 require SCP_THEME_DIR . '/inc/setup.php';
+require SCP_THEME_DIR . '/inc/plugin-installer.php';
 require SCP_THEME_DIR . '/inc/access-gate.php';
 require SCP_THEME_DIR . '/inc/zones.php';
 require SCP_THEME_DIR . '/inc/ip-restriction.php';

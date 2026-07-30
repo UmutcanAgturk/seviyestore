@@ -16,6 +16,22 @@ runner) haberleşir.
 
 Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Kurulum: tek adım (önerilen)
+
+`Seviye Storefront` teması artık 11 Seviye eklentisinin tamamını
+`inc/bundled-plugins/*.zip` altında gömülü halde içerir. Yalnızca temayı
+WordPress'e yükleyip etkinleştirin — otomatik olarak wp-admin'e "Seviye
+Kurulum" adlı bir sayfaya yönlendirilirsiniz; oradaki "Kurulumu Başlat"
+düğmesi WooCommerce'i (yüklü değilse wordpress.org'dan) ve 11 eklentiyi
+doğru sırayla kurup etkinleştirir, son adımda ilk Genel Merkez hesabını
+(T.C. Kimlik No + şifre) oluşturur. Ayrıntılar için
+[`theme/README.md`](theme/README.md)'nin "Tek adımlı kurulum" bölümüne
+bakın.
+
+Aşağıdaki "Geliştirme ortamı kurulumu" bölümü, tek adımlı kurulumu
+kullanmak yerine bu monorepo'dan geliştirme amacıyla çalışmak isteyenler
+içindir (her eklentiyi kendi klasöründe `composer install` ile kurmak).
+
 ## Klasör yapısı
 
 ```

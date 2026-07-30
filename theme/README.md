@@ -2,6 +2,29 @@
 
 `Seviye Storefront` teması `theme/seviye-storefront/` altındadır.
 
+## Tek adımlı kurulum (WooCommerce + 11 Seviye eklentisi bu temayla gelir)
+
+Temanın 11 Seviye eklentisinin tamamı `inc/bundled-plugins/*.zip` altında
+(`composer install --no-dev` ile üretilmiş, tamamen çalışır durumda,
+sunucuda ayrıca `composer install` çalıştırmaya gerek olmayan) paketler
+halinde gömülü gelir. Tema etkinleştirildiğinde `wp-admin`'e "Seviye
+Kurulum" adlı yeni bir menü eklenir ve kullanıcı oraya bir kerelik
+yönlendirilir (`inc/plugin-installer.php`); "Kurulumu Başlat" düğmesi
+WooCommerce'i (yüklü değilse resmi wordpress.org indirme adresinden) ve
+ardından 11 eklentiyi kendi belgelenmiş aktivasyon sırasıyla (bkz. kök
+`README.md`) kurup etkinleştirir, son adımda ilk Genel Merkez hesabını
+oluşturur.
+
+Kasıtlı olarak TGMPA gibi genel amaçlı bir kütüphane kullanılmadı — bu
+platform, aktivasyon sırası zaten belgelenmiş, kapalı bir 11-eklenti
+seti; amaca özel, çok daha küçük bir kurulum betiği, TOTP (Security) ve
+XLSX yazıcısı (Reports) için zaten uygulanan "ağır bağımlılıktan kaçın,
+gerçekten geçerli minimal bir uygulama yaz" kararının bir tekrarı.
+Her adım kendi AJAX çağrısıyla çalışır (tek, uzun ve tıkanmaya açık bir
+istek yerine) — özellikle WooCommerce'in wordpress.org'dan indirilmesi
+zaman alabileceğinden. Her adım idempotenttir; sihirbaz güvenle tekrar
+çalıştırılabilir.
+
 Kurulu olan kapsam:
 
 - **Giriş kilidi**: oturum açılmadan hiçbir sayfa/ürün görüntülenmez.

@@ -1,0 +1,62 @@
+/*
+ * "Seviye Kurulum" wp-admin page styling - a wp-admin screen, not a
+ * front-end panel, so this intentionally does not reuse panel.css/theme.css
+ * (those style the logged-in front-end, which runs inside WordPress' admin
+ * chrome here instead).
+ */
+
+.scp-setup-wrap {
+  max-width: 720px;
+}
+
+.scp-setup-steps {
+  margin: 20px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scp-setup-steps__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 4px;
+}
+
+.scp-setup-steps__label {
+  font-weight: 600;
+}
+
+.scp-setup-steps__status {
+  font-size: 13px;
+  color: #646970;
+}
+
+.scp-setup-steps__status[data-status="running"] {
+  color: #2271b1;
+}
+
+.scp-setup-steps__status[data-status="done"] {
+  color: #007017;
+  font-weight: 600;
+}
+
+.scp-setup-steps__status[data-status="failed"] {
+  color: #b32d2e;
+  font-weight: 600;
+}
+
+.scp-setup-credentials {
+  padding: 16px 20px;
+  margin-top: 20px;
+  background: #fff;
+  border-left: 4px solid #2271b1;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.scp-setup-credentials code {
+  font-size: 14px;
+}
