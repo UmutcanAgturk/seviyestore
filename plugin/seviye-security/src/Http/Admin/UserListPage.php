@@ -5,24 +5,29 @@ declare(strict_types=1);
 namespace Seviye\Security\Http\Admin;
 
 use Seviye\Core\Rbac\Role;
+use Seviye\Security\Auth\TcNumber;
 use Seviye\Security\Identity\IdentityGatewayInterface;
 use WP_User;
 
 /**
  * Backs both "Seviye Kullanıcılar" (every non-administrator WP user) and
  * "Veli" (the same table, filtered to Role::VELI) - one class, one
- * role filter parameter, since the two are the same listing/edit/delete
- * feature at different scopes, not two different features. Role/T.C.
- * Kimlik No/password assignment stays {@see UserAuthorizationAdminPage}'s
- * job; this page only edits basic account info (ad, e-posta) and deletes
- * accounts. Not unit tested, same as every other WordPress-touching
- * adapter in this codebase (see docs/ARCHITECTURE.md, "Test stratejisi").
+ * role filter parameter, since the two are the same listing/edit/delete/
+ * create feature at different scopes, not two different features. Also
+ * the only place in wp-admin a brand-new WP user can be created without
+ * native `create_users` - Genel Merkez never had that capability, so
+ * before this page existed there was genuinely no way to onboard a new
+ * person (existing-user edit alone, or WordPress' own "Kullanıcılar" -
+ * unreachable to Genel Merkez - were the only options). Not unit tested,
+ * same as every other WordPress-touching adapter in this codebase (see
+ * docs/ARCHITECTURE.md, "Test stratejisi").
  */
 final class UserListPage
 {
     public const SLUG_ALL = 'scp-kullanicilar';
     public const SLUG_VELI = 'scp-kullanicilar-veli';
     private const NONCE_ACTION = 'scp_user_list';
+    private const MIN_PASSWORD_LENGTH = 8;
 
     public function __construct(private readonly IdentityGatewayInterface $identities)
     {
@@ -30,6 +35,7 @@ final class UserListPage
 
     public function registerActions(): void
     {
+        add_action('admin_post_scp_create_user', [$this, 'handleCreate']);
         add_action('admin_post_scp_save_user_details', [$this, 'handleSave']);
         add_action('admin_post_scp_delete_user', [$this, 'handleDelete']);
     }
@@ -62,6 +68,10 @@ final class UserListPage
                 </div>
             <?php endif; ?>
 
+            <h2><?php esc_html_e('Yeni Kullanıcı Ekle', 'seviye-security'); ?></h2>
+            <?php $this->renderCreateForm($slug, $roleFilter); ?>
+
+            <h2><?php esc_html_e('Mevcut Kullanıcılar', 'seviye-security'); ?></h2>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -78,6 +88,86 @@ final class UserListPage
                 </tbody>
             </table>
         </div>
+        <script>
+        function scpGenerateUserListPassword(fieldId) {
+            var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#!?%';
+            var randomValues = new Uint32Array(14);
+            window.crypto.getRandomValues(randomValues);
+            var password = '';
+            for (var i = 0; i < randomValues.length; i++) {
+                password += alphabet[randomValues[i] % alphabet.length];
+            }
+            document.getElementById(fieldId).value = password;
+        }
+        </script>
+        <?php
+    }
+
+    private function renderCreateForm(string $slug, ?Role $roleFilter): void
+    {
+        ?>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="max-width: 480px;">
+            <?php wp_nonce_field(self::NONCE_ACTION); ?>
+            <input type="hidden" name="action" value="scp_create_user">
+            <input type="hidden" name="redirect_slug" value="<?php echo esc_attr($slug); ?>">
+            <table class="form-table">
+                <tr>
+                    <th><label for="scp_new_display_name"><?php esc_html_e('Ad Soyad', 'seviye-security'); ?></label></th>
+                    <td><input type="text" id="scp_new_display_name" name="display_name" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th><label for="scp_new_email"><?php esc_html_e('E-posta', 'seviye-security'); ?></label></th>
+                    <td><input type="email" id="scp_new_email" name="email" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th><label for="scp_new_role"><?php esc_html_e('Seviye Rolü', 'seviye-security'); ?></label></th>
+                    <td>
+                        <select id="scp_new_role" name="role" required>
+                            <option value=""><?php esc_html_e('— seçin —', 'seviye-security'); ?></option>
+                            <?php foreach (Role::cases() as $role) : ?>
+                                <option
+                                    value="<?php echo esc_attr($role->value); ?>"
+                                    <?php selected($roleFilter === $role); ?>
+                                ><?php echo esc_html($role->label()); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="scp_new_tc_no"><?php esc_html_e('T.C. Kimlik No', 'seviye-security'); ?></label></th>
+                    <td>
+                        <input
+                            type="text"
+                            id="scp_new_tc_no"
+                            name="tc_no"
+                            maxlength="11"
+                            pattern="[0-9]{11}"
+                            class="regular-text"
+                        >
+                        <p class="description">
+                            <?php esc_html_e(
+                                'Boş bırakılırsa kullanıcı Seviye giriş ekranından giriş yapamaz.',
+                                'seviye-security'
+                            ); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="scp_new_password"><?php esc_html_e('Şifre', 'seviye-security'); ?></label></th>
+                    <td>
+                        <input type="text" id="scp_new_password" name="password" class="regular-text" required>
+                        <button
+                            type="button"
+                            class="button"
+                            onclick="scpGenerateUserListPassword('scp_new_password')"
+                        ><?php esc_html_e('Rastgele oluştur', 'seviye-security'); ?></button>
+                    </td>
+                </tr>
+            </table>
+            <button type="submit" class="button button-primary">
+                <?php esc_html_e('Kullanıcıyı Oluştur', 'seviye-security'); ?>
+            </button>
+        </form>
         <?php
     }
 
@@ -131,6 +221,118 @@ final class UserListPage
             </td>
         </tr>
         <?php
+    }
+
+    public function handleCreate(): void
+    {
+        check_admin_referer(self::NONCE_ACTION);
+
+        if (!AdminAccess::current()) {
+            wp_die(esc_html__('Bu işlem için yetkiniz yok.', 'seviye-security'));
+        }
+
+        $redirectSlug = $this->redirectSlug();
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $displayName = isset($_POST['display_name']) ? sanitize_text_field(wp_unslash($_POST['display_name'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $roleValue = isset($_POST['role']) ? sanitize_key(wp_unslash($_POST['role'])) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $tcNoInput = isset($_POST['tc_no']) ? trim(sanitize_text_field(wp_unslash($_POST['tc_no']))) : '';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $passwordInput = isset($_POST['password']) ? (string) wp_unslash($_POST['password']) : '';
+
+        if ($displayName === '' || $email === '' || !is_email($email)) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Ad ve geçerli bir e-posta gerekli.', 'seviye-security'));
+        }
+
+        if (email_exists($email) !== false) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Bu e-posta zaten kayıtlı.', 'seviye-security'));
+        }
+
+        $role = Role::tryFrom($roleValue);
+
+        if ($role === null) {
+            $this->redirectWithNotice($redirectSlug, 'error', __('Geçerli bir Seviye rolü seçin.', 'seviye-security'));
+        }
+
+        if (mb_strlen($passwordInput) < self::MIN_PASSWORD_LENGTH) {
+            $this->redirectWithNotice(
+                $redirectSlug,
+                'error',
+                sprintf(
+                    /* translators: %d: minimum password length */
+                    __('Şifre en az %d karakter olmalı.', 'seviye-security'),
+                    self::MIN_PASSWORD_LENGTH
+                )
+            );
+        }
+
+        $tcNumber = null;
+
+        if ($tcNoInput !== '') {
+            if (!TcNumber::isValid($tcNoInput)) {
+                $this->redirectWithNotice($redirectSlug, 'error', __('Geçersiz T.C. Kimlik No.', 'seviye-security'));
+            }
+
+            $tcNumber = TcNumber::fromString($tcNoInput);
+
+            if ($this->identities->findUserIdByTcNumber($tcNumber) !== null) {
+                $this->redirectWithNotice(
+                    $redirectSlug,
+                    'error',
+                    __('Bu T.C. Kimlik No zaten başka bir kullanıcıya bağlı.', 'seviye-security')
+                );
+            }
+        }
+
+        $userId = wp_insert_user([
+            'user_login' => $this->uniqueLoginFor($email),
+            'user_email' => $email,
+            'user_pass' => $passwordInput,
+            'display_name' => $displayName,
+            'role' => $role->value,
+        ]);
+
+        if (is_wp_error($userId)) {
+            $this->redirectWithNotice($redirectSlug, 'error', $userId->get_error_message());
+        }
+
+        if ($tcNumber !== null) {
+            $this->identities->link($tcNumber, (int) $userId);
+        }
+
+        $this->redirectWithNotice(
+            $redirectSlug,
+            'success',
+            sprintf(
+                /* translators: %s: the new plaintext password, shown once so it can be handed to the user */
+                __('Kullanıcı oluşturuldu. Şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek.', 'seviye-security'),
+                $passwordInput
+            )
+        );
+    }
+
+    /**
+     * WordPress requires a unique username distinct from the email
+     * address field - derives one from the email's local part and
+     * disambiguates with a numeric suffix on collision.
+     */
+    private function uniqueLoginFor(string $email): string
+    {
+        $base = sanitize_user(strstr($email, '@', true) ?: $email, true);
+        $base = $base !== '' ? $base : 'kullanici';
+        $login = $base;
+        $suffix = 2;
+
+        while (username_exists($login)) {
+            $login = $base . '-' . $suffix;
+            $suffix++;
+        }
+
+        return $login;
     }
 
     public function handleSave(): void

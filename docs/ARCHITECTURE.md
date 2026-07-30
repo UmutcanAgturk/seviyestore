@@ -1227,8 +1227,23 @@ sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
 - **Seviye Kullanıcılar / Veli — aynı sınıf, farklı rol filtresi**:
   `Http\Admin\UserListPage`, `administrator` OLMAYAN her kullanıcıyı (veya
   yalnızca `Role::VELI` olanları) listeler; her satırda ad/e-posta
-  düzenleme + hesap silme var. Rol/T.C. No/şifre ataması kasıtlı olarak
+  düzenleme + hesap silme var. Rol/T.C. No/şifre değiştirme kasıtlı olarak
   BURADA değil — o, tek sorumluluk ilkesiyle Yetkilendirme sayfasının işi.
+- **"Yeni Kullanıcı Ekle" formu da bu sayfada, `UserListPage::handleCreate()`** -
+  bu, wp-admin'de brand-new bir WP kullanıcısı oluşturabilen TEK yer:
+  Genel Merkez'in native `create_users` capability'si hiç olmadığı için,
+  bu form olmadan yeni bir personel/veli hesabı açmanın hiçbir yolu yoktu
+  (var olan kullanıcıları düzenlemek/rol atamak mümkündü, ama sıfırdan
+  oluşturmak değil). Ad/e-posta/rol/şifre ZORUNLU (rolsüz veya şifresiz
+  bir Seviye kullanıcısının hiçbir işe yaramayacağı için, düzenleme
+  formundakinin aksine burada opsiyonel değiller); T.C. Kimlik No
+  opsiyonel (girilmezse hesap oluşur ama Seviye giriş ekranından
+  kullanılamaz - `wp_insert_user()`'ın kendi native ekranı gibi).
+  `user_login`, e-postanın `@` öncesi kısmından türetilip
+  `username_exists()` ile çakışma varsa `-2`, `-3`... eklenerek
+  benzersizleştiriliyor (WordPress e-posta ile kullanıcı adının aynı
+  olmasını zorunlu KILMIYOR, ama iki alanın birbirinden bağımsız benzersiz
+  olması gerekiyor).
 - **Hesap silme, Security'nin kendi tablosunu temizler, başka hiçbir
   modülünkini DEĞİL**: `handleDelete()` önce `IdentityGatewayInterface::unlink()`
   ile `scp_user_identities`'i temizler (bu tablonun `wp_users`'a FK'sı yok,
