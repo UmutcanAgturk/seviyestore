@@ -26,6 +26,7 @@ final class UserAuthorizationAdminPage
     private const CAPABILITY = 'manage_options';
     private const MENU_SLUG = 'scp-yetkilendirme';
     private const NONCE_ACTION = 'scp_user_authorization';
+    private const MIN_PASSWORD_LENGTH = 8;
 
     public function __construct(private readonly IdentityGatewayInterface $identities)
     {
@@ -84,8 +85,7 @@ final class UserAuthorizationAdminPage
                 <thead>
                     <tr>
                         <th><?php esc_html_e('Kullanıcı', 'seviye-security'); ?></th>
-                        <th><?php esc_html_e('Seviye Rolü', 'seviye-security'); ?></th>
-                        <th><?php esc_html_e('T.C. Kimlik No', 'seviye-security'); ?></th>
+                        <th><?php esc_html_e('Rol / T.C. Kimlik No / Şifre', 'seviye-security'); ?></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -96,6 +96,20 @@ final class UserAuthorizationAdminPage
                 </tbody>
             </table>
         </div>
+        <script>
+        function scpGenerateAuthorizationPassword(fieldId) {
+            var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#!?%';
+            var randomValues = new Uint32Array(14);
+            window.crypto.getRandomValues(randomValues);
+            var password = '';
+            for (var i = 0; i < randomValues.length; i++) {
+                password += alphabet[randomValues[i] % alphabet.length];
+            }
+            var field = document.getElementById(fieldId);
+            field.value = password;
+            field.type = 'text';
+        }
+        </script>
         <?php
     }
 
@@ -132,6 +146,18 @@ final class UserAuthorizationAdminPage
                         placeholder="<?php esc_attr_e('11 haneli T.C. Kimlik No', 'seviye-security'); ?>"
                         value="<?php echo esc_attr($currentTcNo?->value() ?? ''); ?>"
                     >
+                    <input
+                        type="text"
+                        name="password"
+                        id="scp_password_<?php echo esc_attr((string) $user->ID); ?>"
+                        autocomplete="new-password"
+                        placeholder="<?php esc_attr_e('Boş bırakılırsa değişmez', 'seviye-security'); ?>"
+                    >
+                    <button
+                        type="button"
+                        class="button"
+                        onclick="scpGenerateAuthorizationPassword('scp_password_<?php echo esc_attr((string) $user->ID); ?>')"
+                    ><?php esc_html_e('Rastgele oluştur', 'seviye-security'); ?></button>
                     <button type="submit" class="button button-primary">
                         <?php esc_html_e('Kaydet', 'seviye-security'); ?>
                     </button>
@@ -203,6 +229,20 @@ final class UserAuthorizationAdminPage
             }
         }
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $passwordInput = isset($_POST['password']) ? (string) wp_unslash($_POST['password']) : '';
+
+        if ($passwordInput !== '' && mb_strlen($passwordInput) < self::MIN_PASSWORD_LENGTH) {
+            $this->redirectWithNotice(
+                'error',
+                sprintf(
+                    /* translators: %d: minimum password length */
+                    __('Şifre en az %d karakter olmalı.', 'seviye-security'),
+                    self::MIN_PASSWORD_LENGTH
+                )
+            );
+        }
+
         if ($role !== null) {
             $user->set_role($role->value);
         }
@@ -214,6 +254,19 @@ final class UserAuthorizationAdminPage
                 $this->identities->unlink($userId);
                 $this->identities->link($tcNumber, $userId);
             }
+        }
+
+        if ($passwordInput !== '') {
+            wp_set_password($passwordInput, $userId);
+
+            $this->redirectWithNotice(
+                'success',
+                sprintf(
+                    /* translators: %s: the new plaintext password, shown once so it can be handed to the user */
+                    __('Kaydedildi. Yeni şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek.', 'seviye-security'),
+                    $passwordInput
+                )
+            );
         }
 
         $this->redirectWithNotice('success', __('Kaydedildi.', 'seviye-security'));
