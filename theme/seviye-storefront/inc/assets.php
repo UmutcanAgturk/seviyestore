@@ -64,6 +64,9 @@ function scp_enqueue_panel_assets(): void
         'noSettlements' => __('Henüz tahsilat kaydı yok.', 'seviye-storefront'),
         'allBranches' => __('Tüm Şubeler', 'seviye-storefront'),
         'noReportData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
+        'noNotifications' => __('Bildirim yok.', 'seviye-storefront'),
+        'smsConfigured' => __('NetGSM bağlantısı yapılandırıldı.', 'seviye-storefront'),
+        'smsNotConfigured' => __('NetGSM bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
         'twoFactorEnabled' => __('İki adımlı doğrulama etkinleştirildi.', 'seviye-storefront'),
         'twoFactorDisabled' => __('İki adımlı doğrulama devre dışı bırakıldı.', 'seviye-storefront'),
         'twoFactorInvalidCode' => __('Kod hatalı. Lütfen tekrar deneyin.', 'seviye-storefront'),
@@ -140,6 +143,27 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
+
+    if ($zone === 'admin' && current_user_can('scp_manage_notification_settings')) {
+        $handle = 'scp-notifications-settings-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/notifications-settings-panel.js',
+            [],
+            SCP_THEME_VERSION,
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    // Every logged-in user reads their own panel-içi bildirimler, in every
+    // zone (and on WooCommerce shop/product pages, via header.php) - like
+    // account-security.js, never capability-gated.
+    $handle = 'scp-notifications-bell';
+    wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/notifications-bell.js', [], SCP_THEME_VERSION, true);
+    wp_localize_script($handle, 'scpPanel', $localized);
+    wp_localize_script($handle, 'scpPanelText', $text);
 
     if (function_exists('is_product') && is_product() && current_user_can('scp_view_own_children')) {
         $handle = 'scp-product-student-picker';

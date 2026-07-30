@@ -114,6 +114,84 @@ body {
   text-decoration: underline;
 }
 
+.scp-notif-bell {
+  position: relative;
+}
+
+.scp-notif-bell__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--scp-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.scp-notif-bell__toggle:hover {
+  border-color: var(--scp-primary);
+  color: var(--scp-primary);
+}
+
+.scp-notif-bell__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--scp-danger);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.scp-notif-bell__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: 12px;
+  box-shadow: var(--scp-shadow-raised);
+  z-index: 20;
+}
+
+.scp-notif-item {
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.scp-notif-item strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.scp-notif-item p {
+  margin: 2px 0 0;
+  color: var(--scp-text-muted);
+  font-size: 0.8125rem;
+}
+
+.scp-notif-item:hover {
+  background: var(--scp-bg);
+}
+
+.scp-notif-item--read {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .scp-site-main {
   min-height: calc(100vh - 130px);
 }

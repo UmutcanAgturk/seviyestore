@@ -21,6 +21,7 @@ yönü bunun tersidir ve merkezde **Core** durur (Hexagonal / Ports & Adapters):
 │ Seviye Branches│      │  entegrasyonu)   │     │  namespace)    │
 │ Seviye Pricing │      │ Seviye Finance   │     │                │
 │ ...            │      │ Seviye Reports   │     │                │
+│                │      │ Seviye Notifications│  │                │
 └───────┬────────┘      └────────┬─────────┘     └───────┬────────┘
         │                        │                       │
         └────────────┬───────────┴───────────────────────┘
@@ -1042,6 +1043,81 @@ okunur bir katman.
   (boş = her şube), `scp_view_own_reports` (Şube Müdürü) sessizce kendi
   şubesine kilitlenir. "Getir" JSON görünümünü sayfa içinde yükler; CSV/Excel
   butonları ise tarayıcıyı doğrudan indirme URL'sine yönlendirir.
+
+### 18. E-posta/SMS/panel-içi bildirim gönderimi (Seviye Notifications)
+
+Spesifikasyondaki "Bildirimler" modülü — Reports gibi kendi `scp_*`
+tablosu var (`scp_notifications`, tek bir tablo) ama HİÇBİR modülün
+Contracts'ını gerektirmez (Parents hariç, aşağıda) ve tamamen Core'un
+EventBus'ı üzerinden tetiklenir.
+
+- **`record → resolve recipient → send → mark-sent/failed`, üç kanal
+  (EMAIL/SMS/PANEL) için de birebir aynı akış** —
+  `Dispatch\NotificationDispatcher`, PANEL'i özel durum olarak ele almaz:
+  `Channel\PanelChannel::send()` her zaman başarı bildirir (satırın kendisi
+  zaten teslimattır), ama yine de aynı akıştan geçer. Bu, Domain\Notification
+  ve Domain\NotificationStatus'ün docblock'unda açıkça gerekçelendirildi.
+- **`scp_notifications`, platformun finansal defterlerinin (hakediş
+  kayıtları/tahsilatları) aksine yerinde GÜNCELLENİR** (`status`, `sent_at`,
+  `read_at`) — bu, "defter, asla UPDATE değil" ilkesinin bilinçli bir
+  istisnası: bir bildirimin teslimat durumu canlı, değişebilir durumdur
+  (tıpkı Security'nin `scp_two_factor_secrets.confirmed_at`'ı gibi), finansal
+  geçmiş değil.
+- **E-posta kanalı (`Channel\EmailChannel`) WordPress'in kendi `wp_mail()`'i
+  üzerine ince bir sarmalayıcı** — yeni bir Composer bağımlılığı veya
+  üçüncü taraf kimlik bilgisi gerektirmez, sitenin zaten yapılandırılmış
+  posta taşıyıcısını (PHP mail(), bir SMTP eklentisi, ...) kullanır. TOTP/
+  Reports'un XLSX yazıcısıyla aynı "ağır bağımlılıktan kaçın" ilkesi.
+- **SMS kanalı (`Channel\NetgsmSmsChannel`), NetGSM'in genel belgelenmiş
+  REST API'sine karşı sıfırdan yazıldı** (SDK yok) — kimlik bilgileri
+  (usercode/password/msgheader) Core'un
+  `Settings\SettingsRepositoryInterface`'i üzerinde,
+  `seviye/v1/notifications/sms-settings` (yalnızca Genel Merkez) ile
+  yapılandırılır; IP allowlist'in "boş = devre dışı" deseninin aynısı —
+  yapılandırılmamışsa kanal sessizce başarısız olur (dispatcher bunu
+  dürüstçe FAILED olarak kaydeder), asla sahte bir başarı döndürmez.
+  Telefon numarası biçimi (`normalizePhone()`) ve yanıt kodu ayrıştırması
+  (`isSuccessCode()`) saf, birim test edilebilir metotlar olarak ayrıldı;
+  gerçek `wp_remote_post()` çağrısı (EmailChannel'ın `wp_mail()`'i gibi)
+  test edilmedi.
+- **SMS alıcısı, Seviye Parents'ın yeni yayınladığı
+  `Contracts\ParentContactLookupInterface` üzerinden çözülür** — platformun
+  wp_users dışında tek telefon numarası kaynağı `scp_parent_profiles.phone`
+  (nullable) olduğundan, SMS bugün yalnızca telefon numarası kayıtlı veli
+  hesapları için gerçekten çalışır; her başka rol (personel, HQ) dürüstçe
+  "alıcı yok" alır, sessizce başarılı sayılmaz. `WpdbParentContactLookup`,
+  `WpdbStudentLookup`/`WpdbBranchLookup` deseninin bir tekrarı: ayrı, minimal
+  bir adaptör, Parents'ın iç Repository'sini değil.
+- **İlk gerçek EventBus tüketicisi:
+  `security.password_reset_requested`** — Security'nin şifre/ilk-kurulum
+  token sistemi bu event'i milestone 13'ten beri dispatch ediyordu, ama
+  hiçbir dinleyicisi yoktu (root README.md/theme README.md'de
+  "Planlandı (Seviye Notifications'ın sorumluluğu)" olarak işaretliydi).
+  `Support\PasswordResetNotificationListener`, Finance'in
+  `HakedisEventListener`'ı gibi yalnızca event adı/payload şekline bağımlı
+  (`user_id`, `token`, `purpose`) — Security'nin sınıflarını veya
+  Contracts'ını asla import etmez.
+- **`__()`'ün `$text` argümanı bir string literal kalmalı**
+  (WordPress'in kendi i18n aracı çağrı noktalarını statik olarak ayrıştırıp
+  `.pot` dosyası üretir) - `PasswordResetNotificationListener`, bu kısıtı
+  `function_exists('__')` koruması altında bile bir DEĞİŞKENİ `__()`'e
+  argüman olarak geçirerek çiğneyen ilk denemeden sonra, her dalın kendi
+  `function_exists('__')` korumasını tekrarladığı (paylaşılan bir
+  `translate($text)` yardımcısı yerine) bir desene düzeltildi - PHPCS'in
+  `WordPress.WP.I18n.NonSingularStringLiteralText` kuralı tarafından
+  yakalandı.
+- **Panel-içi bildirim çanı (`assets/js/notifications-bell.js`),
+  `templates/zone.php`'de DEĞİL `header.php`'de yaşıyor** — temanın
+  şimdiye kadarki her paylaşılan/koşulsuz bileşeninden (Hesap Güvenliği
+  partial'ı dahil) farklı olarak, bu bileşenin oturum açmış HER sayfada
+  (WooCommerce mağaza/ürün sayfaları dahil) görünmesi gerekir, yalnızca
+  panel sayfalarında değil - `header.php` zaten her kimliği doğrulanmış
+  görünümde render edildiğinden doğal yer burasıdır.
+- **SMS ayarları formu, şifre alanını asla geri döndürmez** (GET yalnızca
+  `usercode`/`msgheader`/`configured` döner) ve boş bırakılan bir şifre
+  PUT'ta mevcut şifreyi DEĞİŞTİRMEZ — bu platformda üçüncü taraf bir
+  kimlik bilgisi saklayan ilk form, "değiştirmeye çalışmadığın bir sırrı
+  boşaltma" UX'i ilk kez burada uygulandı.
 
 ## Test stratejisi
 

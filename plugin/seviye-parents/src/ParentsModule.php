@@ -11,10 +11,12 @@ use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
+use Seviye\Parents\Contracts\ParentContactLookupInterface;
 use Seviye\Parents\Database\Migrations\CreateParentProfilesTable;
 use Seviye\Parents\Http\ParentProfileRestController;
 use Seviye\Parents\Rbac\ParentCapability;
 use Seviye\Parents\Repository\ParentProfileRepositoryInterface;
+use Seviye\Parents\Repository\WpdbParentContactLookup;
 use Seviye\Parents\Repository\WpdbParentProfileRepository;
 
 /**
@@ -34,6 +36,13 @@ final class ParentsModule implements ModuleInterface
         $container->singleton(
             ParentProfileRepositoryInterface::class,
             static fn (ServiceContainer $c): WpdbParentProfileRepository => new WpdbParentProfileRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            ParentContactLookupInterface::class,
+            static fn (ServiceContainer $c): WpdbParentContactLookup => new WpdbParentContactLookup(
                 $c->get(ConnectionInterface::class)
             )
         );

@@ -89,6 +89,22 @@ Kurulu olan kapsam:
   dosya indirmesi `fetch()` üzerinden sürülemediğinden, REST nonce'ı
   `X-WP-Nonce` başlığı yerine bir sorgu parametresi olarak taşınır (bkz.
   `docs/ARCHITECTURE.md` bölüm 17).
+- **Panel-içi bildirim çanı** (`header.php` - HER kimliği doğrulanmış
+  sayfada, WooCommerce mağaza/ürün sayfaları dahil, tek istisnasız bileşen):
+  `assets/js/notifications-bell.js`, `seviye/v1/notifications/mine/*`'a
+  bağlı. `templates/zone.php`'deki hiçbir bölümün aksine bu bileşen
+  `header.php`'de yaşar - panelin kendisi gibi tek bir sayfada değil, her
+  yerde görünmesi gerektiğinden. Zil bir okunmamış sayısı rozeti gösterir;
+  tıklanınca son bildirimleri açılır bir panelde listeler, her bildirime
+  tıklamak onu okundu olarak işaretler (`POST /notifications/mine/{id}/read`,
+  sunucu tarafında çağıran kullanıcıya sabitlenir).
+- **SMS ayarları (NetGSM) formu** (yalnızca `/admin`): `templates/zone.php`'ye
+  eklenen bölüm + `assets/js/notifications-settings-panel.js`,
+  `seviye/v1/notifications/sms-settings`'e bağlı. Yalnızca
+  `scp_manage_notification_settings` (Genel Merkez) yetkisi olanlara
+  görünür. Şifre alanı sunucudan asla geri dönmez (yalnızca kullanıcı
+  kodu/başlık); boş bırakılan bir şifre mevcut şifreyi değiştirmez -
+  platformun üçüncü taraf bir kimlik bilgisi sakladığı ilk form.
 - **WooCommerce ürün sayfası — öğrenci seçici** (`inc/woocommerce.php` +
   `assets/js/product-student-picker.js`): `add_theme_support('woocommerce')`
   zaten kuruluydu, bu yüzden özel bir şablon dosyası gerekmedi — yalnızca

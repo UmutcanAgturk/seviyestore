@@ -15,7 +15,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | 6 | Seviye Commerce | WooCommerce entegrasyonu, sipariş akışı, split payment | ✅ **Kuruldu** — sepet fiyatlandırma, tema tarafı, sipariş kalıcılığı, split payment hesaplaması ve hakediş event tetikleme (tamamlama + iade/iptal ters çevirme) kuruldu; asıl hakediş/cari kaydını tutmak Seviye Finance'ın işi (henüz kurulmadı), bkz. `docs/ARCHITECTURE.md` bölüm 14 |
 | 7 | Seviye Finance | Cari, hakediş, komisyon, KDV, iade, tahsilat | 🟡 **Kısmen kuruldu** — hakediş defteri, cari bakiye REST'i, tahsilat (settlement) defteri + REST'i (`POST`/`GET /finance/hakedis/settlements/*`, RBAC) ve tema paneli kuruldu; KDV tutarı Commerce'ten uçtan uca yakalanıp ledger'a yazılıyor ve artık Seviye Reports üzerinden raporlanıyor; iade akışı planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 15 |
 | 8 | Seviye Reports | Excel/CSV raporlama (şube/ürün/kategori/dönem bazlı satış) | ✅ **Kuruldu** — `GET seviye/v1/reports/sales` (JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden; PDF raporlama planlandı, bkz. `docs/ARCHITECTURE.md` bölüm 17 |
-| 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | Planlandı |
+| 9 | Seviye Notifications | SMS/e-posta/panel içi bildirimler | ✅ **Kuruldu** — `scp_notifications` günlüğü, `security.password_reset_requested` dinleyicisi, e-posta (`wp_mail()`) + SMS (NetGSM, `seviye/v1/notifications/sms-settings`) + panel-içi (`seviye/v1/notifications/mine/*`, tema bildirim çanı) kanalları; SMS bugün yalnızca telefon numarası kayıtlı veli hesapları için çalışır (Parents'ın yayınladığı `ParentContactLookupInterface`), bkz. `docs/ARCHITECTURE.md` bölüm 18 |
 | 10 | Seviye API | `seviye/v1` REST uç noktaları (ERP/CRM/muhasebe/mobil entegrasyonu) | Planlandı |
 | 11 | Seviye Security | TC Kimlik No auth, rate limiting, şifre/ilk-kurulum token'ları, rol→bölge politikası, 2FA (TOTP), IP kısıtlaması | ✅ **Kuruldu**, bkz. `docs/ARCHITECTURE.md` bölüm 16 |
 
@@ -30,7 +30,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | `/` (Veli ana sayfası): kendi öğrencileri (salt okunur liste) + profil formu | **Kuruldu** — `seviye/v1/students/mine` ve `seviye/v1/parents/me`'ye bağlı |
 | `/admin` ve `/sube`'de fiyat kuralları yönetim ekranı | **Kuruldu** — `seviye/v1/pricing/rules`'a bağlı, gerçek CRUD ekranı |
 | Sipariş/finans panel içeriği | Planlandı (Seviye Commerce/Finance'ın sorumluluğu) |
-| E-posta/SMS ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | Planlandı (Seviye Notifications'ın sorumluluğu) |
+| E-posta ile token teslimi (`security.password_reset_requested` olayının dinlenmesi) | **Kuruldu** — `Seviye Notifications` |
 | Sepette öğrenci seçimi + öğrenciye göre fiyat çözümü | **Kuruldu** — `Seviye Commerce` |
 | WooCommerce ürün sayfası: öğrenci seçici, vitrin "hızlı sepete ekle" düğmesinin ürün sayfasına yönlendirilmesi, Veli ana sayfasından mağazaya giriş bağlantısı | **Kuruldu** — özel bir WC şablonu gerekmedi, mevcut `add_theme_support('woocommerce')` + hook'lar yeterli |
 | Sipariş kalıcılığı (`scp_order_line_items`: öğrenci/şube/komisyon/fiyat anlık görüntüsü + WC durum senkronu) | **Kuruldu** — `Seviye Commerce` |
@@ -41,6 +41,7 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
 | İade akışı | Planlandı (Seviye Finance'ın sorumluluğu) |
 | Hesap Güvenliği paneli (2FA kurulum/onay/devre dışı bırakma, `/`, `/sube`, `/admin`'de ortak partial) + girişte 2FA kod adımı + `/admin`'de IP kısıtlaması ayarı | **Kuruldu** — `Seviye Security` + `Seviye Storefront` teması |
 | `/admin` ve `/sube`'de Raporlar paneli (şube/ürün/kategori/dönem filtreleri, JSON görünüm + CSV/Excel indirme) | **Kuruldu** — `seviye/v1/reports/sales`'a bağlı |
+| Panel-içi bildirim çanı (her bölgede, `header.php`) + `/admin`'de SMS ayarları (NetGSM) formu | **Kuruldu** — `seviye/v1/notifications/mine/*` + `seviye/v1/notifications/sms-settings`'e bağlı |
 
 ## Milestone sırası önerisi
 
@@ -76,7 +77,16 @@ yayınladığı `Contracts` arayüzüne de bağımlı olabilir (bkz.
     (`GET seviye/v1/reports/sales`, JSON/CSV/XLSX), RBAC
     (`VIEW_REPORTS`/`VIEW_OWN_REPORTS`, Finance'in hakediş RBAC'ının aynası),
     tema "Raporlar" paneli — bkz. `docs/ARCHITECTURE.md` bölüm 17~~ ✅
-15. Seviye Notifications + Seviye API
+15. ~~Seviye Notifications: `scp_notifications` günlüğü (yerinde
+    güncellenen tek istisna tablo), `NotificationDispatcher` (record →
+    resolve recipient → send → mark-sent/failed, üç kanal için de aynı
+    akış), e-posta (`wp_mail()`), SMS (NetGSM REST API'si, Core'un
+    Settings'i üzerinden yapılandırılır, Parents'ın yeni yayınladığı
+    `ParentContactLookupInterface`'i tüketir) ve panel-içi (self-servis
+    REST + tema bildirim çanı, `header.php`) kanalları, ilk gerçek
+    `security.password_reset_requested` dinleyicisi — bkz.
+    `docs/ARCHITECTURE.md` bölüm 18~~ ✅
+16. Seviye API
 
 Bu sıralamanın gerekçesi: her modül yalnızca Core'a bağımlı olsa da, veri
 modeli olarak Commerce'in Branches/Students/Pricing olmadan anlamı yoktur;

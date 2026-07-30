@@ -42,8 +42,9 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 | Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`, KDV tutarı dahil) ve split payment + hakediş event tetikleme kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
 | Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar, KDV tutarı dahil), cari bakiye REST'i, tahsilat (settlement) defteri + REST'i ve tema paneli kuruldu; iade akışı planlandı |
 | Seviye Reports | ✅ Şube/ürün/kategori/dönem bazlı satış raporu (`GET seviye/v1/reports/sales`, JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden, RBAC, tema paneli kuruldu; PDF çıktısı planlandı |
-| Seviye Storefront (tema) | 🟡 Giriş ekranı (2FA kod adımı dahil), içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), cari bakiye + tahsilat paneli (`/sube`, `/admin`), Hesap Güvenliği (2FA) paneli (her bölgede), IP kısıtlaması ayarı (`/admin`), Raporlar paneli (`/sube`, `/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu |
-| Seviye Notifications, API | Planlandı |
+| Seviye Notifications | ✅ `scp_notifications` günlüğü, e-posta (`wp_mail()`), SMS (NetGSM, Parents'ın `ParentContactLookupInterface`'i üzerinden veli telefon numarası) ve panel-içi (tema bildirim çanı) kanalları, `security.password_reset_requested` dinleyicisi, RBAC, tema paneli kuruldu |
+| Seviye Storefront (tema) | 🟡 Giriş ekranı (2FA kod adımı dahil), içerik kilidi, rol yönlendirmesi, öğrenci yönetim paneli (`/sube`, `/admin`), şube yönetim paneli (`/admin`), fiyat kuralları paneli (`/sube`, `/admin`), cari bakiye + tahsilat paneli (`/sube`, `/admin`), Hesap Güvenliği (2FA) paneli (her bölgede), IP kısıtlaması ayarı (`/admin`), Raporlar paneli (`/sube`, `/admin`), panel-içi bildirim çanı (her sayfada) + SMS ayarları (`/admin`), Veli ana sayfası (kendi öğrencileri + profil + mağaza girişi) ve WooCommerce ürün sayfası öğrenci seçici kuruldu |
+| Seviye API | Planlandı |
 
 Tam yol haritası: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -65,17 +66,19 @@ cd plugin/seviye-pricing && composer install && cd -
 cd plugin/seviye-commerce && composer install && cd -
 cd plugin/seviye-finance && composer install && cd -
 cd plugin/seviye-reports && composer install && cd -
+cd plugin/seviye-notifications && composer install && cd -
 ```
 
 `plugin/seviye-core`, `plugin/seviye-security`, `plugin/seviye-branches`,
 `plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-pricing`,
-`plugin/seviye-commerce`, `plugin/seviye-finance` ve `plugin/seviye-reports`
-klasörlerini WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u
-ise `wp-content/themes/` altına sembolik link ile bağlayın. Ardından
+`plugin/seviye-commerce`, `plugin/seviye-finance`, `plugin/seviye-reports` ve
+`plugin/seviye-notifications` klasörlerini WordPress'in `wp-content/plugins/`
+altına, `theme/seviye-storefront`'u ise `wp-content/themes/` altına sembolik
+link ile bağlayın. Ardından
 WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
 Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye
-Pricing'i**, **Seviye Commerce'i**, **Seviye Finance'ı** ve **Seviye
-Reports'u** (bu sırayla —
+Pricing'i**, **Seviye Commerce'i**, **Seviye Finance'ı**, **Seviye
+Reports'u** ve **Seviye Notifications'ı** (bu sırayla —
 Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
 olmasını gerektirir; Pricing hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
@@ -116,7 +119,11 @@ aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın** ve
 **Commerce'in aktif olduğunu** doğrular (satış raporu Commerce'in
 `OrderLineItemQueryInterface` Contract'ını tüketir) — kendi tablosu/migration'ı
 yoktur, tamamen diğer modüllerin Contracts'ı üzerine kurulu salt okunur bir
-katmandır. Tema etkinleştirildiğinde
+katmandır. Notifications aktivasyonu Core'u ve **Parents'ın aktif olduğunu**
+doğrular (SMS kanalı Parents'ın `ParentContactLookupInterface`'ini
+tüketir — Branches/Students/Pricing/Commerce/Finance/Reports'a bağımlı
+değildir, listede en sona konması yalnızca tutarlılık içindir) ve kendi
+migration'unu (`scp_notifications`) çalıştırır. Tema etkinleştirildiğinde
 `/admin` ve `/sube` rotalarını tanımlayan rewrite kuralları eklenir
 (`after_switch_theme` üzerinden otomatik `flush`).
 
@@ -139,6 +146,7 @@ cd plugin/seviye-pricing && composer test
 cd plugin/seviye-commerce && composer test
 cd plugin/seviye-finance && composer test
 cd plugin/seviye-reports && composer test
+cd plugin/seviye-notifications && composer test
 ```
 
 Kök dizinde kod standardı denetimi:

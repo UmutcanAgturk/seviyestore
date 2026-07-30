@@ -49,6 +49,16 @@
  * `_wpnonce` query param instead of the X-WP-Nonce header every other call
  * here uses).
  *
+ * The "SMS Ayarları" section is /admin-only AND gated on
+ * scp_manage_notification_settings (Genel Merkez only, mirroring the IP
+ * Kısıtlaması section's gate) - it configures the NetGSM SMS gateway
+ * credentials Seviye Notifications' SMS channel needs (see
+ * Seviye\Notifications\Http\NotificationsSettingsRestController). The
+ * notification bell itself (unread panel-içi bildirimler) is NOT rendered
+ * here - it lives in header.php, since it needs to appear on every
+ * authenticated page (including WooCommerce shop/product pages), not just
+ * this zone's own panel.
+ *
  * The "Hesap Güvenliği" (2FA) section renders for EVERY role in both
  * zones, unconditionally - unlike every other section here, it is not
  * gated by a capability check, because it manages the current user's own
@@ -103,6 +113,10 @@ $scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-s
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) {
     $scp_sections['#scp-ip-allowlist-panel'] = __('IP Kısıtlaması', 'seviye-storefront');
+}
+
+if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) {
+    $scp_sections['#scp-sms-settings-panel'] = __('SMS Ayarları', 'seviye-storefront');
 }
 
 get_header();
@@ -539,6 +553,38 @@ get_header();
                 <label>
                     <span><?php esc_html_e('IP Adresleri (her satıra bir tane, CIDR desteklenir)', 'seviye-storefront'); ?></span>
                     <textarea name="entries" rows="6" placeholder="203.0.113.5&#10;198.51.100.0/24"></textarea>
+                </label>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                </div>
+            </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) : ?>
+        <section class="scp-card" id="scp-sms-settings-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('SMS Ayarları (NetGSM)', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-sms-settings-status></p>
+
+            <form class="scp-form" data-scp-sms-settings-form>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Kullanıcı Kodu', 'seviye-storefront'); ?></span>
+                        <input type="text" name="usercode" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Başlık (Msgheader)', 'seviye-storefront'); ?></span>
+                        <input type="text" name="msgheader" required>
+                    </label>
+                </div>
+                <label>
+                    <span>
+                        <?php esc_html_e('Şifre (değiştirmek istemiyorsanız boş bırakın)', 'seviye-storefront'); ?>
+                    </span>
+                    <input type="password" name="password" autocomplete="new-password">
                 </label>
                 <div class="scp-form__actions">
                     <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
