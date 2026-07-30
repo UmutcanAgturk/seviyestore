@@ -1296,6 +1296,16 @@ sayfa ekliyor: **Seviye Kullanıcılar**, **Seviye Yetkilendirme**, **Veli**,
   bağlı mı + minimum uzunluk), YALNIZCA hepsi geçerliyse uygular —
   geçersiz bir alan, diğerlerini yarım bırakmış halde uygulanmış
   bırakmaz.
+- **`WpdbIdentityGateway::link()` artık INSERT başarısız olursa SESSİZCE
+  başarı raporlamıyor** — önceki sürüm `$wpdb->insert()`'in dönüş değerini
+  hiç kontrol etmiyordu, yani bir UNIQUE KEY çakışması (`tc_no` veya
+  `user_id` üzerinde, ör. önceki yarım kalmış bir denemeden kalan satır)
+  veya tablo/şema sorunu olsa bile arayüz her zaman "Kaydedildi" diyordu -
+  gerçek durumu asla yansıtmayan bir bildirim. Artık `$wpdb->insert()`
+  `false` dönerse `$wpdb->last_error`'ı taşıyan bir `RuntimeException`
+  fırlatılıyor; `UserListPage`/`UserAuthorizationAdminPage`'in dört
+  çağrı noktası da (`handleSave`, `handleCreate`, `saveProfileField`) bunu
+  yakalayıp gerçek veritabanı hatasını kırmızı bildirimde gösteriyor.
 - Hiçbiri unit test edilmedi, bu koddaki her doğrudan WP-admin-dokunan
   adaptörle aynı gerekçeyle (bkz. "Test stratejisi").
 

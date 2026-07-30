@@ -40,6 +40,7 @@ final class UserAuthorizationAdminPage
         add_action('user_profile_update_errors', [$this, 'validateProfileField'], 10, 3);
         add_action('personal_options_update', [$this, 'saveProfileField']);
         add_action('edit_user_profile_update', [$this, 'saveProfileField']);
+        add_action('admin_notices', [$this, 'renderProfileFieldError']);
     }
 
     public function render(): void
@@ -237,7 +238,12 @@ final class UserAuthorizationAdminPage
 
             if ($currentTcNo === null || $currentTcNo->value() !== $tcNumber->value()) {
                 $this->identities->unlink($userId);
-                $this->identities->link($tcNumber, $userId);
+
+                try {
+                    $this->identities->link($tcNumber, $userId);
+                } catch (\Throwable $exception) {
+                    $this->redirectWithNotice('error', $exception->getMessage());
+                }
             }
         }
 
@@ -378,8 +384,31 @@ final class UserAuthorizationAdminPage
 
         if ($currentTcNo === null || $currentTcNo->value() !== $tcNumber->value()) {
             $this->identities->unlink($userId);
-            $this->identities->link($tcNumber, $userId);
+
+            try {
+                $this->identities->link($tcNumber, $userId);
+            } catch (\Throwable $exception) {
+                set_transient(
+                    'scp_profile_tc_no_error_' . get_current_user_id(),
+                    $exception->getMessage(),
+                    30
+                );
+            }
         }
+    }
+
+    public function renderProfileFieldError(): void
+    {
+        $key = 'scp_profile_tc_no_error_' . get_current_user_id();
+        $message = get_transient($key);
+
+        if (!is_string($message) || $message === '') {
+            return;
+        }
+
+        delete_transient($key);
+
+        printf('<div class="notice notice-error"><p>%s</p></div>', esc_html($message));
     }
 
     private function currentSeviyeRole(WP_User $user): ?Role

@@ -46,11 +46,28 @@ final class WpdbIdentityGateway implements IdentityGatewayInterface
 
     public function link(TcNumber $tcNumber, int $userId): void
     {
-        $this->connection->insert($this->connection->table('user_identities'), [
+        $inserted = $this->connection->insert($this->connection->table('user_identities'), [
             'user_id' => $userId,
             'tc_no' => $tcNumber->value(),
             'created_at' => function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s'),
         ]);
+
+        if ($inserted) {
+            return;
+        }
+
+        // Every wp-admin caller (UserListPage, UserAuthorizationAdminPage)
+        // used to assume this always succeeds and unconditionally showed
+        // "Kaydedildi" - masking a real INSERT failure (a stale row from an
+        // earlier attempt violating the UNIQUE KEY on user_id/tc_no, a
+        // missing table, ...) as a false success. Throwing here with the
+        // real $wpdb error lets those callers surface it instead.
+        global $wpdb;
+        $dbError = isset($wpdb) && $wpdb->last_error !== '' ? $wpdb->last_error : 'bilinmeyen veritabanı hatası';
+        $message = sprintf('T.C. Kimlik No eşleşmesi kaydedilemedi (user #%d): %s', $userId, $dbError);
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+        throw new \RuntimeException($message);
     }
 
     public function unlink(int $userId): void

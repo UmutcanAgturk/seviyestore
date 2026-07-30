@@ -352,7 +352,11 @@ final class UserListPage
             $this->redirectWithNotice($redirectSlug, 'error', $userId->get_error_message());
         }
 
-        $this->identities->link($tcNumber, (int) $userId);
+        try {
+            $this->identities->link($tcNumber, (int) $userId);
+        } catch (\Throwable $exception) {
+            $this->redirectWithNotice($redirectSlug, 'error', $exception->getMessage());
+        }
 
         $this->redirectWithNotice(
             $redirectSlug,
@@ -469,7 +473,12 @@ final class UserListPage
 
         if ($currentTcNo === null || $currentTcNo->value() !== $tcNumber->value()) {
             $this->identities->unlink($userId);
-            $this->identities->link($tcNumber, $userId);
+
+            try {
+                $this->identities->link($tcNumber, $userId);
+            } catch (\Throwable $exception) {
+                $this->redirectWithNotice($redirectSlug, 'error', $exception->getMessage());
+            }
         }
 
         if ($passwordInput !== '') {
