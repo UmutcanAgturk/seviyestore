@@ -31,6 +31,7 @@
   --scp-success-text: #0b7a4c;
   --scp-radius: 12px;
   --scp-radius-sm: 8px;
+  --scp-header-height: 56px;
   --scp-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   --scp-shadow-raised: 0 8px 24px rgba(16, 24, 40, 0.1);
 }
@@ -84,6 +85,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  min-height: var(--scp-header-height);
   padding: 14px 28px;
   background: var(--scp-surface);
   border-bottom: 1px solid var(--scp-border);
@@ -133,8 +135,20 @@ body {
   box-shadow: 0 2px 6px rgba(20, 50, 107, 0.35);
 }
 
+/*
+ * max-height (not a fixed height) so the logo's own aspect ratio always
+ * wins: a fixed `height: 34px` alongside `max-width: 160px` used to fight
+ * each other for a wide logo - once max-width kicked in to shrink the
+ * rendered width, the height stayed forced at 34px, distorting/cropping
+ * the image ("yarım görünüyor"). max-height alone lets width:auto compute
+ * from the image's real proportions with no second constraint to conflict
+ * with; deriving it from --scp-header-height (also .scp-site-header's own
+ * min-height, same variable) means the logo is sized off the header's
+ * actual height ratio, not an independent hardcoded pixel value.
+ */
 .scp-site-header__logo {
-  height: 34px;
+  height: auto;
+  max-height: calc(var(--scp-header-height) * 0.7);
   width: auto;
   max-width: 160px;
   flex-shrink: 0;
@@ -204,6 +218,22 @@ body {
 .scp-notif-bell__toggle:hover {
   border-color: var(--scp-primary);
   color: var(--scp-primary);
+}
+
+.scp-cart-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--scp-accent);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  vertical-align: middle;
 }
 
 .scp-notif-bell__badge {

@@ -58,6 +58,20 @@ final class PricingModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, PricingCapability::MANAGE_PRICING->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, PricingCapability::MANAGE_PRICING->value);
 
+        // Sistem also gets the general MANAGE_PRICING (panel access at all,
+        // same as every other HQ-tier role) - without it, "Fiyat Kuralları"
+        // wouldn't render for Sistem at all and MANAGE_BASE_PRICING below
+        // would be unreachable from the UI, even though Sistem is most
+        // likely to reach these endpoints as an API/integration account
+        // rather than through the browser panel anyway.
+        $rbac->grantCapability(Role::SISTEM, PricingCapability::MANAGE_PRICING->value);
+
+        // "Sadece genel merkez ve sistem [taban fiyatı] düzenleyebilir
+        // olsun" - narrower than MANAGE_PRICING above: Bölge Müdürü holds
+        // MANAGE_PRICING (branch/student-scoped rules) but not this.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, PricingCapability::MANAGE_BASE_PRICING->value);
+        $rbac->grantCapability(Role::SISTEM, PricingCapability::MANAGE_BASE_PRICING->value);
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): PricingRestController => new PricingRestController(
                 $container->get(PriceRuleRepositoryInterface::class),

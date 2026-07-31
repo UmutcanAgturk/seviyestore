@@ -176,7 +176,10 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_products')) {
+    if (
+        in_array($zone, ['admin', 'sube'], true)
+        && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))
+    ) {
         $handle = 'scp-products-panel';
         wp_enqueue_script(
             $handle,
@@ -186,6 +189,7 @@ function scp_enqueue_panel_assets(): void
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageProducts' => current_user_can('scp_manage_products'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
@@ -202,13 +206,14 @@ function scp_enqueue_panel_assets(): void
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
+            'canManageBasePricing' => current_user_can('scp_manage_base_pricing'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
     $isParentZone = current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile');
 
-    if ($zone === '' && $isParentZone) {
+    if ($zone === 'profilim' && $isParentZone) {
         $handle = 'scp-parent-dashboard';
         wp_enqueue_script(
             $handle,

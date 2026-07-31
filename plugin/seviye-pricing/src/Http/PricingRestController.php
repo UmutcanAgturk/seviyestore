@@ -132,6 +132,12 @@ final class PricingRestController extends AbstractRestController
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
         }
 
+        $floorViolation = $this->violatesBasePriceFloor($productId, $scope, $price);
+
+        if ($floorViolation !== null) {
+            return new WP_REST_Response(['message' => $floorViolation], 422);
+        }
+
         $rule = $this->rules->create($productId, $scope, $price);
 
         return new WP_REST_Response($this->serialize($rule), 201);
@@ -140,8 +146,9 @@ final class PricingRestController extends AbstractRestController
     public function update(WP_REST_Request $request): WP_REST_Response
     {
         $id = (int) $request->get_param('id');
+        $existing = $this->rules->find($id);
 
-        if ($this->rules->find($id) === null) {
+        if ($existing === null) {
             return new WP_REST_Response(['message' => __('Fiyat kuralı bulunamadı.', 'seviye-pricing')], 404);
         }
 
@@ -155,6 +162,12 @@ final class PricingRestController extends AbstractRestController
             $price = Money::fromFloat((float) $request->get_param('price'));
         } catch (InvalidArgumentException $exception) {
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
+        }
+
+        $floorViolation = $this->violatesBasePriceFloor($existing->productId, $existing->scope, $price);
+
+        if ($floorViolation !== null) {
+            return new WP_REST_Response(['message' => $floorViolation], 422);
         }
 
         $rule = $this->rules->update($id, $price, $status);
@@ -232,10 +245,17 @@ final class PricingRestController extends AbstractRestController
     /**
      * Branch-scoped staff (Şube Müdürü) may only write GENERAL-free rules
      * anchored to their own branch; HQ (no membership row) may write any
-     * scope, including GENERAL.
+     * BRANCH/STUDENT scope. GENERAL is narrower still - not just "no branch
+     * membership" but the explicit MANAGE_BASE_PRICING capability, so Bölge
+     * Müdürü (which also has no membership row) cannot touch it even though
+     * it can touch every other scope.
      */
     private function canWriteScope(PriceScope $scope): bool
     {
+        if ($scope->type === PriceScopeType::GENERAL) {
+            return current_user_can(PricingCapability::MANAGE_BASE_PRICING->value);
+        }
+
         $ownBranchId = $this->currentUserBranchId();
 
         if ($ownBranchId === null) {
@@ -243,10 +263,33 @@ final class PricingRestController extends AbstractRestController
         }
 
         return match ($scope->type) {
-            PriceScopeType::GENERAL => false,
             PriceScopeType::BRANCH => $scope->branchId === $ownBranchId,
             PriceScopeType::STUDENT => $this->students->find((int) $scope->studentId)?->branchId === $ownBranchId,
         };
+    }
+
+    /**
+     * "Genel merkezin belirlediği fiyatın aşağısına fiyat verilemez" - a
+     * BRANCH/STUDENT rule may never undercut its product's own active
+     * GENERAL rule (the floor Genel Merkez/Sistem set - see
+     * MANAGE_BASE_PRICING). Checked per product (not a single platform-wide
+     * floor), and only when a GENERAL rule actually exists for that product
+     * - nothing to violate otherwise. Returns the error message to show, or
+     * null when the price is acceptable.
+     */
+    private function violatesBasePriceFloor(int $productId, PriceScope $scope, Money $price): ?string
+    {
+        if ($scope->type === PriceScopeType::GENERAL) {
+            return null;
+        }
+
+        $floor = $this->rules->activeRuleFor($productId, PriceScope::general());
+
+        if ($floor === null || $price->toFloat() >= $floor->price->toFloat()) {
+            return null;
+        }
+
+        return __('Fiyat, Genel Merkez tarafından belirlenen taban fiyatın altında olamaz.', 'seviye-pricing');
     }
 
     private function visibleToOwnBranch(PriceRule $rule, int $ownBranchId): bool

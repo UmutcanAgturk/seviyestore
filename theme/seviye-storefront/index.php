@@ -2,18 +2,26 @@
 
 /**
  * Generic fallback template. A Veli landing on the site's root (no static
- * front page configured, so '/' falls through to this same file) sees
- * their own dashboard (children + profile) instead of an empty blog index.
+ * front page configured, so '/' falls through to this same file) is
+ * redirected STRAIGHT to the WooCommerce shop - the site root is not a
+ * dashboard anymore, "Öğrencilerim"/"Profilim"/"Hesap Güvenliği" moved to
+ * their own /profilim page (see inc/zones.php, templates/parent-dashboard.php).
+ *
+ * The redirect must happen before get_header() (any output at all would
+ * make wp_safe_redirect()'s header() call fail) - unlike the WooCommerce
+ * page-detection reasoning below, which still applies verbatim for every
+ * OTHER real WP Page reaching this same fallback file.
  *
  * The `!is_page()` guard is required: WooCommerce's cart/checkout/my-account
  * pages (and any other real WP Page - the "Sepetim" page created by
  * scp_ensure_cart_page_exists(), for instance) are genuine Pages with no
  * dedicated template of their own (no page.php in this theme), so WordPress'
  * template hierarchy falls through to this SAME file for them too. Without
- * this guard, every one of those pages was silently replaced by the veli
- * dashboard for any user with scp_view_own_children - the cart page
+ * this guard, every one of those pages was silently replaced by this
+ * redirect for any user with scp_view_own_children - the cart page
  * "existed" (wc_get_page_id('cart') resolved fine, the link's URL was
- * correct) but always rendered the dashboard instead of its own content.
+ * correct) but always bounced back to the shop instead of showing its own
+ * content.
  */
 
 declare(strict_types=1);
@@ -22,14 +30,16 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-get_header();
-
-if (!is_page() && (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile'))) {
-    include SCP_THEME_DIR . '/templates/parent-dashboard.php';
-    get_footer();
-
-    return;
+if (
+    !is_page()
+    && function_exists('wc_get_page_permalink')
+    && (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile'))
+) {
+    wp_safe_redirect(wc_get_page_permalink('shop'));
+    exit;
 }
+
+get_header();
 
 ?>
 <div class="scp-panel">

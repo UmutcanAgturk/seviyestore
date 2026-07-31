@@ -14,6 +14,7 @@ final class RoleRouterTest extends TestCase
     {
         self::assertSame('/admin', RoleRouter::landingPathFor([Role::GENEL_MERKEZ->value]));
         self::assertSame('/admin', RoleRouter::landingPathFor([Role::BOLGE_MUDURU->value]));
+        self::assertSame('/admin', RoleRouter::landingPathFor([Role::SISTEM->value]));
     }
 
     public function testBranchRolesLandOnSube(): void

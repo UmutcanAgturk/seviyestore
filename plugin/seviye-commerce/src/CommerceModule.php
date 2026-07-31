@@ -88,6 +88,15 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_PRODUCTS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, ProductCapability::MANAGE_PRODUCTS->value);
 
+        // Read-only: "Bütün ürün id'leri Genel Merkez, Sistem, şube
+        // müdürleri, muhasebe, depodan görünür olsun" - Genel Merkez/Şube
+        // Müdürü already see everything via MANAGE_PRODUCTS above (a
+        // superset); these three roles get VIEW_PRODUCTS instead, since
+        // they must never create/edit/delete/toggle a product.
+        $rbac->grantCapability(Role::SISTEM, ProductCapability::VIEW_PRODUCTS->value);
+        $rbac->grantCapability(Role::MUHASEBE, ProductCapability::VIEW_PRODUCTS->value);
+        $rbac->grantCapability(Role::DEPO, ProductCapability::VIEW_PRODUCTS->value);
+
         // Product photo uploads go through WordPress' own /wp/v2/media REST
         // endpoint from the theme's "Ürünler" panel - simpler and more
         // robust than reinventing file upload handling, but it requires

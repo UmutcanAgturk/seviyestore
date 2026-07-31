@@ -105,7 +105,7 @@ if (scp_current_zone() === 'admin' && current_user_can('scp_manage_branches')) {
     $scp_sections['#scp-branches-panel'] = __('Şubeler', 'seviye-storefront');
 }
 
-if (current_user_can('scp_manage_products')) {
+if (current_user_can('scp_manage_products') || current_user_can('scp_view_products')) {
     $scp_sections['#scp-products-panel'] = __('Ürünler', 'seviye-storefront');
 }
 
@@ -407,13 +407,16 @@ get_header();
         </section>
     <?php endif; ?>
 
-    <?php if (current_user_can('scp_manage_products')) : ?>
+    <?php if (current_user_can('scp_manage_products') || current_user_can('scp_view_products')) : ?>
+        <?php $scp_can_manage_products = current_user_can('scp_manage_products'); ?>
         <section class="scp-card" id="scp-products-panel">
             <div class="scp-card__header">
                 <h2><?php esc_html_e('Ürünler', 'seviye-storefront'); ?></h2>
-                <button type="button" class="scp-btn" data-scp-new-product>
-                    <?php esc_html_e('Yeni Ürün', 'seviye-storefront'); ?>
-                </button>
+                <?php if ($scp_can_manage_products) : ?>
+                    <button type="button" class="scp-btn" data-scp-new-product>
+                        <?php esc_html_e('Yeni Ürün', 'seviye-storefront'); ?>
+                    </button>
+                <?php endif; ?>
             </div>
 
             <p class="scp-form__hint">
@@ -430,86 +433,91 @@ get_header();
                     <thead>
                         <tr>
                             <th></th>
+                            <th><?php esc_html_e('ID', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Ürün', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Kategori', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Stok', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
-                            <th></th>
+                            <?php if ($scp_can_manage_products) : ?>
+                                <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                                <th></th>
+                            <?php endif; ?>
                         </tr>
                     </thead>
                     <tbody data-scp-products-body></tbody>
                 </table>
             </div>
 
-            <form class="scp-form" data-scp-product-form hidden>
-                <input type="hidden" name="id">
-                <input type="hidden" name="image_id">
+            <?php if ($scp_can_manage_products) : ?>
+                <form class="scp-form" data-scp-product-form hidden>
+                    <input type="hidden" name="id">
+                    <input type="hidden" name="image_id">
 
-                <div class="scp-form__row">
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Ürün Adı', 'seviye-storefront'); ?></span>
+                            <input type="text" name="name" required>
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></span>
+                            <input type="number" min="0" step="0.01" name="price" required>
+                        </label>
+                    </div>
+
                     <label>
-                        <span><?php esc_html_e('Ürün Adı', 'seviye-storefront'); ?></span>
-                        <input type="text" name="name" required>
+                        <span><?php esc_html_e('Açıklama', 'seviye-storefront'); ?></span>
+                        <textarea name="description" rows="3"></textarea>
                     </label>
+
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Kategori', 'seviye-storefront'); ?></span>
+                            <input type="text" name="category" placeholder="<?php esc_attr_e('ör. Kırtasiye', 'seviye-storefront'); ?>">
+                        </label>
+                        <label class="scp-checkbox">
+                            <input type="checkbox" name="manage_stock" data-scp-manage-stock>
+                            <span><?php esc_html_e('Stok takibi yap', 'seviye-storefront'); ?></span>
+                        </label>
+                        <label data-scp-stock-quantity-field hidden>
+                            <span><?php esc_html_e('Stok Adedi', 'seviye-storefront'); ?></span>
+                            <input type="number" min="0" step="1" name="stock_quantity">
+                        </label>
+                    </div>
+
                     <label>
-                        <span><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></span>
-                        <input type="number" min="0" step="0.01" name="price" required>
+                        <span><?php esc_html_e('Görsel', 'seviye-storefront'); ?></span>
+                        <img class="scp-product-image-preview" data-scp-product-image-preview hidden alt="">
+                        <input type="file" accept="image/*" data-scp-product-image-input>
+                        <span class="scp-status" data-scp-product-image-status></span>
                     </label>
-                </div>
 
-                <label>
-                    <span><?php esc_html_e('Açıklama', 'seviye-storefront'); ?></span>
-                    <textarea name="description" rows="3"></textarea>
-                </label>
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                        <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-product>
+                            <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                        </button>
+                        <button type="button" class="scp-btn scp-btn--danger" data-scp-delete-product hidden>
+                            <?php esc_html_e('Sil', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </form>
 
-                <div class="scp-form__row">
-                    <label>
-                        <span><?php esc_html_e('Kategori', 'seviye-storefront'); ?></span>
-                        <input type="text" name="category" placeholder="<?php esc_attr_e('ör. Kırtasiye', 'seviye-storefront'); ?>">
-                    </label>
-                    <label class="scp-checkbox">
-                        <input type="checkbox" name="manage_stock" data-scp-manage-stock>
-                        <span><?php esc_html_e('Stok takibi yap', 'seviye-storefront'); ?></span>
-                    </label>
-                    <label data-scp-stock-quantity-field hidden>
-                        <span><?php esc_html_e('Stok Adedi', 'seviye-storefront'); ?></span>
-                        <input type="number" min="0" step="1" name="stock_quantity">
-                    </label>
-                </div>
-
-                <label>
-                    <span><?php esc_html_e('Görsel', 'seviye-storefront'); ?></span>
-                    <img class="scp-product-image-preview" data-scp-product-image-preview hidden alt="">
-                    <input type="file" accept="image/*" data-scp-product-image-input>
-                    <span class="scp-status" data-scp-product-image-status></span>
-                </label>
-
-                <div class="scp-form__actions">
-                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
-                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-product>
-                        <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                <div class="scp-card scp-card--nested" data-scp-product-branches-panel hidden>
+                    <div class="scp-card__header">
+                        <h3><?php esc_html_e('Şube Bazlı Durum', 'seviye-storefront'); ?></h3>
+                    </div>
+                    <p class="scp-form__hint">
+                        <?php esc_html_e(
+                            'Listelenmeyen bir şube bu ürün için varsayılan olarak aktiftir.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
+                    <ul class="scp-list" data-scp-product-branches-list></ul>
+                    <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-close-product-branches>
+                        <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
                     </button>
-                    <button type="button" class="scp-btn scp-btn--danger" data-scp-delete-product hidden>
-                        <?php esc_html_e('Sil', 'seviye-storefront'); ?>
-                    </button>
                 </div>
-            </form>
-
-            <div class="scp-card scp-card--nested" data-scp-product-branches-panel hidden>
-                <div class="scp-card__header">
-                    <h3><?php esc_html_e('Şube Bazlı Durum', 'seviye-storefront'); ?></h3>
-                </div>
-                <p class="scp-form__hint">
-                    <?php esc_html_e(
-                        'Listelenmeyen bir şube bu ürün için varsayılan olarak aktiftir.',
-                        'seviye-storefront'
-                    ); ?>
-                </p>
-                <ul class="scp-list" data-scp-product-branches-list></ul>
-                <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-close-product-branches>
-                    <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
-                </button>
-            </div>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 

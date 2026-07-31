@@ -32,6 +32,7 @@ function scp_register_zone_rewrites(): void
     add_rewrite_rule('^admin/(.+)/?$', 'index.php?scp_zone=admin&scp_zone_path=$matches[1]', 'top');
     add_rewrite_rule('^sube/?$', 'index.php?scp_zone=sube', 'top');
     add_rewrite_rule('^sube/(.+)/?$', 'index.php?scp_zone=sube&scp_zone_path=$matches[1]', 'top');
+    add_rewrite_rule('^profilim/?$', 'index.php?scp_zone=profilim', 'top');
 }
 
 /**
@@ -52,6 +53,20 @@ function scp_render_zone_template(): void
 
     if ($zone === '' || !is_user_logged_in()) {
         return;
+    }
+
+    // /profilim is the Veli's own profile page (children, iletişim
+    // tercihleri, hesap güvenliği - moved here from the root '/', which now
+    // redirects straight to the shop, see index.php). Reached at all only
+    // implies inc/access-gate.php's role-zone check passed - the same as
+    // /admin and /sube below - since RoleRouter has no special case for it,
+    // it falls under the same "parent" zone every non-/admin, non-/sube
+    // path does, which is exactly the Veli's own zone.
+    if ($zone === 'profilim') {
+        get_header();
+        include SCP_THEME_DIR . '/templates/parent-dashboard.php';
+        get_footer();
+        exit;
     }
 
     $labels = [

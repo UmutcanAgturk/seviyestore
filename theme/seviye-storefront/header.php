@@ -38,8 +38,18 @@ if (!defined('ABSPATH')) {
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
                 <?php esc_html_e('Mağaza', 'seviye-storefront'); ?>
             </a>
+            <?php $scp_cart_count = function_exists('WC') && WC()->cart ? WC()->cart->get_cart_contents_count() : 0; ?>
             <a href="<?php echo esc_url(wc_get_cart_url()); ?>">
                 <?php esc_html_e('Sepetim', 'seviye-storefront'); ?>
+                <?php if ($scp_cart_count > 0) : ?>
+                    <span class="scp-cart-count"><?php echo esc_html((string) $scp_cart_count); ?></span>
+                <?php endif; ?>
+            </a>
+        <?php endif; ?>
+
+        <?php if (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile')) : ?>
+            <a href="<?php echo esc_url(home_url('/profilim')); ?>">
+                <?php esc_html_e('Profilim', 'seviye-storefront'); ?>
             </a>
         <?php endif; ?>
         <div class="scp-notif-bell" id="scp-notifications-bell">

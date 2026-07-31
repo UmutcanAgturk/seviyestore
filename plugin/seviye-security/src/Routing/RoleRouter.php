@@ -9,10 +9,11 @@ use Seviye\Core\Rbac\Role;
 /**
  * Maps a user's WordPress roles to the URL zone they belong to, per the
  * platform's fixed entry points: store.seviye.com.tr (Veli), /sube (Şube
- * Paneli), /admin (Genel Merkez). Each role belongs to exactly one zone in
- * this milestone; a role that needs to work across zones (e.g. Genel Merkez
- * browsing a specific branch's data) is a Branches-module-era concern, not
- * a routing one, and will be modelled there when that module exists.
+ * Paneli), /admin (Genel Merkez - and Sistem, see zoneFor()). Each role
+ * belongs to exactly one zone in this milestone; a role that needs to work
+ * across zones (e.g. Genel Merkez browsing a specific branch's data) is a
+ * Branches-module-era concern, not a routing one, and will be modelled
+ * there when that module exists.
  */
 final class RoleRouter
 {
@@ -45,7 +46,14 @@ final class RoleRouter
      */
     private static function zoneFor(array $roleSlugs): string
     {
-        $adminRoles = [Role::GENEL_MERKEZ->value, Role::BOLGE_MUDURU->value];
+        // Sistem lands in the same zone as Genel Merkez/Bölge Müdürü - not
+        // because it inherits their capabilities (RBAC capability grants
+        // are entirely separate, per-module, see RbacManager), but because
+        // whatever it IS granted (e.g. VIEW_PRODUCTS, MANAGE_BASE_PRICING)
+        // only ever renders inside /admin's zone.php template. A system
+        // account with no admin-zone landing spot could never reach a
+        // capability-gated section at all.
+        $adminRoles = [Role::GENEL_MERKEZ->value, Role::BOLGE_MUDURU->value, Role::SISTEM->value];
 
         if (array_intersect($roleSlugs, $adminRoles) !== []) {
             return 'admin';

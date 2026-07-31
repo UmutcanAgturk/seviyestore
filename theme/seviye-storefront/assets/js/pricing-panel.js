@@ -1,13 +1,18 @@
 /**
- * Price rule management for /admin (every branch, incl. GENERAL rules) and
- * /sube (own branch only, no GENERAL) - scp_manage_pricing is granted to
- * Şube Müdürü too, unlike scp_manage_branches, so this panel (unlike the
- * branches one) renders in both zones. There is no product catalog yet
- * (Seviye Commerce/WooCommerce integration is still planned), so this looks
- * up rules by a plain numeric product id rather than a product picker.
+ * Price rule management for /admin (every branch) and /sube (own branch
+ * only) - scp_manage_pricing is granted to Şube Müdürü too, unlike
+ * scp_manage_branches, so this panel (unlike the branches one) renders in
+ * both zones. Looks up rules by a plain numeric product id (see the
+ * "Ürünler" panel for the catalog itself).
+ *
+ * The GENERAL scope option is narrower than "every other HQ action" here:
+ * gated on scpPanel.canManageBasePricing (Genel Merkez/Sistem only), NOT
+ * scpPanel.canManageAllBranches (which Bölge Müdürü also has) - a
+ * BRANCH/STUDENT rule may never undercut its product's GENERAL rule, so
+ * only whoever may SET that floor gets the option at all.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, nonce, canManageAllBranches }
+ *   scpPanel     { restUrl, nonce, canManageAllBranches, canManageBasePricing }
  *   scpPanelText { ...translated UI strings }
  */
 (function () {
@@ -33,7 +38,7 @@
 
     var currentProductId = null;
 
-    if (!scpPanel.canManageAllBranches) {
+    if (!scpPanel.canManageBasePricing) {
         var generalOption = scopeSelect.querySelector('[data-scp-scope-general]');
 
         if (generalOption) {
@@ -107,14 +112,18 @@
             row.appendChild(statusBadgeCell(rule.status));
 
             var actionsCell = document.createElement('td');
-            var editButton = document.createElement('button');
-            editButton.type = 'button';
-            editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelText.edit;
-            editButton.addEventListener('click', function () {
-                openPriceRuleForm(rule);
-            });
-            actionsCell.appendChild(editButton);
+
+            if (rule.scope !== 'general' || scpPanel.canManageBasePricing) {
+                var editButton = document.createElement('button');
+                editButton.type = 'button';
+                editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                editButton.textContent = scpPanelText.edit;
+                editButton.addEventListener('click', function () {
+                    openPriceRuleForm(rule);
+                });
+                actionsCell.appendChild(editButton);
+            }
+
             row.appendChild(actionsCell);
 
             tableBody.appendChild(row);

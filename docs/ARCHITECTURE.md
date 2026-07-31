@@ -1798,6 +1798,77 @@ ekranı) içindeki "S" harf-rozeti yerine gösteriliyor - hiç logo
 yüklenmemişse ikisi de eskisi gibi harf-rozetine düşüyor
 (`scp_logo_url()`, `inc/branding.php`).
 
+### 32. Veli ana sayfası → Mağaza, ayrı "Profilim" sayfası, sepet sayacı, ürün ID görünürlüğü, taban fiyat kuralı, header logo düzeltmesi
+
+Altı ayrı iyileştirme:
+
+**Veli ana sayfası artık doğrudan Mağaza'yı açıyor.** '/' kökü daha önce
+`index.php` üzerinden "Öğrencilerim/Profilim/Hesap Güvenliği" panosunu
+gösteriyordu; artık `wc_get_page_permalink('shop')`'a yönlendiriyor
+(`get_header()`'dan ÖNCE - herhangi bir çıktı üretildikten sonra
+`wp_safe_redirect()` başarısız olur). O pano içeriği yeni bir sayfaya
+taşındı: `/profilim` (`inc/zones.php`'ye yeni bir zone eklendi -
+`scp_zone=profilim`, admin/sube gibi ayrı bir rewrite kuralı, ama
+`zone.php` yerine doğrudan `templates/parent-dashboard.php`'yi render
+ediyor). Buraya ulaşmak zaten `RoleRouter`'ın "parent" bölgesine (her
+niyet/amaçla '/admin' ve '/sube' DIŞINDAKİ her yol) girdiği için ayrı bir
+yetki kontrolüne gerek yok - `inc/access-gate.php` zaten yalnızca veli
+rolündeki kullanıcıların buraya ulaşmasını sağlıyor. `header.php`'ye yeni
+bir "Profilim" bağlantısı eklendi.
+
+**Sepet sayacı.** `header.php`'deki "Sepetim" linkine
+`WC()->cart->get_cart_contents_count()` ile hesaplanan bir rozet
+eklendi (`.scp-cart-count`) - sunucu tarafında her sayfa yüklemesinde
+render ediliyor (bu platformda sepete ekleme zaten tam sayfa POST/reload,
+AJAX değil - WC'nin fragment mekanizmasına gerek yok).
+
+**Ürün ID görünürlüğü.** Yeni bir salt-okunur yetki:
+`ProductCapability::VIEW_PRODUCTS` - Muhasebe, Depo ve Sistem'e verildi
+(Genel Merkez/Bölge Müdürü/Şube Müdürü zaten MANAGE_PRODUCTS ile bunun
+üst kümesine sahip). `ProductsRestController::index()`/`show()` artık
+`canViewProducts()` (MANAGE_PRODUCTS VEYA VIEW_PRODUCTS) ile korunuyor.
+Ürünler tablosuna bir "ID" sütunu eklendi; `zone.php`/`products-panel.js`
+salt-okunur roller için oluşturma formunu, düzenle/sil/durum sütunlarını
+DOM'a hiç BASMIYOR (yalnızca CSS ile gizlemek yerine) - yeni bir
+`scpPanel.canManageProducts` bayrağı bu ayrımı sürüyor.
+
+Bu, **Sistem** rolünün ilk kez gerçek bir yetki kazandığı an oldu - önceden
+`RoleDefinitions::defaults()`'ta sıfır yetkiyle tanımlıydı VE
+`RoleRouter::zoneFor()`'da hiçbir zon eşlemesi yoktu (varsayılan "parent"
+bölgesine düşüyordu, yani `/admin`'e asla erişemiyordu). `RoleRouter`
+artık Sistem'i Genel Merkez/Bölge Müdürü ile birlikte "admin" bölgesine
+eşliyor - bu, Sistem'e Genel Merkez'in yetkilerini VERMİYOR (RBAC
+capability grant'leri tamamen ayrı bir mekanizma), yalnızca Sistem'e VERİLEN
+capability'lerin (VIEW_PRODUCTS, MANAGE_BASE_PRICING gibi) render edileceği
+bir zona erişim sağlıyor - aksi halde bu yetkiler hiçbir zaman UI'da
+kullanılamazdı.
+
+**Taban fiyat kuralı.** "Genel merkezin belirlediği fiyatın aşağısına fiyat
+verilemez" - yeni `PricingCapability::MANAGE_BASE_PRICING` (Genel Merkez +
+Sistem only, Bölge Müdürü DAHİL DEĞİL - `MANAGE_PRICING`'den daha dar).
+`PricingRestController::canWriteScope()` artık GENEL kapsamı özel olarak bu
+capability'ye bağlıyor (önceden yalnızca "şube üyeliği yok" kontrolüydü, bu
+da Bölge Müdürü'nü de kapsıyordu). Yeni `violatesBasePriceFloor()`: bir
+BRANCH/STUDENT kuralı OLUŞTURULURKEN/GÜNCELLENIRKEN, o ürünün aktif GENEL
+kuralı varsa VE yeni fiyat bunun altındaysa 422 döner - kontrol ÜRÜN
+BAZINDA yapılıyor (platform genelinde tek bir taban değil), ve yalnızca bir
+GENEL kural gerçekten VARSA uygulanıyor. `pricing-panel.js`'teki "Genel"
+kapsam seçeneği artık `scpPanel.canManageBasePricing`'e göre gizleniyor
+(önceden `canManageAllBranches` kullanıyordu, ki bu Bölge Müdürü'nü de
+içeriyordu).
+
+**Header logo düzeltmesi.** `.scp-site-header__logo` sabit bir `height: 34px`
+İLE `max-width: 160px`'i birlikte kullanıyordu - geniş bir logo için
+max-width devreye girip genişliği küçültürken yükseklik 34px'te sabit
+kalıyordu, görseli bozuyordu ("yarım görünüyor"). `max-height` (sabit
+`height` değil) kullanan `.scp-auth-logo` (giriş ekranı) zaten bu sorunu
+yaşamıyordu - aynı düzeltme header'a da uygulandı, artık `width: auto` ile
+görselin gerçek en-boy oranı hiçbir ikinci kısıtlamayla çakışmıyor. Boyut
+artık `--scp-header-height` (yeni bir CSS custom property, hem
+`.scp-site-header`'ın `min-height`'ı hem de logonun `max-height`'ı bunu
+paylaşıyor) TEK bir kaynaktan türetiliyor - kullanıcının isteği doğrultusunda
+"header'ın yükseklik oranına göre" boyutlanıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -1,13 +1,15 @@
 <?php
 
 /**
- * Veli home view: a link into the WooCommerce shop (Seviye Commerce),
+ * Veli's "Profilim" page (/profilim, see inc/zones.php) - NOT the Veli's
+ * homepage: '/' now redirects straight to the WooCommerce shop instead
+ * (see index.php), header.php links here via a "Profilim" nav item.
  * "Öğrencilerim" (own children, read-only here - Students remains the
  * single owner of that data), "Profilim" (Seviye Parents) and "Hesap
  * Güvenliği" (2FA - see templates/partials/account-security.php, the same
- * shared partial templates/zone.php also includes). Included directly by
- * index.php when the current user holds either of the profile/children
- * capabilities checked below.
+ * shared partial templates/zone.php also includes). Included by
+ * inc/zones.php's scp_render_zone_template() when the current user holds
+ * either of the profile/children capabilities checked below.
  */
 
 declare(strict_types=1);
@@ -25,18 +27,6 @@ if (!defined('ABSPATH')) {
             wp_get_current_user()->display_name
         ));
         ?></h1>
-
-    <?php if (function_exists('wc_get_page_permalink')) : ?>
-        <section class="scp-card" id="scp-parent-shop">
-            <div class="scp-card__header">
-                <h2><?php esc_html_e('Mağaza', 'seviye-storefront'); ?></h2>
-            </div>
-            <p><?php esc_html_e('Öğrenciniz için ürün satın almak üzere mağazaya gidin.', 'seviye-storefront'); ?></p>
-            <a class="scp-btn" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
-                <?php esc_html_e('Mağazaya Git', 'seviye-storefront'); ?>
-            </a>
-        </section>
-    <?php endif; ?>
 
     <?php if (current_user_can('scp_view_own_children')) : ?>
         <section class="scp-card" id="scp-parent-children">

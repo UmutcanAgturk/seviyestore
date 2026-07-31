@@ -42,7 +42,7 @@ final class ProductsRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'index'],
-                'permission_callback' => $this->requireCapability(ProductCapability::MANAGE_PRODUCTS->value),
+                'permission_callback' => [$this, 'canViewProducts'],
             ],
             [
                 'methods' => 'POST',
@@ -56,7 +56,7 @@ final class ProductsRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'show'],
-                'permission_callback' => $this->requireCapability(ProductCapability::MANAGE_PRODUCTS->value),
+                'permission_callback' => [$this, 'canViewProducts'],
             ],
             [
                 'methods' => 'PUT',
@@ -103,6 +103,12 @@ final class ProductsRestController extends AbstractRestController
                 'status' => ['required' => true, 'type' => 'string'],
             ],
         ]);
+    }
+
+    public function canViewProducts(): bool
+    {
+        return current_user_can(ProductCapability::MANAGE_PRODUCTS->value)
+            || current_user_can(ProductCapability::VIEW_PRODUCTS->value);
     }
 
     public function index(): WP_REST_Response
