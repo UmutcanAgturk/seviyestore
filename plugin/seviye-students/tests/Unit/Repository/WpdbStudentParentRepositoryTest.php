@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Students\Tests\Unit\Repository;
 
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Seviye\Students\Domain\ParentRelationship;
 use Seviye\Students\Repository\WpdbStudentParentRepository;
 use Seviye\Students\Tests\Fakes\FakeConnection;
@@ -24,6 +25,19 @@ final class WpdbStudentParentRepositoryTest extends TestCase
         self::assertSame(42, $connection->inserted[0][1]['parent_user_id']);
         self::assertSame('anne', $connection->inserted[0][1]['relationship_type']);
         self::assertCount(0, $connection->queries);
+    }
+
+    public function testLinkThrowsWithTheRealDbErrorWhenInsertFails(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [];
+        $connection->insertShouldSucceed = false;
+        $repository = new WpdbStudentParentRepository($connection);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Öğrenci #1 - veli #42 bağlantısı kaydedilemedi:');
+
+        $repository->link(1, 42, ParentRelationship::MOTHER);
     }
 
     public function testLinkUpdatesTheRelationshipWhenAlreadyLinked(): void

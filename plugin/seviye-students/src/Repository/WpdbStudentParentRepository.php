@@ -27,12 +27,36 @@ final class WpdbStudentParentRepository implements StudentParentRepositoryInterf
             return;
         }
 
-        $this->connection->insert($table, [
+        $inserted = $this->connection->insert($table, [
             'student_id' => $studentId,
             'parent_user_id' => $parentUserId,
             'relationship_type' => $relationship->value,
             'created_at' => function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s'),
         ]);
+
+        if ($inserted) {
+            return;
+        }
+
+        // Every caller (StudentsRestController's manual link + auto-link-on-
+        // create paths) used to assume this always succeeds and reported
+        // success regardless - masking a real INSERT failure (a missing
+        // scp_student_parents table, a stale duplicate row, ...) as a
+        // silent no-op with no error anywhere. Same fix already applied to
+        // WpdbIdentityGateway::link() and WpdbBranchRepository::create()/
+        // update() this session - throwing here with the real $wpdb error
+        // lets callers surface it instead of showing a false "Kaydedildi".
+        global $wpdb;
+        $dbError = isset($wpdb) && $wpdb->last_error !== '' ? $wpdb->last_error : 'bilinmeyen veritabanı hatası';
+        $message = sprintf(
+            'Öğrenci #%d - veli #%d bağlantısı kaydedilemedi: %s',
+            $studentId,
+            $parentUserId,
+            $dbError
+        );
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+        throw new \RuntimeException($message);
     }
 
     public function unlink(int $studentId, int $parentUserId): void

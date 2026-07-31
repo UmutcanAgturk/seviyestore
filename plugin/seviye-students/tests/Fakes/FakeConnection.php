@@ -19,6 +19,8 @@ final class FakeConnection implements ConnectionInterface
 
     public int $nextInsertId = 1;
 
+    public bool $insertShouldSucceed = true;
+
     public function table(string $suffix): string
     {
         return 'test_scp_' . $suffix;
@@ -38,7 +40,7 @@ final class FakeConnection implements ConnectionInterface
     {
         $this->inserted[] = [$table, $data];
 
-        return true;
+        return $this->insertShouldSucceed;
     }
 
     public function lastInsertId(): int

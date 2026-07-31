@@ -337,11 +337,15 @@ final class StudentsRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('Geçersiz veli ilişki türü.', 'seviye-students')], 422);
         }
 
-        $this->studentParents->link(
-            (int) $request->get_param('id'),
-            (int) $request->get_param('parent_user_id'),
-            $relationship
-        );
+        try {
+            $this->studentParents->link(
+                (int) $request->get_param('id'),
+                (int) $request->get_param('parent_user_id'),
+                $relationship
+            );
+        } catch (\Throwable $exception) {
+            return new WP_REST_Response(['message' => $exception->getMessage()], 500);
+        }
 
         return new WP_REST_Response(['success' => true]);
     }

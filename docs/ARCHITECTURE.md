@@ -1543,6 +1543,51 @@ ediyor, geçersizse WooCommerce'in KENDİ `wc_create_page()` yardımcısıyla
 sayfayı yeniden oluşturuyor - MigrationRunner'ın "Üçüncü kural"ıyla
 birebir aynı gerekçe.
 
+### 25. Veli bağlantısı sessiz INSERT hatası, mağaza sayfasının gerçek entegrasyon hooks eksikliği
+
+**`WpdbStudentParentRepository::link()`**, `WpdbIdentityGateway::link()`/
+`WpdbBranchRepository::create()`/`update()`'te (bu oturumda daha önce)
+düzeltilen AYNI hata sınıfını taşıyordu: `insert()`'in dönüş değeri hiç
+kontrol edilmiyordu. `scp_student_parents`'a INSERT sessizce başarısız
+olursa (eksik tablo, bozuk bir yinelenen satır, ...) hem manuel "Bağla"
+akışı hem de öğrenci-oluştururken-otomatik-veli-bağlama akışı hiçbir hata
+göstermeden "başarılı" görünüyordu - veli hesabı oluşuyordu ama
+öğrenciyle bağlantısı hiç kaydolmuyordu. Düzeltme: `insert()`'in dönüşü
+kontrol ediliyor, başarısızsa gerçek `$wpdb->last_error`'la
+`RuntimeException` fırlatılıyor; `StudentsRestController::linkParent()`
+(manuel bağlama uç noktası) de artık bunu yakalayıp mesajı JSON yanıtında
+döndürüyor - önceden yakalanmayan bir exception, WordPress'in genel fatal
+ekranına düşerdi.
+
+**Mağaza sayfası hâlâ bozuk görünüyordu** (bölüm 23'ün `woocommerce.css`'i
+tek başına yeterli değildi): ekran görüntüsü, ürün kartının üstüne binen
+bir "Sepete Ekle" butonu, konteynırsız (tam genişlik) bir sayfa gövdesi ve
+sayfanın altında temayla hiç ilgisi olmayan çıplak bir "Sayfalar/
+Arşivler/Kategoriler" widget listesi gösteriyordu. Kök neden: temanın
+`add_theme_support('woocommerce')` DEKLARE ETMESİ, WooCommerce'in gerçek
+tema ENTEGRASYON hook'larını KULLANMASI anlamına gelmiyor - ikisi ayrı
+şeyler. Üç somut düzeltme, WooCommerce'in kendi resmi tema geliştirme
+kılavuzunun önerdiği yöntemle (şablon override değil, hook'lar):
+1. `woocommerce_before_main_content`/`woocommerce_after_main_content`'e
+   `<div class="scp-panel scp-shop-panel">`/`</div>` bağlandı - önceden
+   mağaza içeriğini saran HİÇBİR konteynır yoktu, bu yüzden
+   `assets/css/woocommerce.css`'teki hiçbir grid/kart kuralı gerçek bir
+   genişlik sınırlamasına oturmuyordu.
+2. `remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10)` -
+   bu platformda hiç sidebar/widget alanı kavramı yok (temada tek bir
+   `register_sidebar()` çağrısı bile yok), ama WooCommerce'in varsayılan
+   şablonları yine de `woocommerce_sidebar` action'ını tetikliyordu;
+   kaldırılmadan önce bu, sitenin durgun/aktif olmayan widget alanına
+   atanmış rastgele varsayılan WordPress widget'larının (Sayfalar,
+   Arşivler, Kategoriler) çıplak bir liste olarak dökülmesine yol
+   açıyordu.
+3. `add_filter('woocommerce_enqueue_styles', '__return_empty_array')` -
+   WooCommerce kendi varsayılan stylesheet'lerini enqueue ediyordu, bu da
+   `scp-woocommerce`'in kurallarıyla enqueue SIRASINA bağlı olarak
+   çakışabiliyordu (eşit özgüllükte, sonra yüklenen kazanır). Artık bu
+   temanın CSS'i, WooCommerce markup'ı için TEK stil kaynağı - WC'nin
+   kendi stylesheet'i hiç yüklenmiyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

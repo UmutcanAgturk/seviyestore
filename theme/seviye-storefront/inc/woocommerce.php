@@ -7,10 +7,21 @@
  * so this file (a) renders a student picker on the single product page and
  * (b) replaces the archive/shop page's instant "add to cart" link (which has
  * no form to carry a student selection) with a plain link to the product
- * page, where the picker lives. `add_theme_support('woocommerce')` is
- * already declared in inc/setup.php; WooCommerce's own bundled templates
- * render correctly against this theme's header.php/footer.php without any
- * template override needed here.
+ * page, where the picker lives.
+ *
+ * `add_theme_support('woocommerce')` (inc/setup.php) alone was NOT enough -
+ * WooCommerce's default templates still expected the theme's OWN content
+ * wrapper markup (none existed here, so shop pages rendered edge-to-edge
+ * with no `.scp-panel`-style container) and still called
+ * `woocommerce_get_sidebar()` (this platform has no sidebar/widget concept
+ * at all - no `register_sidebar()` anywhere in the theme - so that call
+ * rendered whatever default WordPress widgets happened to be assigned to
+ * the site's stale/inactive sidebar slot, as a bare unstyled list). Both are
+ * addressed below via WooCommerce's own documented theme-integration hooks,
+ * not template overrides. `woocommerce_enqueue_styles` is also filtered
+ * empty so WooCommerce's bundled default stylesheet never fights
+ * assets/css/woocommerce.css on cascade order - this theme's CSS is the
+ * only styling source for WooCommerce markup from here on.
  */
 
 declare(strict_types=1);
@@ -26,6 +37,22 @@ if (!class_exists('WooCommerce')) {
 add_action('admin_init', 'scp_ensure_shop_page_exists');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
+
+add_filter('woocommerce_enqueue_styles', '__return_empty_array');
+remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
+
+add_action('woocommerce_before_main_content', 'scp_open_woocommerce_wrapper', 10);
+add_action('woocommerce_after_main_content', 'scp_close_woocommerce_wrapper', 10);
+
+function scp_open_woocommerce_wrapper(): void
+{
+    echo '<div class="scp-panel scp-shop-panel">';
+}
+
+function scp_close_woocommerce_wrapper(): void
+{
+    echo '</div>';
+}
 
 /**
  * WooCommerce's own installer (WC_Install::create_pages(), fired from
