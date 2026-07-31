@@ -15,9 +15,12 @@ use Seviye\Core\Database\Migrations\CreateSettingsTable;
 use Seviye\Core\Database\WpdbConnection;
 use Seviye\Core\Events\EventBus;
 use Seviye\Core\Events\EventBusInterface;
+use Seviye\Core\Http\ActivityLogRestController;
 use Seviye\Core\Http\BrandingRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Logging\DatabaseLogger;
+use Seviye\Core\Logging\RequestActivityLogger;
+use Seviye\Core\Logging\WpdbLogQuery;
 use Seviye\Core\Module\ModuleRegistry;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
@@ -96,6 +99,27 @@ final class CoreServiceProvider
         $container->get(RestApiRegistrar::class)->register(
             static fn (): BrandingRestController => new BrandingRestController(
                 $container->get(SettingsRepositoryInterface::class)
+            )
+        );
+
+        // "Genel merkez hesabından tüm yapılan aktiviteleri de gösterecek
+        // başka bir menü" - RequestActivityLogger hooks the REST dispatch
+        // pipeline itself (see its class docblock) so it applies to every
+        // module's routes, present and future, without each of them
+        // needing to call a logger themselves. Registered directly (not
+        // deferred to `init`, matching BrandingRestController above) since
+        // LoggerInterface is a Core-owned binding, not another module's
+        // Contract.
+        (new RequestActivityLogger($container->get(LoggerInterface::class)))->register();
+
+        $container->singleton(
+            WpdbLogQuery::class,
+            static fn (ServiceContainer $c): WpdbLogQuery => new WpdbLogQuery($c->get(ConnectionInterface::class))
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): ActivityLogRestController => new ActivityLogRestController(
+                $container->get(WpdbLogQuery::class)
             )
         );
     }

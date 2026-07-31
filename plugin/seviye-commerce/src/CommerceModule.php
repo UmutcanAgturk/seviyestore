@@ -9,11 +9,14 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
+use Seviye\Commerce\Http\AdminOrdersRestController;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
+use Seviye\Commerce\Http\Support\OrderPresenter;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
+use Seviye\Commerce\Rbac\OrderCapability;
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
@@ -108,6 +111,20 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, 'upload_files');
         $rbac->grantCapability(Role::SUBE_MUDURU, 'upload_files');
 
+        // "Genel merkez hesabından tüm siparişleri, şube ise kendi
+        // velilerin siparişlerini görecek bir menü" - see
+        // Http\AdminOrdersRestController.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::VIEW_ORDERS->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::VIEW_ORDERS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::VIEW_OWN_BRANCH_ORDERS->value);
+
+        $container->singleton(
+            OrderPresenter::class,
+            static fn (ServiceContainer $c): OrderPresenter => new OrderPresenter(
+                $c->get(StudentLookupInterface::class)
+            )
+        );
+
         if (!Environment::isWooCommerceActive()) {
             return;
         }
@@ -129,7 +146,17 @@ final class CommerceModule implements ModuleInterface
         // route handler calls wc_get_orders()/WC_Order directly.
         $container->get(RestApiRegistrar::class)->register(
             static fn (): OrdersRestController => new OrdersRestController(
-                $container->get(StudentLookupInterface::class)
+                $container->get(OrderPresenter::class)
+            )
+        );
+
+        // Admin/Şube Müdürü order listing - same WC-active gating, its
+        // route handler also calls wc_get_order() directly.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): AdminOrdersRestController => new AdminOrdersRestController(
+                $container->get(OrderLineItemQueryInterface::class),
+                $container->get(BranchMembershipInterface::class),
+                $container->get(OrderPresenter::class)
             )
         );
 

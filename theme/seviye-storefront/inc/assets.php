@@ -155,6 +155,30 @@ function scp_enqueue_panel_assets(): void
         'orderItemUnitPriceLabel' => __('Birim Fiyat', 'seviye-storefront'),
         'orderItemTaxLabel' => __('KDV', 'seviye-storefront'),
         'orderItemTotalLabel' => __('Ara Toplam', 'seviye-storefront'),
+        'orderCustomerLabel' => __('Veli', 'seviye-storefront'),
+        'orderCustomerEmailLabel' => __('Veli E-posta', 'seviye-storefront'),
+        'noActivityLogData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
+        'activityStudentCreated' => __('Öğrenci oluşturuldu', 'seviye-storefront'),
+        'activityStudentUpdated' => __('Öğrenci güncellendi', 'seviye-storefront'),
+        'activityStudentDeleted' => __('Öğrenci silindi', 'seviye-storefront'),
+        'activityParentLinked' => __('Veli bağlandı', 'seviye-storefront'),
+        'activityParentUpdated' => __('Veli bilgileri güncellendi', 'seviye-storefront'),
+        'activityParentUnlinked' => __('Veli bağlantısı kaldırıldı', 'seviye-storefront'),
+        'activityProductCreated' => __('Ürün oluşturuldu', 'seviye-storefront'),
+        'activityProductUpdated' => __('Ürün güncellendi', 'seviye-storefront'),
+        'activityProductDeleted' => __('Ürün silindi', 'seviye-storefront'),
+        'activityProductBranchStatusChanged' => __('Ürün şube durumu güncellendi', 'seviye-storefront'),
+        'activityPriceRuleCreated' => __('Fiyat kuralı oluşturuldu', 'seviye-storefront'),
+        'activityPriceRuleUpdated' => __('Fiyat kuralı güncellendi', 'seviye-storefront'),
+        'activityPriceRuleDeleted' => __('Fiyat kuralı silindi', 'seviye-storefront'),
+        'activityBranchCreated' => __('Şube oluşturuldu', 'seviye-storefront'),
+        'activityBranchUpdated' => __('Şube güncellendi', 'seviye-storefront'),
+        'activitySettlementRecorded' => __('Tahsilat kaydedildi', 'seviye-storefront'),
+        'activityBrandingSaved' => __('Logo güncellendi', 'seviye-storefront'),
+        'activityBrandingRemoved' => __('Logo kaldırıldı', 'seviye-storefront'),
+        'activityLoginSucceeded' => __('Giriş başarılı', 'seviye-storefront'),
+        'activityLoginFailed' => __('Giriş başarısız', 'seviye-storefront'),
+        'activityLoginThrottled' => __('Giriş denemesi sınırlandırıldı', 'seviye-storefront'),
         'sessionExpired' => __(
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'
@@ -204,6 +228,23 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageProducts' => current_user_can('scp_manage_products'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    $canViewOrders = current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $canViewOrders) {
+        $handle = 'scp-admin-orders-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/admin-orders-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/admin-orders-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canViewAllBranches' => current_user_can('scp_view_orders'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
@@ -346,6 +387,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/branding-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/branding-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && current_user_can('scp_view_audit_logs')) {
+        $handle = 'scp-activity-log-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/activity-log-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/activity-log-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

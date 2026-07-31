@@ -1906,6 +1906,72 @@ genel toplam) ve her sipariş için bir kalem tablosunu render ediyor -
 mevcut `.scp-card--nested`, `.scp-summary-list`, `.scp-table` bileşenleri
 yeniden kullanıldı, yeni CSS eklenmedi.
 
+### 34. Sipariş Yönetimi (admin) ve Aktivite Günlüğü
+
+İki ayrı yeni menü:
+
+**Sipariş Yönetimi.** "Genel merkez hesabından tüm siparişleri, şube ise
+kendi velilerin siparişlerini görecek bir menü, tüm filtreleme sistemleri
+olsun." Yeni `OrderCapability::VIEW_ORDERS` (Genel Merkez/Bölge Müdürü -
+her şube) / `VIEW_OWN_BRANCH_ORDERS` (Şube Müdürü - yalnızca kendi şubesi),
+`ReportCapability::VIEW_REPORTS`/`VIEW_OWN_REPORTS` ile birebir aynı
+desende. Yeni `AdminOrdersRestController` (`GET /commerce/orders`),
+"hangi siparişler eşleşiyor" sorusunu `wc_get_orders()` yerine ZATEN
+yayınlanmış `OrderLineItemQueryInterface` (`scp_order_line_items` -
+`OrderPersistenceHooks::persistOrderLineItems()` sayesinde ödeme durumu ne
+olursa olsun HER sipariş ödeme adımında bu tabloya yazılıyor) üzerinden
+çözüyor - bu tablo zaten branch_id/product_id/status alanlarını taşıyor,
+dolayısıyla platformun branch/ürün/tarih/durum filtrelemesinin
+gerçekleştirilebileceği tek yer. Şube Müdürü, eşleşen bir siparişin
+İÇİNDE yalnızca KENDİ şubesine ait kalemleri görür (başka bir şubeyle
+paylaşılan nadir bir sipariş olsa bile) - bu görünürlük HER ZAMAN yalnızca
+şube'ye göre belirlenir, ürün/tarih/durum/öğrenci filtreleri yalnızca
+HANGİ siparişlerin listede göründüğünü daraltır, eşleşen bir siparişin
+İÇİNDEKİ görünürlüğü değiştirmez (bkz. `visibleItemIdsByOrder()`). Genel
+Merkez her kalemi eksiksiz görür.
+
+`OrdersRestController`'ın (velinin kendi `/mine` sayfası) sipariş/kalem
+serileştirme mantığı yeni bir `Http\Support\OrderPresenter` sınıfına
+taşındı - iki controller de aynı tarih/para biçimlendirmesine ve
+`_scp_student_id` -> `StudentLookupInterface` çözümlemesine ihtiyaç
+duyuyor; yalnızca görünür kalem kümesi (`$visibleItemIds`) ve alıcının
+(veli) kimliğinin eklenip eklenmeyeceği (`$includeCustomer`) farklı.
+
+**Aktivite Günlüğü.** "Genel merkez hesabından tüm yapılan aktiviteleri de
+gösterecek başka bir menü." Platformun kuruluşundan beri var olan ama HİÇ
+kullanılmamış `Capability::VIEW_AUDIT_LOGS` (yalnızca Genel Merkez'e
+varsayılan olarak atanmış, bkz. `RoleDefinitions::defaults()`) ve
+`scp_logs` tablosu (`DatabaseLogger`, "KVKK/güvenlik denetimi gereksinimi"
+notuyla en baştan kurulmuştu) nihayet bir REST uç noktası ve panel
+kazandı - ikisi de mevcuttu, aralarında yalnızca bağlantı eksikti.
+
+Kapsamı platform genelinde GERÇEKTEN eksiksiz yapan asıl parça yeni
+`Logging\RequestActivityLogger`: her modülün her REST controller'ına ayrı
+ayrı bir logger çağrısı eklemek yerine, WordPress'in REST çekirdek
+filtresi `rest_request_after_callbacks`'e (her route handler'ı
+ÇALIŞTIKTAN SONRA, cevapla birlikte tetiklenir) TEK bir kancayla bağlanıyor
+- `seviye/v1` altındaki her POST/PUT/PATCH/DELETE isteğini otomatik
+kaydediyor. Bu, herhangi bir modülün gelecekte ekleyeceği YENİ bir uç
+noktanın da otomatik olarak günlüğe girmesi anlamına geliyor - hiçbir
+controller'ın bunu "hatırlaması" gerekmiyor. `GET` istekleri hiç
+kaydedilmiyor (okuma "aktivite" sayılmıyor); `/auth/*` tamamen hariç
+tutuluyor (ham şifre taşıyan, `AuthService`'in zaten kendi anlamlı
+mesajlarıyla kaydettiği giriş akışı - burada da kaydetmek hem
+tekrar hem de bir redaksiyon hatası riski olurdu). Diğer her rotanın
+parametreleri `password`/`code`/`secret`/`token` gibi alanlar
+`[redacted]` ile değiştirilerek context olarak saklanıyor.
+
+Yeni `Logging\LogFilter`/`LogEntry`/`WpdbLogQuery` (Commerce'in
+`OrderLineItemFilter`/`OrderLineItemRecord`/`WpdbOrderLineItemQuery`
+üçlüsüyle birebir aynı desen) `scp_logs`'u kanal/seviye/kullanıcı/tarih/
+serbest metin ile filtreliyor; yeni `Http\ActivityLogRestController`
+(`GET /core/activity-log`) bunu `VIEW_AUDIT_LOGS` arkasında sunuyor. Tema
+tarafında `activity-log-panel.js`, ham "METHOD /seviye/v1/rota" mesajlarını
+(ve `AuthService`'in İngilizce "Login succeeded."/"Login failed." gibi
+sabit mesajlarını) küçük bir eşleme tablosuyla kısa Türkçe açıklamalara
+çeviriyor - eşleşmeyen bir rota gizlenmiyor, yalnızca ham haliyle
+gösteriliyor, bu yüzden tablo hiçbir zaman güncel tutulmak ZORUNDA değil.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
