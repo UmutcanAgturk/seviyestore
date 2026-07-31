@@ -1869,6 +1869,43 @@ artık `--scp-header-height` (yeni bir CSS custom property, hem
 paylaşıyor) TEK bir kaynaktan türetiliyor - kullanıcının isteği doğrultusunda
 "header'ın yükseklik oranına göre" boyutlanıyor.
 
+### 33. "Siparişlerim" sayfası - velinin geçmiş sipariş geçmişi
+
+Yeni `/siparislerim` bölgesi (`inc/zones.php`'ye `/profilim` ile aynı
+desende bir rewrite kuralı + `scp_render_zone_template()`'e bir dal
+eklendi - `zone.php`'yi değil doğrudan `templates/orders.php`'yi render
+ediyor). Buraya ulaşmak zaten `/profilim` ile aynı gerekçeyle ayrı bir
+yetki kontrolü gerektirmiyor: `RoleRouter`'da bu yol için özel bir kural
+yok, dolayısıyla her veli için geçerli olan aynı "parent" bölgesine düşüyor
+ve `inc/access-gate.php` zaten yalnızca giriş yapmış kullanıcıların buraya
+ulaşmasını sağlıyor. `header.php`'ye "Profilim"den ÖNCE yeni bir
+"Siparişlerim" bağlantısı eklendi.
+
+**Yeni `OrdersRestController`** (`seviye/v1/commerce/orders/mine`),
+`NotificationsRestController`'ın self-service `/mine` desenini birebir
+izliyor: `is_user_logged_in()` dışında hiçbir RBAC capability'si yok, çünkü
+bu bir yetki-kapsamlı kaynak değil - her veli yalnızca KENDİ geçmişini
+okuyor. Kapsam sunucu tarafında `wc_get_orders(['customer_id' =>
+get_current_user_id()])` ile zorlanıyor, hiçbir zaman istemcinin verdiği
+bir id ile değil - platformdaki her `*/mine` endpoint'inin izlediği aynı
+"sunucu kapsamı çözer" kuralı.
+
+Sipariş/kalem verisi doğrudan WooCommerce'in kendi `WC_Order` API'sinden
+okunuyor - Seviye Commerce'in kendi `scp_order_line_items` tablosundan
+DEĞİL. O tablo hakediş/admin raporlaması için şube/tarih aralığına göre
+kapsamlanmış durumda; "bir müşterinin kendi sipariş geçmişi" için
+tasarlanmamış. WC'den yeniden türetmek bu endpoint'i kendi başına yeterli
+(self-contained) tutuyor. Her sipariş kaleminin `_scp_student_id` meta'sı
+(`WooCommerceCartHooks::persistStudentId()` tarafından sepete-ekleme
+anında yazılıyor) `StudentLookupInterface::find()` ile bir isme çözülüyor,
+böylece her satın alınan ürünün hangi öğrenci için alındığı gösteriliyor.
+
+Tema tarafı salt-okunur: `orders-panel.js` hiçbir form içermiyor, yalnızca
+sipariş kartlarını (durum rozeti, tarih, ödeme yöntemi, ara toplam/KDV/
+genel toplam) ve her sipariş için bir kalem tablosunu render ediyor -
+mevcut `.scp-card--nested`, `.scp-summary-list`, `.scp-table` bileşenleri
+yeniden kullanıldı, yeni CSS eklenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
