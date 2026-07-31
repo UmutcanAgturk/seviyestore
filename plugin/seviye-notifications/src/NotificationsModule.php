@@ -14,12 +14,14 @@ use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Core\Settings\SettingsRepositoryInterface;
 use Seviye\Notifications\Channel\EmailChannel;
+use Seviye\Notifications\Channel\GmailSmtpConfigurator;
 use Seviye\Notifications\Channel\NetgsmSmsChannel;
 use Seviye\Notifications\Channel\PanelChannel;
 use Seviye\Notifications\Database\Migrations\CreateNotificationsTable;
 use Seviye\Notifications\Dispatch\NotificationDispatcher;
 use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
+use Seviye\Notifications\Http\EmailSettingsRestController;
 use Seviye\Notifications\Http\NotificationsRestController;
 use Seviye\Notifications\Http\NotificationsSettingsRestController;
 use Seviye\Notifications\Rbac\NotificationCapability;
@@ -27,6 +29,7 @@ use Seviye\Notifications\Recipient\RecipientResolverInterface;
 use Seviye\Notifications\Recipient\WpRecipientResolver;
 use Seviye\Notifications\Repository\NotificationRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
+use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\PasswordResetNotificationListener;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
 
@@ -88,12 +91,36 @@ final class NotificationsModule implements ModuleInterface
         // boots modules in plugin registration order, not dependency order. `init`
         // always fires after every module's boot() has run.
         add_action('init', static function () use ($container): void {
-            $listener = new PasswordResetNotificationListener($container->get(NotificationDispatcherInterface::class));
+            $passwordResetListener = new PasswordResetNotificationListener(
+                $container->get(NotificationDispatcherInterface::class)
+            );
             $container->get(EventBusInterface::class)->listen(
                 'security.password_reset_requested',
-                [$listener, 'onPasswordResetRequested']
+                [$passwordResetListener, 'onPasswordResetRequested']
+            );
+
+            // "Veliler sipariş verdiğinde otomatik olarak velilerin mailine
+            // mail gidecek bir sistem" - see OrderPlacedNotificationListener
+            // and Seviye\Commerce\Http\OrderPersistenceHooks, which fires
+            // this event. Same deferred-to-`init` reasoning as the listener
+            // above: Commerce may not have booted yet when this module's own
+            // boot() runs.
+            $orderPlacedListener = new OrderPlacedNotificationListener(
+                $container->get(NotificationDispatcherInterface::class)
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.order_placed',
+                [$orderPlacedListener, 'onOrderPlaced']
             );
         });
+
+        // "Google maili özelinde göndereceğiz" - routes wp_mail() (hence
+        // EmailChannel above) through Gmail's SMTP relay whenever
+        // seviye/v1/notifications/email-settings has credentials on file;
+        // a no-op otherwise (see GmailSmtpConfigurator's class docblock).
+        // Registered directly, not deferred: SettingsRepositoryInterface is
+        // a Core-owned binding, not another module's Contract.
+        (new GmailSmtpConfigurator($container->get(SettingsRepositoryInterface::class)))->register();
 
         $container->get(RbacManager::class)->grantCapability(
             Role::GENEL_MERKEZ,
@@ -102,6 +129,12 @@ final class NotificationsModule implements ModuleInterface
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): NotificationsSettingsRestController => new NotificationsSettingsRestController(
+                $container->get(SettingsRepositoryInterface::class)
+            )
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): EmailSettingsRestController => new EmailSettingsRestController(
                 $container->get(SettingsRepositoryInterface::class)
             )
         );

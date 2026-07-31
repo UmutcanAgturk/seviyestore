@@ -57,6 +57,8 @@
         }
 
         function applyProfile(profile) {
+            form.username.value = profile.username || '';
+            form.email.value = profile.email || '';
             form.phone.value = profile.phone || '';
             form.notification_preference.value = profile.notification_preference;
             form.kvkk_consent.checked = Boolean(profile.kvkk_consent_given);
@@ -75,13 +77,14 @@
             apiFetch('parents/me', {
                 method: 'PUT',
                 body: JSON.stringify({
+                    email: form.email.value,
                     phone: form.phone.value,
                     notification_preference: form.notification_preference.value,
                     kvkk_consent: form.kvkk_consent.checked
                 })
             }).then(function (result) {
                 if (!result.ok) {
-                    status.textContent = scpPanelText.saveError;
+                    status.textContent = (result.data && result.data.message) || scpPanelText.saveError;
                     status.classList.add('scp-status--error');
                     return;
                 }
@@ -93,6 +96,59 @@
         });
     }
 
+    function initAddress() {
+        var status = document.querySelector('[data-scp-address-status]');
+        var form = document.querySelector('[data-scp-address-form]');
+
+        if (!form) {
+            return;
+        }
+
+        var fields = ['first_name', 'last_name', 'address_1', 'address_2', 'state', 'city', 'postcode', 'country'];
+
+        function applyAddress(addresses) {
+            fields.forEach(function (field) {
+                form['billing_' + field].value = (addresses.billing && addresses.billing[field]) || '';
+                form['shipping_' + field].value = (addresses.shipping && addresses.shipping[field]) || '';
+            });
+            form.billing_phone.value = (addresses.billing && addresses.billing.phone) || '';
+        }
+
+        apiFetch('commerce/customer/me/addresses').then(function (result) {
+            if (result.ok) {
+                applyAddress(result.data);
+            }
+        });
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            var billing = { phone: form.billing_phone.value };
+            var shipping = {};
+
+            fields.forEach(function (field) {
+                billing[field] = form['billing_' + field].value;
+                shipping[field] = form['shipping_' + field].value;
+            });
+
+            apiFetch('commerce/customer/me/addresses', {
+                method: 'PUT',
+                body: JSON.stringify({ billing: billing, shipping: shipping })
+            }).then(function (result) {
+                if (!result.ok) {
+                    status.textContent = scpPanelText.saveError;
+                    status.classList.add('scp-status--error');
+                    return;
+                }
+
+                status.classList.remove('scp-status--error');
+                status.textContent = scpPanelText.addressSaved;
+                applyAddress(result.data);
+            });
+        });
+    }
+
     initChildren();
     initProfile();
+    initAddress();
 })();

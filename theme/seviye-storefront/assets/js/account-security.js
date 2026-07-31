@@ -33,6 +33,8 @@
     var startButton = root.querySelector('[data-scp-2fa-start]');
     var confirmForm = root.querySelector('[data-scp-2fa-confirm-form]');
     var disableForm = root.querySelector('[data-scp-2fa-disable-form]');
+    var passwordStatusEl = root.querySelector('[data-scp-password-status]');
+    var passwordForm = root.querySelector('[data-scp-password-form]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -107,6 +109,34 @@
             showState('disabled');
         });
     });
+
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            apiFetch('security/password', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    current_password: passwordForm.current_password.value,
+                    new_password: passwordForm.new_password.value
+                })
+            }).then(function (result) {
+                if (!result.ok) {
+                    var reason = result.data && result.data.reason;
+                    var message = reason === 'invalid_password'
+                        ? scpPanelText.twoFactorWrongPassword
+                        : (reason === 'weak_password' ? scpPanelText.passwordTooWeak : scpPanelText.saveError);
+                    passwordStatusEl.textContent = message;
+                    passwordStatusEl.classList.add('scp-status--error');
+                    return;
+                }
+
+                passwordForm.reset();
+                passwordStatusEl.classList.remove('scp-status--error');
+                passwordStatusEl.textContent = scpPanelText.passwordChanged;
+            });
+        });
+    }
 
     loadStatus();
 })();

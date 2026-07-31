@@ -26,6 +26,14 @@ use WC_Order_Item_Product;
  * ledger/hakediş bookkeeping is Seviye Finance's job (not built yet),
  * Commerce's responsibility ends at firing the event with everything
  * Finance will need.
+ *
+ * Also fires ONE `commerce.order_placed` event per order (not per item,
+ * unlike the hakediş events) right after checkout - "veliler sipariş
+ * verdiğinde otomatik olarak velilerin mailine mail gidecek bir sistem".
+ * The payload carries everything a notification needs to compose an email
+ * (order number/total/items) so Seviye Notifications' listener never has to
+ * touch WC_Order itself, the same "payload is self-contained" rule
+ * hakedisPayload() already follows for Finance.
  */
 final class OrderPersistenceHooks
 {
@@ -66,6 +74,8 @@ final class OrderPersistenceHooks
      */
     public function persistOrderLineItems(int $orderId, array $postedData, WC_Order $order): void
     {
+        $persistedAny = false;
+
         foreach ($order->get_items() as $orderItemId => $item) {
             if (!$item instanceof WC_Order_Item_Product) {
                 continue;
@@ -100,7 +110,37 @@ final class OrderPersistenceHooks
                 (float) $item->get_total_tax(),
                 $order->get_status()
             );
+
+            $persistedAny = true;
         }
+
+        if ($persistedAny) {
+            $this->eventBus->dispatch(new Event('commerce.order_placed', $this->orderPlacedPayload($order)));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function orderPlacedPayload(WC_Order $order): array
+    {
+        return [
+            'order_id' => $order->get_id(),
+            'customer_id' => $order->get_customer_id(),
+            'order_number' => $order->get_order_number(),
+            'total' => (float) $order->get_total(),
+            'items' => array_values(array_map(
+                static fn (WC_Order_Item_Product $item): array => [
+                    'name' => $item->get_name(),
+                    'quantity' => max(1, $item->get_quantity()),
+                    'line_total' => (float) $item->get_total(),
+                ],
+                array_filter(
+                    $order->get_items(),
+                    static fn ($item): bool => $item instanceof WC_Order_Item_Product
+                )
+            )),
+        ];
     }
 
     public function syncOrderStatus(int $orderId, string $oldStatus, string $newStatus): void

@@ -139,6 +139,7 @@ if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_sett
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) {
     $scp_sections['#scp-sms-settings-panel'] = __('SMS Ayarları', 'seviye-storefront');
+    $scp_sections['#scp-email-settings-panel'] = __('E-posta Ayarları', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_api_keys')) {
@@ -808,6 +809,43 @@ get_header();
                         <?php esc_html_e('Şifre (değiştirmek istemiyorsanız boş bırakın)', 'seviye-storefront'); ?>
                     </span>
                     <input type="password" name="password" autocomplete="new-password">
+                </label>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                </div>
+            </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) : ?>
+        <section class="scp-card" id="scp-email-settings-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('E-posta Ayarları (Gmail SMTP)', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-form__hint">
+                <?php esc_html_e(
+                    'Veliler sipariş verdiğinde otomatik gönderilen bildirim e-postaları bu Gmail hesabı üzerinden gider.',
+                    'seviye-storefront'
+                ); ?>
+                <?php esc_html_e(
+                    'Uygulama Şifresi, Google hesabınızın normal şifresi değildir - Google hesap ayarlarından oluşturulur.',
+                    'seviye-storefront'
+                ); ?>
+            </p>
+
+            <p class="scp-status" data-scp-email-settings-status></p>
+
+            <form class="scp-form" data-scp-email-settings-form>
+                <label>
+                    <span><?php esc_html_e('Gmail Adresi', 'seviye-storefront'); ?></span>
+                    <input type="email" name="email" required>
+                </label>
+                <label>
+                    <span>
+                        <?php esc_html_e('Uygulama Şifresi (değiştirmek istemiyorsanız boş bırakın)', 'seviye-storefront'); ?>
+                    </span>
+                    <input type="password" name="app_password" autocomplete="new-password">
                 </label>
                 <div class="scp-form__actions">
                     <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>

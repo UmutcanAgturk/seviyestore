@@ -10,6 +10,7 @@ use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
 use Seviye\Commerce\Http\AdminOrdersRestController;
+use Seviye\Commerce\Http\CustomerAddressRestController;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductsRestController;
@@ -151,13 +152,20 @@ final class CommerceModule implements ModuleInterface
         );
 
         // Admin/Şube Müdürü order listing - same WC-active gating, its
-        // route handler also calls wc_get_order() directly.
+        // route handler calls wc_get_orders() directly.
         $container->get(RestApiRegistrar::class)->register(
             static fn (): AdminOrdersRestController => new AdminOrdersRestController(
-                $container->get(OrderLineItemQueryInterface::class),
+                $container->get(StudentLookupInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(OrderPresenter::class)
             )
+        );
+
+        // "Velinin profilinde Gönderim adresi ve fatura adresi bölümü de
+        // olsun" - same WC-active gating, its route handlers construct
+        // WC_Customer directly.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): CustomerAddressRestController => new CustomerAddressRestController()
         );
 
         // Deferred to `init` (not resolved here in boot()): CartPricingService and

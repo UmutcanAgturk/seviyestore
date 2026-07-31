@@ -60,4 +60,21 @@ if (!defined('ABSPATH')) {
             </button>
         </form>
     </div>
+
+    <hr>
+
+    <h3><?php esc_html_e('Şifre Değiştir', 'seviye-storefront'); ?></h3>
+    <p class="scp-status" data-scp-password-status></p>
+
+    <form class="scp-form" data-scp-password-form>
+        <label>
+            <span><?php esc_html_e('Mevcut Şifre', 'seviye-storefront'); ?></span>
+            <input type="password" name="current_password" autocomplete="current-password" required>
+        </label>
+        <label>
+            <span><?php esc_html_e('Yeni Şifre (en az 8 karakter)', 'seviye-storefront'); ?></span>
+            <input type="password" name="new_password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <button type="submit" class="scp-btn"><?php esc_html_e('Şifreyi Güncelle', 'seviye-storefront'); ?></button>
+    </form>
 </section>

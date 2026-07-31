@@ -46,9 +46,19 @@ if (!defined('ABSPATH')) {
             <p class="scp-status" data-scp-profile-status></p>
 
             <form class="scp-form" data-scp-profile-form>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Kullanıcı Adı', 'seviye-storefront'); ?></span>
+                        <input type="text" name="username" disabled>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('E-posta', 'seviye-storefront'); ?></span>
+                        <input type="email" name="email" autocomplete="email" required>
+                    </label>
+                </div>
                 <label>
-                    <span><?php esc_html_e('Telefon', 'seviye-storefront'); ?></span>
-                    <input type="tel" name="phone" autocomplete="tel">
+                    <span><?php esc_html_e('Telefon (05XX XXX XX XX)', 'seviye-storefront'); ?></span>
+                    <input type="tel" name="phone" autocomplete="tel" placeholder="05XX XXX XX XX">
                 </label>
                 <label>
                     <span><?php esc_html_e('Bildirim Tercihi', 'seviye-storefront'); ?></span>
@@ -62,6 +72,99 @@ if (!defined('ABSPATH')) {
                     <input type="checkbox" name="kvkk_consent">
                     <span><?php esc_html_e('KVKK Aydınlatma Metni\'ni okudum, onaylıyorum.', 'seviye-storefront'); ?></span>
                 </label>
+                <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+            </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_manage_own_profile')) : ?>
+        <section class="scp-card" id="scp-parent-address">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Adres Bilgileri', 'seviye-storefront'); ?></h2>
+            </div>
+            <p class="scp-status" data-scp-address-status></p>
+
+            <form class="scp-form" data-scp-address-form>
+                <h3><?php esc_html_e('Fatura Adresi', 'seviye-storefront'); ?></h3>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Ad', 'seviye-storefront'); ?></span>
+                        <input type="text" name="billing_first_name">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Soyad', 'seviye-storefront'); ?></span>
+                        <input type="text" name="billing_last_name">
+                    </label>
+                </div>
+                <label>
+                    <span><?php esc_html_e('Telefon', 'seviye-storefront'); ?></span>
+                    <input type="tel" name="billing_phone">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Adres Satırı 1', 'seviye-storefront'); ?></span>
+                    <input type="text" name="billing_address_1">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Adres Satırı 2 (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                    <input type="text" name="billing_address_2">
+                </label>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('İl', 'seviye-storefront'); ?></span>
+                        <input type="text" name="billing_state">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('İlçe', 'seviye-storefront'); ?></span>
+                        <input type="text" name="billing_city">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Posta Kodu', 'seviye-storefront'); ?></span>
+                        <input type="text" name="billing_postcode">
+                    </label>
+                </div>
+                <label>
+                    <span><?php esc_html_e('Ülke', 'seviye-storefront'); ?></span>
+                    <input type="text" name="billing_country" value="TR">
+                </label>
+
+                <h3><?php esc_html_e('Gönderim Adresi', 'seviye-storefront'); ?></h3>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Ad', 'seviye-storefront'); ?></span>
+                        <input type="text" name="shipping_first_name">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Soyad', 'seviye-storefront'); ?></span>
+                        <input type="text" name="shipping_last_name">
+                    </label>
+                </div>
+                <label>
+                    <span><?php esc_html_e('Adres Satırı 1', 'seviye-storefront'); ?></span>
+                    <input type="text" name="shipping_address_1">
+                </label>
+                <label>
+                    <span><?php esc_html_e('Adres Satırı 2 (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                    <input type="text" name="shipping_address_2">
+                </label>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('İl', 'seviye-storefront'); ?></span>
+                        <input type="text" name="shipping_state">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('İlçe', 'seviye-storefront'); ?></span>
+                        <input type="text" name="shipping_city">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Posta Kodu', 'seviye-storefront'); ?></span>
+                        <input type="text" name="shipping_postcode">
+                    </label>
+                </div>
+                <label>
+                    <span><?php esc_html_e('Ülke', 'seviye-storefront'); ?></span>
+                    <input type="text" name="shipping_country" value="TR">
+                </label>
+
                 <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
             </form>
         </section>

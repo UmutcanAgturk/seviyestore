@@ -99,6 +99,11 @@ function scp_enqueue_panel_assets(): void
         'noNotifications' => __('Bildirim yok.', 'seviye-storefront'),
         'smsConfigured' => __('NetGSM bağlantısı yapılandırıldı.', 'seviye-storefront'),
         'smsNotConfigured' => __('NetGSM bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
+        'emailConfigured' => __('Gmail bağlantısı yapılandırıldı.', 'seviye-storefront'),
+        'emailNotConfigured' => __('Gmail bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
+        'passwordChanged' => __('Şifreniz güncellendi.', 'seviye-storefront'),
+        'passwordTooWeak' => __('Yeni şifre en az 8 karakter olmalı.', 'seviye-storefront'),
+        'addressSaved' => __('Adres bilgileri kaydedildi.', 'seviye-storefront'),
         'apiKeyActive' => __('Aktif', 'seviye-storefront'),
         'apiKeyRevoked' => __('İptal Edildi', 'seviye-storefront'),
         'apiKeyRevokeAction' => __('İptal Et', 'seviye-storefront'),
@@ -363,6 +368,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/notifications-settings-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/notifications-settings-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && current_user_can('scp_manage_notification_settings')) {
+        $handle = 'scp-email-settings-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/email-settings-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/email-settings-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

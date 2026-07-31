@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Seviye\Commerce\Http;
 
 use Seviye\Branches\Contracts\BranchMembershipInterface;
-use Seviye\Commerce\Contracts\OrderLineItemFilter;
-use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
-use Seviye\Commerce\Contracts\OrderLineItemRecord;
 use Seviye\Commerce\Http\Support\OrderPresenter;
 use Seviye\Commerce\Rbac\OrderCapability;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
+use Seviye\Students\Contracts\StudentLookupInterface;
 use WC_Order;
+use WC_Order_Item_Product;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -22,28 +21,35 @@ use WP_REST_Response;
  * (VIEW_ORDERS) browse every order platform-wide, Şube Müdürü
  * (VIEW_OWN_BRANCH_ORDERS) only orders touching their own branch's
  * students. Scoping mirrors Seviye\Reports\Http\ReportsRestController
- * exactly (see effectiveBranchId() there / canViewOrders() here).
+ * exactly (see canViewOrders()).
  *
- * "Which orders match" is resolved through the already-published
- * OrderLineItemQueryInterface (scp_order_line_items - populated for EVERY
- * order at checkout regardless of its WooCommerce status, see
- * OrderPersistenceHooks::persistOrderLineItems()) rather than
- * wc_get_orders() directly: that table already carries branch_id/
- * product_id/status per line item, so it is the only place this
- * platform's branch/product/date/status filtering can happen without
- * re-deriving a branch from student data on every request.
+ * Reads directly from wc_get_orders() + each item's `_scp_student_id` meta
+ * (resolved to a branch via StudentLookupInterface), exactly like
+ * OrdersRestController's /mine - NOT through the derived
+ * scp_order_line_items table (an earlier version of this controller did,
+ * via OrderLineItemQueryInterface). That table is written by
+ * OrderPersistenceHooks as a side effect of checkout and only ever kept in
+ * sync going forward; any gap in it (a row that failed to write, a student/
+ * branch that no longer resolves, an order placed through a path that
+ * never fired the hook) silently hid a real, paid-for order from HQ/Şube
+ * Müdürü - "velilerden gelen siparişleri geçmişe dönük olarak göremiyorum"
+ * was exactly this. Reading wc_get_orders() directly means every order
+ * WooCommerce itself knows about is visible, with no secondary cache that
+ * can drift out of sync with the truth.
  *
  * A branch-scoped viewer only ever sees their OWN branch's line items
  * within a matched order, never another branch's - even on the rare order
  * that spans two branches' students - independent of whatever
- * product/date/status/student filter was applied to select the order in
- * the first place (see visibleItemIdsByOrder()). HQ sees every item on
- * every matched order, unrestricted.
+ * product/date/student filter was applied to select the order in the first
+ * place (see visibleItemIds()). HQ sees every item on every matched order,
+ * unrestricted.
  */
 final class AdminOrdersRestController extends AbstractRestController
 {
+    private const STUDENT_META_KEY = '_scp_student_id';
+
     public function __construct(
-        private readonly OrderLineItemQueryInterface $orderLineItems,
+        private readonly StudentLookupInterface $students,
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly OrderPresenter $presenter
     ) {
@@ -74,49 +80,36 @@ final class AdminOrdersRestController extends AbstractRestController
     public function index(WP_REST_Request $request): WP_REST_Response
     {
         $isHq = current_user_can(OrderCapability::VIEW_ORDERS->value);
-        $branchId = $isHq
+        $requestedBranchId = $isHq
             ? $this->intParam($request, 'branch_id')
             : $this->branchMemberships->branchIdForUser(get_current_user_id());
+        $ownBranchId = $isHq ? null : $requestedBranchId;
 
-        $records = $this->orderLineItems->search(new OrderLineItemFilter(
-            branchId: $branchId,
-            productId: $this->intParam($request, 'product_id'),
-            fromDate: $this->stringParam($request, 'from'),
-            toDate: $this->stringParam($request, 'to'),
-            status: $this->stringParam($request, 'status')
-        ));
+        $args = ['limit' => -1, 'orderby' => 'date', 'order' => 'DESC'];
+        $status = $this->stringParam($request, 'status');
 
-        $studentId = $this->intParam($request, 'student_id');
-
-        if ($studentId !== null) {
-            $records = array_values(array_filter(
-                $records,
-                static fn (OrderLineItemRecord $r): bool => $r->studentId === $studentId
-            ));
+        if ($status !== null) {
+            $args['status'] = $status;
         }
 
-        $orderIds = array_values(array_unique(array_map(
-            static fn (OrderLineItemRecord $r): int => $r->orderId,
-            $records
-        )));
+        $productId = $this->intParam($request, 'product_id');
+        $studentId = $this->intParam($request, 'student_id');
+        $fromDate = $this->stringParam($request, 'from');
+        $toDate = $this->stringParam($request, 'to');
 
-        $visibleItemIdsByOrder = $isHq || $branchId === null ? null : $this->visibleItemIdsByOrder($branchId);
+        $presented = [];
 
-        $orders = array_values(array_filter(array_map(
-            static fn (int $id) => wc_get_order($id) ?: null,
-            $orderIds
-        )));
+        foreach (wc_get_orders($args) as $order) {
+            if (!$order instanceof WC_Order || !$this->matchesDateRange($order, $fromDate, $toDate)) {
+                continue;
+            }
 
-        usort($orders, static fn (WC_Order $a, WC_Order $b): int => $b->get_id() <=> $a->get_id());
+            if (!$this->matches($order, $requestedBranchId, $productId, $studentId)) {
+                continue;
+            }
 
-        $presented = array_map(
-            fn (WC_Order $order): array => $this->presenter->present(
-                $order,
-                $visibleItemIdsByOrder[$order->get_id()] ?? null,
-                true
-            ),
-            $orders
-        );
+            $presented[] = $this->presenter->present($order, $this->visibleItemIds($order, $ownBranchId), true);
+        }
 
         $search = $this->stringParam($request, 'search');
 
@@ -130,23 +123,96 @@ final class AdminOrdersRestController extends AbstractRestController
         return new WP_REST_Response($presented);
     }
 
-    /**
-     * @return array<int, array<int, bool>> order id -> set of visible WC
-     *     order-item ids, branch-only (no other filter applied) - so a
-     *     product/date/status/student filter narrows which ORDERS appear,
-     *     never which items a branch-scoped viewer sees within one that
-     *     matched.
-     */
-    private function visibleItemIdsByOrder(int $branchId): array
+    private function matchesDateRange(WC_Order $order, ?string $from, ?string $to): bool
     {
-        $records = $this->orderLineItems->search(new OrderLineItemFilter(branchId: $branchId));
-        $map = [];
-
-        foreach ($records as $record) {
-            $map[$record->orderId][$record->orderItemId] = true;
+        if ($from === null && $to === null) {
+            return true;
         }
 
-        return $map;
+        $createdAt = $order->get_date_created();
+
+        if ($createdAt === null) {
+            return false;
+        }
+
+        $date = $createdAt->date('Y-m-d');
+
+        if ($from !== null && $date < $from) {
+            return false;
+        }
+
+        return $to === null || $date <= $to;
+    }
+
+    /**
+     * At least one Seviye-tagged line item on the order must satisfy every
+     * given filter for the order itself to match - branch/product/student
+     * are evaluated per item since a single order can span multiple
+     * students (and so, rarely, multiple branches).
+     */
+    private function matches(WC_Order $order, ?int $branchId, ?int $productId, ?int $studentId): bool
+    {
+        foreach ($order->get_items() as $item) {
+            if (!$item instanceof WC_Order_Item_Product) {
+                continue;
+            }
+
+            $itemStudentId = (int) $item->get_meta(self::STUDENT_META_KEY);
+
+            if ($itemStudentId <= 0) {
+                continue;
+            }
+
+            if ($studentId !== null && $itemStudentId !== $studentId) {
+                continue;
+            }
+
+            if ($productId !== null && $item->get_product_id() !== $productId) {
+                continue;
+            }
+
+            if ($branchId !== null && $this->branchFor($itemStudentId) !== $branchId) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<int, bool>|null null shows every item (HQ); a
+     *     branch-scoped viewer's set is always derived from `$ownBranchId`
+     *     alone, never narrowed further by product/date/student filters -
+     *     those only decide which ORDERS appear (see matches()).
+     */
+    private function visibleItemIds(WC_Order $order, ?int $ownBranchId): ?array
+    {
+        if ($ownBranchId === null) {
+            return null;
+        }
+
+        $ids = [];
+
+        foreach ($order->get_items() as $itemId => $item) {
+            if (!$item instanceof WC_Order_Item_Product) {
+                continue;
+            }
+
+            $studentId = (int) $item->get_meta(self::STUDENT_META_KEY);
+
+            if ($studentId > 0 && $this->branchFor($studentId) === $ownBranchId) {
+                $ids[$itemId] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    private function branchFor(int $studentId): ?int
+    {
+        return $this->students->find($studentId)?->branchId;
     }
 
     /**

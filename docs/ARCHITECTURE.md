@@ -2022,6 +2022,93 @@ Ayrıca quicknav'ın href'leri artık iki türlü olabildiği için (sayfa-içi
 bir URL'yi doğru kaçırmak için doğru fonksiyon değildi, yalnızca `#anchor`
 değerleriyle çalıştığı için önceden fark edilmiyordu.
 
+### 36. Sipariş geçmişi kök nedeni, sipariş e-postası (Gmail SMTP) ve Profilim'in tam yeniden inşası
+
+Üç ayrı iyileştirme:
+
+**"Velilerden gelen siparişleri geçmişe dönük olarak göremiyorum."**
+`AdminOrdersRestController` bölüm 34'te `scp_order_line_items` tablosu
+üzerinden (`OrderLineItemQueryInterface`) filtreleniyordu - bu tablo yalnızca
+`OrderPersistenceHooks`'un checkout anında başarıyla yazdığı satırları
+içeriyor; bir yazma başarısız olursa, öğrenci/şube artık çözümlenemiyorsa
+veya kanca hiç tetiklenmediyse gerçek, ödemesi yapılmış bir sipariş HQ/Şube
+Müdürü'nden SESSİZCE gizleniyordu. Kök neden düzeltmesi: controller artık
+`OrdersRestController`'ın (velinin kendi `/mine` sayfası, ki bu ZATEN
+güvenilir şekilde çalışıyordu) izlediği aynı yolu izliyor -
+`wc_get_orders()`'ı DOĞRUDAN okuyor, her kalemin `_scp_student_id` meta'sını
+`StudentLookupInterface` ile çözüyor, ikincil bir önbellek tablosuna hiç
+güvenmiyor. WooCommerce'in kendisinin bildiği HER sipariş artık görünür.
+Şube kapsamı ve görünür kalem kümesi mantığı (bölüm 34'te açıklanan "eşleşen
+siparişin İÇİNDEKİ görünürlük yalnızca şubeye göre belirlenir" kuralı)
+davranış olarak AYNI kaldı, yalnızca veri kaynağı değişti.
+
+**Sipariş e-postası (Gmail SMTP).** "Veliler sipariş verdiğinde otomatik
+olarak velilerin mailine mail gidecek bir sistem." `OrderPersistenceHooks::
+persistOrderLineItems()` artık, en az bir kalem başarıyla kaydedildiyse,
+sipariş başına BİR KEZ (hakediş olaylarının aksine kalem başına değil)
+`commerce.order_placed` olayını ateşliyor - payload kendi kendine yeterli
+(sipariş no, toplam, kalemler), Notifications'ın WC_Order'a hiç dokunmasına
+gerek kalmıyor (Finance'in `hakedisPayload()`'ı için zaten geçerli olan aynı
+kural). Yeni `Notifications\Support\OrderPlacedNotificationListener`
+(`PasswordResetNotificationListener`'ı birebir taklit ediyor) bu olayı
+dinleyip veliye (`customer_id`) bir e-posta bildirimi gönderiyor - alıcı
+adresi, her zamanki gibi `get_userdata()` üzerinden otomatik çözülüyor,
+Commerce'e özel bir arama gerekmiyor.
+
+"Google maili özelinde göndereceğiz" - yeni `Channel\GmailSmtpConfigurator`,
+WordPress'in `phpmailer_init` çekirdek kancasına bağlanarak HER `wp_mail()`
+çağrısını (yalnızca sipariş e-postalarını değil, WordPress'in kendi
+e-postalarını da) Gmail'in SMTP sunucusu üzerinden göndermeye zorluyor -
+kimlik bilgileri (Gmail adresi + Google'ın SMTP için istediği "Uygulama
+Şifresi", normal hesap şifresi DEĞİL) `seviye/v1/notifications/email-settings`
+üzerinden yapılandırılıyor (Genel Merkez only), NetGSM SMS ayarlarıyla
+BİREBİR aynı "Settings-backed, boşsa devre dışı" deseni izliyor - ayarlar
+girilmemişse `configure()` hiçbir şey yapmıyor, wp_mail() varsayılan
+taşıyıcısında kalıyor.
+
+**Profilim'in tam yeniden inşası.** Dört alt-madde:
+
+- `ParentProfileRestController` artık `username` (wp_users.user_login,
+  YALNIZCA okunur - "Kullanıcı adı kısmı veliler tarafından
+  değiştirilmesin") ve `email` (wp_users.user_email, yazılabilir - native WP
+  alanı olduğu için `wp_update_user()` ile güncelleniyor, `scp_parent_profiles`'ta
+  ayrı bir sütun YOK) döndürüyor/güncelliyor. `phone` artık
+  `normalizeTurkishMobile()` ile doğrulanıyor - "telefon numarası bölümünde
+  türkiye özelinde olacak": 0/+90/90/0090 önekleri temizlenip tam olarak
+  5 ile başlayan 10 haneli bir numara bekleniyor, aksi halde 422. Normalize
+  edilmiş biçim (10 hane, başında 0 yok) zaten
+  `NetgsmSmsChannel::normalizePhone()`'un okurken beklediği biçimle eşleşiyor.
+
+- Yeni `Seviye\Security\Http\AccountRestController`
+  (`PUT /security/password`) - "Şifre değiştirme de olsun". Mevcut şifreyi
+  `CredentialGatewayInterface::verifyPassword()` ile doğruluyor (aynı
+  `TwoFactorRestController::disable()`'ın "hâlâ sen olduğunu kanıtla" barı),
+  ardından `wp_set_password()` çağırıyor. `wp_set_password()` o kullanıcının
+  HER oturum jetonunu siler - şu anki isteğin kimliğini doğrulayan jeton da
+  dahil - bu yüzden hemen ardından `wp_set_auth_cookie()` ile yeniden
+  oturum açılıyor, aksi halde veli kendi şifresini değiştirdiği anda
+  oturumu sessizce sonlanırdı.
+
+- Yeni `Seviye\Commerce\Http\CustomerAddressRestController`
+  (`GET/PUT /commerce/customer/me/addresses`) - "Gönderim adresi ve fatura
+  adresi bölümü de olsun". Yeni bir Seviye tablosu YERİNE doğrudan
+  WooCommerce'in kendi `WC_Customer` billing/shipping user meta'sını okuyup
+  yazıyor - ürün/sipariş için zaten geçerli olan "tamamen WooCommerce'in
+  kendisi kalsın" kuralının (bkz. "Kural") adreslere de uygulanmış hali.
+  Böylece veli Profilim'de kaydettiği adres, WooCommerce'in checkout'unda
+  otomatik dolduruluyor - ayrı, senkronize edilmesi gereken ikinci bir adres
+  deposu hiç oluşmuyor.
+
+- Tema tarafı: `templates/parent-dashboard.php`'ye kullanıcı adı (salt-okunur
+  input) + e-posta alanı eklendi, ayrıca Fatura Adresi/Gönderim Adresi için
+  TEK bir form içinde iki alt-bölüm içeren yeni "Adres Bilgileri" kartı
+  eklendi (tek `PUT` çağrısıyla ikisi birden kaydediliyor -
+  `CustomerAddressRestController`'ın tek uç noktasıyla eşleşiyor).
+  `templates/partials/account-security.php` (zaten hem `/profilim` hem
+  `/admin`,`/sube`'de paylaşılan "Hesap Güvenliği" kartı) yeni bir "Şifre
+  Değiştir" formu kazandı - `assets/js/account-security.js` bu formu
+  `PUT /security/password`'a bağlıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
