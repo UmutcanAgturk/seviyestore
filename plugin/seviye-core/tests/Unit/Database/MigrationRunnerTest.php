@@ -55,6 +55,30 @@ final class MigrationRunnerTest extends TestCase
         self::assertCount(0, $connection->inserted);
     }
 
+    public function testRunExecutesBothMigrationsWhenTwoDifferentModulesReuseTheSameVersionString(): void
+    {
+        // version() strings are only unique WITHIN one module - every
+        // module numbers its own migrations independently, so two
+        // completely unrelated migrations from different modules can
+        // legitimately share the exact same date-based label (see
+        // MigrationRunner's class docblock, "Dördüncü kural"). Before the
+        // registry was keyed on version()+class name, the second register()
+        // call here would have silently evicted the first from the array
+        // and its up() would never run.
+        $connection = new FakeConnection();
+        $runner = new MigrationRunner($connection, new NullLogger());
+        $order = [];
+
+        $runner->register($this->fakeMigration('2026_01_01', $order));
+        $runner->register($this->fakeMigrationOfAnotherClass('2026_01_01', $order));
+
+        $runner->run();
+
+        self::assertCount(2, $order);
+        self::assertContains('2026_01_01', $order);
+        self::assertContains('2026_01_01-other', $order);
+    }
+
     /**
      * @param list<string> $order
      */
@@ -83,6 +107,48 @@ final class MigrationRunnerTest extends TestCase
             public function up(ConnectionInterface $connection): void
             {
                 $this->order[] = $this->version;
+            }
+
+            public function down(ConnectionInterface $connection): void
+            {
+            }
+        };
+    }
+
+    /**
+     * A second, distinct anonymous class (PHP identifies anonymous classes
+     * by their declaration's source location, so this needs its own literal
+     * rather than reusing {@see fakeMigration()}) standing in for a
+     * different module's migration class that happens to reuse the same
+     * version() string.
+     *
+     * @param list<string> $order
+     */
+    private function fakeMigrationOfAnotherClass(string $version, array &$order): MigrationInterface
+    {
+        return new class ($version, $order) implements MigrationInterface {
+            /**
+             * @param list<string> $order
+             */
+            public function __construct(
+                private readonly string $version,
+                private array &$order
+            ) {
+            }
+
+            public function version(): string
+            {
+                return $this->version;
+            }
+
+            public function description(): string
+            {
+                return 'Fake migration (other module) ' . $this->version;
+            }
+
+            public function up(ConnectionInterface $connection): void
+            {
+                $this->order[] = $this->version . '-other';
             }
 
             public function down(ConnectionInterface $connection): void

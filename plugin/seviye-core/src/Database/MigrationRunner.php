@@ -25,6 +25,24 @@ use Psr\Log\LoggerInterface;
  * page load via Plugin::boot() (see docs/ARCHITECTURE.md, "Üçüncü kural").
  * Rollback (down()) is defined per-migration but not yet orchestrated here -
  * see docs/ARCHITECTURE.md for the planned CLI-driven rollback workflow.
+ *
+ * version() strings are only ever meant to be unique WITHIN one module -
+ * every module numbers its own migrations independently (e.g. Branches',
+ * Core's, Security's, Students' and Parents' first migration all happen to
+ * be dated "2026_07_28_000001"), so the internal registry is keyed on
+ * version() PLUS the migration's class name, never version() alone. Keying
+ * on version() alone (the original implementation) meant every module
+ * registering a same-dated migration silently evicted the previous one from
+ * the array - only the last-booted module's migration for that date ever
+ * actually ran, so e.g. scp_branches or scp_logs could go permanently
+ * missing on some installs purely depending on plugin activation order,
+ * with no error anywhere (see docs/ARCHITECTURE.md, "Dördüncü kural"). The
+ * class name is only a sort tiebreaker for migrations sharing a version
+ * string - ksort() still sorts by version() first, so a same-dated
+ * migration with a real FK dependency on another (e.g. Students' scp_students
+ * on Branches' scp_branches) is not guaranteed relative order beyond
+ * alphabetical-by-class-name, which is why ForeignKeyInstaller::ensure()
+ * fails soft instead of throwing if its referenced table isn't there yet.
  */
 final class MigrationRunner
 {
@@ -39,7 +57,7 @@ final class MigrationRunner
 
     public function register(MigrationInterface $migration): void
     {
-        $this->migrations[$migration->version()] = $migration;
+        $this->migrations[$migration->version() . '@' . get_class($migration)] = $migration;
     }
 
     /**
@@ -59,7 +77,9 @@ final class MigrationRunner
         $migrations = $this->migrations;
         ksort($migrations);
 
-        foreach ($migrations as $version => $migration) {
+        foreach ($migrations as $migration) {
+            $version = $migration->version();
+
             $migration->up($this->connection);
 
             if (in_array($version, $applied, true)) {
