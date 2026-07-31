@@ -15,7 +15,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-add_action('init', 'scp_register_zone_rewrites');
+add_action('init', 'scp_register_zone_rewrites', 10);
+add_action('init', 'scp_maybe_flush_zone_rewrite_rules', 20);
 add_filter('query_vars', 'scp_register_zone_query_vars');
 add_action('after_switch_theme', 'flush_rewrite_rules');
 
@@ -34,6 +35,27 @@ function scp_register_zone_rewrites(): void
     add_rewrite_rule('^sube/(.+)/?$', 'index.php?scp_zone=sube&scp_zone_path=$matches[1]', 'top');
     add_rewrite_rule('^profilim/?$', 'index.php?scp_zone=profilim', 'top');
     add_rewrite_rule('^siparislerim/?$', 'index.php?scp_zone=siparislerim', 'top');
+}
+
+/**
+ * `after_switch_theme` only fires the ONE time this theme is activated -
+ * every zone rule added to scp_register_zone_rewrites() afterwards (this
+ * is the second: /siparislerim landed after /profilim was already live)
+ * never reaches the site's cached `rewrite_rules` option on an existing
+ * install, so the new path 404s/falls through to index.php's shop
+ * redirect until someone manually re-saves Settings -> Permalinks. Self-heal
+ * instead: if the newest rule isn't in the cached set yet, flush once:
+ * every rule registered above is always added together in the same
+ * function, so the newest one's presence stands in for the whole set's
+ * freshness without an explicit version counter to maintain.
+ */
+function scp_maybe_flush_zone_rewrite_rules(): void
+{
+    $rules = get_option('rewrite_rules');
+
+    if (!is_array($rules) || !isset($rules['^siparislerim/?$'])) {
+        flush_rewrite_rules();
+    }
 }
 
 /**
