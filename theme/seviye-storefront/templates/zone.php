@@ -205,12 +205,62 @@ get_header();
                     </label>
                     <label>
                         <span><?php esc_html_e('Eğitim Yılı', 'seviye-storefront'); ?></span>
-                        <input type="text" name="education_year" placeholder="2025-2026" required>
+                        <select name="education_year" required>
+                            <?php
+                            // "YYYY-YYYY" biçimini elle yazdırmak yerine bir
+                            // menüden seçtiriyoruz - Seviye\Students\Domain\
+                            // EducationYear::isValid() zaten yalnızca bu
+                            // biçimi kabul ediyor, serbest metin girişi
+                            // kullanıcıyı sessizce 422'ye götürüyordu.
+                            $scp_current_start_year = (int) current_time('Y');
+                            for ($scp_offset = -1; $scp_offset <= 3; $scp_offset++) :
+                                $scp_start_year = $scp_current_start_year + $scp_offset;
+                                $scp_year_value = $scp_start_year . '-' . ($scp_start_year + 1);
+                                ?>
+                                <option value="<?php echo esc_attr($scp_year_value); ?>">
+                                    <?php echo esc_html($scp_year_value); ?>
+                                </option>
+                            <?php endfor; ?>
+                        </select>
                     </label>
                     <label>
                         <span><?php esc_html_e('Sınıf', 'seviye-storefront'); ?></span>
                         <input type="text" name="class_name" required>
                     </label>
+                </div>
+
+                <div data-scp-parent-quick-add>
+                    <h3><?php esc_html_e('Veli Bilgileri (isteğe bağlı)', 'seviye-storefront'); ?></h3>
+                    <p class="scp-form__hint">
+                        <?php esc_html_e(
+                            'Doldurursanız, öğrenciyle birlikte bir veli hesabı oluşturulup otomatik olarak bağlanır. E-posta zaten kayıtlı bir veliyle eşleşirse yeni hesap açılmaz, öğrenci mevcut veliye bağlanır.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Veli Adı', 'seviye-storefront'); ?></span>
+                            <input type="text" name="parent_first_name">
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Veli Soyadı', 'seviye-storefront'); ?></span>
+                            <input type="text" name="parent_last_name">
+                        </label>
+                    </div>
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Veli E-posta', 'seviye-storefront'); ?></span>
+                            <input type="email" name="parent_email">
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Yakınlık', 'seviye-storefront'); ?></span>
+                            <select name="parent_relationship">
+                                <option value="anne"><?php esc_html_e('Anne', 'seviye-storefront'); ?></option>
+                                <option value="baba"><?php esc_html_e('Baba', 'seviye-storefront'); ?></option>
+                                <option value="vasi"><?php esc_html_e('Vasi', 'seviye-storefront'); ?></option>
+                            </select>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="scp-form__actions">

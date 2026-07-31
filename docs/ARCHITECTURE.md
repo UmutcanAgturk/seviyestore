@@ -1438,6 +1438,41 @@ kullanılıyor - branch CRUD'u yapabilen (Genel Merkez/Bölge Müdürü + native
 `administrator`) yetkili atamasını da yapabiliyor, ayrı bir capability
 eklenmedi.
 
+### 23. Öğrenci eklerken veli otomatik oluşturma/bağlama, eğitim yılı menüsü, kurumsal tasarım geçişi
+
+Öğrenci "Yeni Öğrenci" formuna isteğe bağlı bir "Veli Bilgileri" bölümü
+eklendi (ad/soyad/e-posta/yakınlık). Doldurulursa
+`StudentsRestController::store()`, öğrenciyi oluşturduktan SONRA
+`maybeCreateAndLinkParent()`'ı çalıştırır: e-postayla eşleşen bir WP
+kullanıcısı zaten varsa onu kullanır (aynı velinin ikinci çocuğu durumu),
+yoksa native `wp_insert_user()` ile `Role::VELI` rolünde yeni bir kullanıcı
+açar, sonra `StudentParentRepositoryInterface::link()` ile bağlar. T.C.
+Kimlik No/şifre bu akışın parçası değil - Security Contract yayınlamadığı
+için (bkz. "İkinci kural") Students ona bağımlı olamaz; admin bu adımı
+ayrıca "Seviye Kullanıcılar"dan tamamlar. Öğrenci zaten oluştuktan sonra
+çalıştığı için burada bir hata öğrenci kaydını geri almaz (bu kod
+tabanında hiçbir yerde DB transaction yok) - `store()` 201 döner ama
+yanıta `parent_error` alanı eklenir, JS bunu "Kaydedildi" mesajının
+yanında gösterir.
+
+Eğitim yılı artık `<input type="text" placeholder="2025-2026">` değil,
+`current_time('Y')`'den -1..+3 aralığında üretilen bir `<select>` -
+`EducationYear::isValid()` zaten yalnızca "YYYY-YYYY" biçimini kabul
+ediyordu, serbest metin kullanıcıyı sessizce 422'ye götürebiliyordu.
+
+**Kurumsal e-ticaret tasarım geçişi**: `theme.css`'in `:root` token seti
+genişletildi (koyu lacivert birincil + zümrüt "ticaret" vurgu rengi,
+`--scp-radius`, ayrı warning/info badge renkleri, zenginleştirilmiş
+gölgeler) - `panel.css`/`auth.css` bu token'ları tüketiyor, bu yüzden tek
+bir yerden değiştirmek tüm panelleri ve giriş ekranını tutarlı şekilde
+güncelledi. Yeni `assets/css/woocommerce.css` - temanın hiç WooCommerce
+şablon override'ı yok (bkz. `inc/woocommerce.php`), bu yüzden mağaza
+WC'nin KENDİ ürettiği markup'ı hedefleyen CSS ile yeniden tasarlandı
+(`.woocommerce ul.products`, `.single-product div.product`,
+`.woocommerce-cart table.cart`, vb.) - şablon dosyası değişmediği için WC
+sürüm güncellemelerine karşı daha güvenli. `class_exists('WooCommerce')`
+doğruysa `inc/assets.php`'te koşullu enqueue edildi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

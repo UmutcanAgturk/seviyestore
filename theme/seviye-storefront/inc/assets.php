@@ -19,6 +19,15 @@ function scp_enqueue_assets(): void
     wp_enqueue_style('scp-theme', SCP_THEME_URL . '/assets/css/theme.css', [], SCP_THEME_VERSION);
     wp_enqueue_style('scp-panel', SCP_THEME_URL . '/assets/css/panel.css', ['scp-theme'], SCP_THEME_VERSION);
 
+    if (class_exists('WooCommerce')) {
+        wp_enqueue_style(
+            'scp-woocommerce',
+            SCP_THEME_URL . '/assets/css/woocommerce.css',
+            ['scp-theme'],
+            SCP_THEME_VERSION
+        );
+    }
+
     scp_enqueue_panel_assets();
 }
 

@@ -28,6 +28,9 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
 <?php wp_body_open(); ?>
 <main class="scp-auth-screen">
     <div class="scp-auth-card" id="scp-auth">
+        <div class="scp-auth-mark" aria-hidden="true">
+            <?php echo esc_html(mb_substr(get_bloginfo('name'), 0, 1)); ?>
+        </div>
         <h1 class="scp-auth-title"><?php echo esc_html(get_bloginfo('name')); ?></h1>
 
         <p class="scp-auth-status" role="status" aria-live="polite" data-scp-status></p>

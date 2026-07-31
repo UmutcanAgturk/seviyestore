@@ -1,38 +1,65 @@
 /*
- * Authenticated site chrome (header/footer/panel). Deliberately minimal:
- * the real storefront/panel UI lands with the Commerce/Branches/Students
- * modules - this is the honest, functional shell around the login gate
- * and role-zone routing this milestone actually delivers.
+ * Authenticated site chrome (header/footer/panel) plus the shared design
+ * tokens every other stylesheet (panel.css, woocommerce.css, auth.css)
+ * builds on - a deep navy/indigo primary with an emerald "commerce" accent,
+ * aimed at reading as a corporate B2B/education e-commerce platform rather
+ * than a bare admin dashboard.
  */
 
 :root {
   --scp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --scp-bg: #f4f5f7;
+  --scp-bg: #f3f5f9;
   --scp-surface: #ffffff;
-  --scp-text: #1a1d23;
-  --scp-text-muted: #5b6270;
-  --scp-border: #dde1e7;
-  --scp-primary: #1d4ed8;
-  --scp-danger: #b91c1c;
-  --scp-success-bg: #dcfce7;
-  --scp-success-text: #166534;
-  --scp-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --scp-shadow-raised: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --scp-surface-alt: #f8fafc;
+  --scp-text: #101828;
+  --scp-text-muted: #5c6579;
+  --scp-border: #e0e4eb;
+  --scp-primary: #14326b;
+  --scp-primary-dark: #0b2249;
+  --scp-primary-light: #2a5cb8;
+  --scp-primary-bg: #eaf0fb;
+  --scp-accent: #0f9d63;
+  --scp-accent-dark: #0b7a4c;
+  --scp-accent-bg: #e4f7ee;
+  --scp-danger: #c0271e;
+  --scp-danger-bg: #fbe9e8;
+  --scp-warning: #b45309;
+  --scp-warning-bg: #fef3e2;
+  --scp-info: #0f5c96;
+  --scp-info-bg: #e6f2fb;
+  --scp-success-bg: #e4f7ee;
+  --scp-success-text: #0b7a4c;
+  --scp-radius: 12px;
+  --scp-radius-sm: 8px;
+  --scp-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --scp-shadow-raised: 0 8px 24px rgba(16, 24, 40, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --scp-bg: #14161a;
-    --scp-surface: #1c1f26;
+    --scp-bg: #0e1116;
+    --scp-surface: #171b22;
+    --scp-surface-alt: #1c212a;
     --scp-text: #f2f3f5;
     --scp-text-muted: #9aa1ac;
     --scp-border: #2c313a;
     --scp-primary: #5b8def;
+    --scp-primary-dark: #3f6fce;
+    --scp-primary-light: #7ea6f2;
+    --scp-primary-bg: #182740;
+    --scp-accent: #34d399;
+    --scp-accent-dark: #10b981;
+    --scp-accent-bg: #10291f;
     --scp-danger: #f87171;
-    --scp-success-bg: #123524;
+    --scp-danger-bg: #341615;
+    --scp-warning: #fbbf24;
+    --scp-warning-bg: #332309;
+    --scp-info: #60a5fa;
+    --scp-info-bg: #122236;
+    --scp-success-bg: #10291f;
     --scp-success-text: #86efac;
     --scp-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --scp-shadow-raised: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --scp-shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -45,6 +72,7 @@ body {
   background: var(--scp-bg);
   color: var(--scp-text);
   font-family: var(--scp-font);
+  -webkit-font-smoothing: antialiased;
 }
 
 .scp-site-header {
@@ -56,10 +84,21 @@ body {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 14px 24px;
+  padding: 14px 28px;
   background: var(--scp-surface);
   border-bottom: 1px solid var(--scp-border);
   box-shadow: var(--scp-shadow);
+}
+
+.scp-site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--scp-primary) 0%, var(--scp-accent) 100%);
+  opacity: 0.9;
 }
 
 .scp-site-header__brand {
@@ -73,8 +112,9 @@ body {
   align-items: center;
   gap: 10px;
   color: var(--scp-text);
-  font-weight: 700;
-  font-size: 1.0625rem;
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
   text-decoration: none;
 }
 
@@ -82,36 +122,57 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--scp-primary);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--scp-primary) 0%, var(--scp-primary-dark) 100%);
   color: #fff;
   font-size: 0.9375rem;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(20, 50, 107, 0.35);
 }
 
 .scp-site-header__nav {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 20px;
   font-size: 0.875rem;
 }
 
 .scp-site-header__user {
   color: var(--scp-text-muted);
-}
-
-.scp-site-header__nav a {
-  color: var(--scp-primary);
-  text-decoration: none;
   font-weight: 500;
 }
 
+.scp-site-header__nav a {
+  position: relative;
+  color: var(--scp-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  padding-bottom: 2px;
+  transition: color 0.15s ease;
+}
+
+.scp-site-header__nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: -3px;
+  height: 2px;
+  background: var(--scp-primary);
+  transition: right 0.18s ease;
+}
+
 .scp-site-header__nav a:hover {
-  text-decoration: underline;
+  color: var(--scp-primary);
+  text-decoration: none;
+}
+
+.scp-site-header__nav a:hover::after {
+  right: 0;
 }
 
 .scp-notif-bell {
@@ -197,13 +258,23 @@ body {
 }
 
 .scp-panel {
-  max-width: 960px;
-  margin: 40px auto;
-  padding: 0 24px;
+  max-width: 1100px;
+  margin: 44px auto;
+  padding: 0 28px;
 }
 
 .scp-panel h1 {
-  margin-top: 0;
+  margin: 0 0 6px;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--scp-primary-dark);
+}
+
+.scp-panel h1 + p {
+  margin: 0 0 28px;
+  color: var(--scp-text-muted);
+  font-size: 0.9375rem;
 }
 
 .scp-panel__content {
@@ -221,7 +292,7 @@ body {
 
 .scp-quicknav a {
   display: inline-block;
-  padding: 6px 14px;
+  padding: 7px 16px;
   border: 1px solid var(--scp-border);
   border-radius: 999px;
   background: var(--scp-surface);
@@ -229,19 +300,21 @@ body {
   font-size: 0.8125rem;
   font-weight: 600;
   text-decoration: none;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .scp-quicknav a:hover {
-  color: var(--scp-primary);
+  color: #fff;
+  background: var(--scp-primary);
   border-color: var(--scp-primary);
 }
 
 .scp-site-footer {
-  padding: 20px 24px;
+  padding: 24px 28px;
   text-align: center;
   font-size: 0.8125rem;
   color: var(--scp-text-muted);
+  border-top: 1px solid var(--scp-border);
 }
 
 @media (max-width: 640px) {

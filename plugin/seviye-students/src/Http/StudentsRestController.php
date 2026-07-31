@@ -9,6 +9,7 @@ use Seviye\Branches\Contracts\BranchLookupInterface;
 use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
+use Seviye\Core\Rbac\Role;
 use Seviye\Students\Domain\EducationYear;
 use Seviye\Students\Domain\ParentRelationship;
 use Seviye\Students\Domain\Student;
@@ -159,7 +160,107 @@ final class StudentsRestController extends AbstractRestController
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
         }
 
-        return new WP_REST_Response($this->serialize($student), 201);
+        $response = $this->serialize($student);
+        $parentError = $this->maybeCreateAndLinkParent($student, $request);
+
+        if ($parentError !== null) {
+            $response['parent_error'] = $parentError;
+        }
+
+        return new WP_REST_Response($response, 201);
+    }
+
+    /**
+     * Öğrenci oluşturulurken aynı formda doldurulan veli bilgilerini
+     * (varsa) işler: e-postayla eşleşen bir WP kullanıcısı varsa onu
+     * kullanır (aynı velinin ikinci bir çocuğu eklenmesi durumu), yoksa
+     * "Veli" rolünde yeni bir WP kullanıcısı oluşturup öğrenciyle bağlar.
+     * T.C. Kimlik No / şifre bu akışın parçası değil - Security'nin
+     * "Seviye Kullanıcılar" sayfasından ayrıca tamamlanır (Students,
+     * Security'nin kimlik/T.C. No katmanına doğrudan bağımlı değil - bkz.
+     * docs/ARCHITECTURE.md).
+     *
+     * Öğrenci zaten oluşturulduktan SONRA çalışır; burada bir hata olması
+     * öğrenci kaydını geri almaz (bu kod tabanında hiçbir yerde DB
+     * transaction kullanılmıyor) - başarısızlık durumunda çağıran,
+     * `parent_error` alanıyla öğrencinin oluştuğunu ama velinin manuel
+     * bağlanması gerektiğini bildirir.
+     */
+    private function maybeCreateAndLinkParent(Student $student, WP_REST_Request $request): ?string
+    {
+        $firstName = trim((string) $request->get_param('parent_first_name'));
+        $lastName = trim((string) $request->get_param('parent_last_name'));
+        $email = trim((string) $request->get_param('parent_email'));
+
+        if ($firstName === '' && $lastName === '' && $email === '') {
+            return null;
+        }
+
+        if ($firstName === '' || $lastName === '' || $email === '' || !is_email($email)) {
+            return __('Veli eklenemedi: ad, soyad ve geçerli bir e-posta gerekli.', 'seviye-students');
+        }
+
+        $relationship = ParentRelationship::tryFrom((string) $request->get_param('parent_relationship'))
+            ?? ParentRelationship::MOTHER;
+
+        $existingUser = get_user_by('email', $email);
+        $userId = $existingUser !== false ? $existingUser->ID : null;
+
+        if ($userId === null) {
+            $created = wp_insert_user([
+                'user_login' => $this->uniqueLoginFor($email),
+                'user_email' => $email,
+                'user_pass' => wp_generate_password(24),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'display_name' => $firstName . ' ' . $lastName,
+                'role' => Role::VELI->value,
+            ]);
+
+            if (is_wp_error($created)) {
+                return sprintf(
+                    // translators: %s is the underlying WordPress error message.
+                    __('Veli oluşturulamadı: %s', 'seviye-students'),
+                    $created->get_error_message()
+                );
+            }
+
+            $userId = (int) $created;
+        }
+
+        try {
+            $this->studentParents->link($student->id, $userId, $relationship);
+        } catch (\Throwable $exception) {
+            return sprintf(
+                '%s: %s (%s:%d)',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Mirrors {@see \Seviye\Security\Http\Admin\UserListPage::uniqueLoginFor()} -
+     * duplicated rather than shared since Security publishes no Contract for
+     * user provisioning (see docs/ARCHITECTURE.md, module boundary rules).
+     */
+    private function uniqueLoginFor(string $email): string
+    {
+        $base = sanitize_user(strstr($email, '@', true) ?: $email, true);
+        $base = $base !== '' ? $base : 'veli';
+        $login = $base;
+        $suffix = 2;
+
+        while (username_exists($login)) {
+            $login = $base . '-' . $suffix;
+            $suffix++;
+        }
+
+        return $login;
     }
 
     public function update(WP_REST_Request $request): WP_REST_Response
@@ -268,6 +369,12 @@ final class StudentsRestController extends AbstractRestController
             'education_year' => ['required' => true, 'type' => 'string'],
             'class_name' => ['required' => true, 'type' => 'string'],
             'status' => ['required' => false, 'type' => 'string'],
+            // Yalnızca öğrenci OLUŞTURULURKEN (store()) kullanılır - update()
+            // aynı args'ı paylaşıyor ama bu alanları okumuyor, zararsız.
+            'parent_first_name' => ['required' => false, 'type' => 'string'],
+            'parent_last_name' => ['required' => false, 'type' => 'string'],
+            'parent_email' => ['required' => false, 'type' => 'string'],
+            'parent_relationship' => ['required' => false, 'type' => 'string'],
         ];
     }
 }

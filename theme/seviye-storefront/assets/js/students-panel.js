@@ -26,6 +26,7 @@
     var parentsList = root.querySelector('[data-scp-parents-list]');
     var parentUserIdInput = root.querySelector('[data-scp-parent-user-id]');
     var parentRelationshipSelect = root.querySelector('[data-scp-parent-relationship]');
+    var parentQuickAdd = root.querySelector('[data-scp-parent-quick-add]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -140,10 +141,12 @@
 
         if (student) {
             parentsPanel.hidden = false;
+            parentQuickAdd.hidden = true;
             loadParents(student.id);
         } else {
             parentsPanel.hidden = true;
             parentsList.innerHTML = '';
+            parentQuickAdd.hidden = false;
         }
     }
 
@@ -229,6 +232,13 @@
             payload.branch_id = parseInt(branchSelect.value, 10);
         }
 
+        if (!id) {
+            payload.parent_first_name = form.parent_first_name.value;
+            payload.parent_last_name = form.parent_last_name.value;
+            payload.parent_email = form.parent_email.value;
+            payload.parent_relationship = form.parent_relationship.value;
+        }
+
         var path = id ? 'students/' + id : 'students';
         var method = id ? 'PUT' : 'POST';
 
@@ -238,7 +248,12 @@
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            if (result.data && result.data.parent_error) {
+                setStatus(scpPanelText.saved + ' ' + result.data.parent_error, true);
+            } else {
+                setStatus(scpPanelText.saved);
+            }
+
             form.hidden = true;
             loadStudents();
         });
