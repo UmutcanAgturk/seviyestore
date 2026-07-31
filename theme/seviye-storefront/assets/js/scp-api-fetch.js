@@ -37,3 +37,30 @@ function scpApiFetch(path, options) {
         });
     });
 }
+
+/**
+ * Uploads a file through WordPress' own core /wp/v2/media REST endpoint -
+ * not scpApiFetch(), which always forces a JSON Content-Type header; a
+ * multipart/form-data upload needs the browser to set that header itself
+ * (with the correct boundary), so it must not be overridden here. Requires
+ * scpPanel.wpRestRoot (the site's REST root, distinct from scpPanel.restUrl
+ * which is scoped to seviye/v1/) and the `upload_files` capability - see
+ * Seviye\Commerce\CommerceModule / Seviye\Core\Support\CoreServiceProvider,
+ * which grant it to the roles that need to upload a product photo or the
+ * platform logo.
+ */
+function scpUploadMedia(file) {
+    var formData = new FormData();
+    formData.append('file', file);
+
+    return fetch(scpPanel.wpRestRoot + 'wp/v2/media', {
+        method: 'POST',
+        headers: { 'X-WP-Nonce': scpPanel.nonce },
+        credentials: 'same-origin',
+        body: formData
+    }).then(function (response) {
+        return response.json().then(function (data) {
+            return { ok: response.ok, status: response.status, data: data };
+        });
+    });
+}

@@ -83,6 +83,14 @@ body.scp-auth-body {
   box-shadow: 0 4px 12px rgba(20, 50, 107, 0.3);
 }
 
+.scp-auth-logo {
+  display: block;
+  max-width: 200px;
+  max-height: 72px;
+  margin: 0 auto 16px;
+  object-fit: contain;
+}
+
 .scp-auth-title {
   margin: 0 0 24px;
   font-size: 1.3125rem;

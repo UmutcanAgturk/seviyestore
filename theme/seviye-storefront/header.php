@@ -22,9 +22,14 @@ if (!defined('ABSPATH')) {
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
 <header class="scp-site-header">
+    <?php $scp_header_logo_url = scp_logo_url('thumbnail'); ?>
     <div class="scp-site-header__brand">
         <a class="scp-site-header__brand-link" href="<?php echo esc_url(scp_current_user_landing_path()); ?>">
-            <span class="scp-site-header__mark" aria-hidden="true">S</span>
+            <?php if ($scp_header_logo_url !== null) : ?>
+                <img class="scp-site-header__logo" src="<?php echo esc_url($scp_header_logo_url); ?>" alt="">
+            <?php else : ?>
+                <span class="scp-site-header__mark" aria-hidden="true">S</span>
+            <?php endif; ?>
             <?php bloginfo('name'); ?>
         </a>
     </div>

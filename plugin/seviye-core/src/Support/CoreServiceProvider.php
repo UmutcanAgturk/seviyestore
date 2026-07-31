@@ -15,10 +15,12 @@ use Seviye\Core\Database\Migrations\CreateSettingsTable;
 use Seviye\Core\Database\WpdbConnection;
 use Seviye\Core\Events\EventBus;
 use Seviye\Core\Events\EventBusInterface;
+use Seviye\Core\Http\BrandingRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Logging\DatabaseLogger;
 use Seviye\Core\Module\ModuleRegistry;
 use Seviye\Core\Rbac\RbacManager;
+use Seviye\Core\Rbac\Role;
 use Seviye\Core\Rbac\RoleGatewayInterface;
 use Seviye\Core\Rbac\RoleRegistrar;
 use Seviye\Core\Rbac\WpRoleGateway;
@@ -84,5 +86,17 @@ final class CoreServiceProvider
 
         $container->get(MigrationRunner::class)->register(new CreateLogsTable());
         $container->get(MigrationRunner::class)->register(new CreateSettingsTable());
+
+        // Logo uploads go through WordPress' own /wp/v2/media REST endpoint
+        // from the theme's "Görünüm" panel - requires the native
+        // `upload_files` capability, which Genel Merkez (a custom role
+        // starting with zero capabilities) does not carry by default.
+        $container->get(RbacManager::class)->grantCapability(Role::GENEL_MERKEZ, 'upload_files');
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): BrandingRestController => new BrandingRestController(
+                $container->get(SettingsRepositoryInterface::class)
+            )
+        );
     }
 }

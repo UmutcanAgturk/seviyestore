@@ -133,6 +133,14 @@ body {
   box-shadow: 0 2px 6px rgba(20, 50, 107, 0.35);
 }
 
+.scp-site-header__logo {
+  height: 34px;
+  width: auto;
+  max-width: 160px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .scp-site-header__nav {
   display: flex;
   align-items: center;

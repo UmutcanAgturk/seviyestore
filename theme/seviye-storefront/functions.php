@@ -45,3 +45,4 @@ require SCP_THEME_DIR . '/inc/zones.php';
 require SCP_THEME_DIR . '/inc/ip-restriction.php';
 require SCP_THEME_DIR . '/inc/woocommerce.php';
 require SCP_THEME_DIR . '/inc/assets.php';
+require SCP_THEME_DIR . '/inc/branding.php';

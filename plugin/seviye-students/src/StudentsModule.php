@@ -13,6 +13,7 @@ use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
+use Seviye\Students\Contracts\ParentBranchLookupInterface;
 use Seviye\Students\Contracts\StudentDirectoryInterface;
 use Seviye\Students\Contracts\StudentGuardianCheckInterface;
 use Seviye\Students\Contracts\StudentLookupInterface;
@@ -22,6 +23,7 @@ use Seviye\Students\Http\StudentsRestController;
 use Seviye\Students\Rbac\StudentCapability;
 use Seviye\Students\Repository\StudentParentRepositoryInterface;
 use Seviye\Students\Repository\StudentRepositoryInterface;
+use Seviye\Students\Repository\WpdbParentBranchLookup;
 use Seviye\Students\Repository\WpdbStudentDirectory;
 use Seviye\Students\Repository\WpdbStudentGuardianCheck;
 use Seviye\Students\Repository\WpdbStudentLookup;
@@ -73,6 +75,13 @@ final class StudentsModule implements ModuleInterface
             StudentDirectoryInterface::class,
             static fn (ServiceContainer $c): WpdbStudentDirectory => new WpdbStudentDirectory(
                 $c->get(StudentRepositoryInterface::class)
+            )
+        );
+
+        $container->singleton(
+            ParentBranchLookupInterface::class,
+            static fn (ServiceContainer $c): WpdbParentBranchLookup => new WpdbParentBranchLookup(
+                $c->get(ConnectionInterface::class)
             )
         );
 

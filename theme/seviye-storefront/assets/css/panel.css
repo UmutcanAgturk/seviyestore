@@ -18,6 +18,20 @@
   box-shadow: var(--scp-shadow-raised);
 }
 
+/* A card rendered INSIDE another section (the products panel's per-branch
+   status grid, opened under the create/edit form) - lighter than a
+   top-level .scp-card so it doesn't compete with it visually. */
+.scp-card--nested {
+  margin-top: 16px;
+  padding: 20px;
+  box-shadow: none;
+  background: var(--scp-surface-alt);
+}
+
+.scp-card--nested:hover {
+  box-shadow: none;
+}
+
 .scp-empty {
   text-align: center;
   color: var(--scp-text-muted);
@@ -92,6 +106,46 @@
   background: var(--scp-primary-bg);
 }
 
+.scp-product-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: var(--scp-radius-sm);
+  border: 1px solid var(--scp-border);
+  background: var(--scp-surface-alt);
+}
+
+.scp-product-image-preview {
+  display: block;
+  max-width: 160px;
+  max-height: 160px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  border-radius: var(--scp-radius-sm);
+  border: 1px solid var(--scp-border);
+  background: var(--scp-surface-alt);
+}
+
+.scp-product-image-preview[hidden] {
+  display: none;
+}
+
+.scp-branding-preview {
+  display: block;
+  max-width: 240px;
+  max-height: 96px;
+  object-fit: contain;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: var(--scp-radius-sm);
+  border: 1px solid var(--scp-border);
+  background: var(--scp-surface-alt);
+}
+
+.scp-branding-preview[hidden] {
+  display: none;
+}
+
 .scp-badge {
   display: inline-flex;
   align-items: center;
@@ -128,6 +182,20 @@
 .scp-badge--info {
   color: var(--scp-info);
   background: var(--scp-info-bg);
+}
+
+/* A <button> element carrying .scp-badge (the products panel's own-branch
+   active/passive toggle) needs the browser's default button chrome reset -
+   every other .scp-badge use is a plain, non-interactive <span>. */
+button.scp-badge {
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+button.scp-badge:hover {
+  filter: brightness(0.95);
 }
 
 .scp-list {

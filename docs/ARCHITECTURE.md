@@ -1733,6 +1733,71 @@ köke ('/') düşen blog-index fallback'inde gösteriliyor, gerçek bir WP
 Page'e (Sepetim dahil, ileride eklenecek her Page için de) gelindiğinde
 `the_content()` kendi içeriğini basıyor.
 
+### 31. Ürün kataloğu (şube bazlı aktif/pasif) + logo yükleme
+
+İki yeni özellik: (1) şubelerin ürün oluşturup ortak bir katalogda
+yönetebilmesi, her şubenin bir ürünü kendi öğrenci/velisi için ayrı ayrı
+aktif/pasif yapabilmesi, ve (2) wp-admin'e girmeden yüklenebilen bir
+platform logosu.
+
+**Ürün kataloğu.** Ürünlerin kendisi tamamen WooCommerce'in
+(`WC_Product`/`wp_posts`) - bu platform hiçbir zaman kendi paralel ürün
+tablosunu tutmuyor (bkz. "order/cart storage stays WooCommerce's" kuralı,
+CommerceModule'ün kendi docblock'u). Yeni `Seviye\Commerce\Http\
+ProductsRestController` (`seviye/v1/commerce/products/*`), Şube
+Müdürü/Genel Merkez'in WordPress'in doğal `edit_products`/`publish_products`
+yetkilerine sahip OLMADAN (özel roller sıfır yetkiyle başlar) bu ortak
+kataloğu yönetebilmesini sağlayan ince bir sarmalayıcı. Yetki modeli
+Pricing'in GENEL/ŞUBE ayrımını birebir yansıtıyor: tam düzenleme/silme
+yalnızca Genel Merkez/Bölge Müdürü'nde (`canManageProductFully()`,
+`currentUserBranchId() === null` kontrolü); bir Şube Müdürü YALNIZCA ortak
+kataloğa yeni ürün oluşturabilir ve KENDİ şubesi için aktif/pasif
+değiştirebilir - başka bir şubenin ürününü düzenleyemez/silemez.
+
+Şube bazlı görünürlük YENİ bir tablo: `scp_product_branches`
+(`Seviye\Commerce\Database\Migrations\CreateProductBranchesTable`) -
+`product_id` (WooCommerce'e işaret ediyor, FK yok - bu platform WordPress
+çekirdek tablolarına asla FK koymuyor), `branch_id` (FK, `scp_branches`'e
+`ON DELETE CASCADE`), `status` ('active'/'passive'). KASITLI OLARAK
+"opt-out" modeli: bir satırın YOKLUĞU "aktif" anlamına gelir (bkz.
+`WpdbProductBranchVisibilityRepository::isActiveForBranch()`) - yeni
+oluşturulan bir ürün varsayılan olarak TÜM şubelerde aktiftir, bir şube
+yalnızca onu GİZLEMEK istediğinde bir satır oluşturur. Bu, "her ürünü her
+şube için tek tek açmak" gibi bir yönetim yükü yaratmıyor.
+
+Mağaza tarafında yeni `Seviye\Commerce\Http\ProductVisibilityHooks`,
+`woocommerce_product_is_visible` (mağaza/arama listelemesi) ve
+`woocommerce_add_to_cart_validation` (URL'i doğrudan bilen birinin
+sepete ekleyememesi için) filtrelerine kancalanıyor: bir veli, ürünü
+GÖRDÜĞÜ/satın alabildiği her sayfada, kendi çocuklarının şubelerinden EN AZ
+BİRİNDE aktifse görür - `CartPricingService`'in zaten kullandığı "herhangi
+bir çocuğun şubesi" mantığıyla aynı. Bu kontrol için Students'tan YENİ bir
+Contract yayınlandı: `ParentBranchLookupInterface::branchIdsForParent()`
+(`WpdbParentBranchLookup` - `scp_student_parents` ⨝ `scp_students` üzerinden
+tek sorgu). `scp_manage_products` yetkisi olan (yönetim panelini
+kullanabilen) hiç kimse için bu filtre uygulanmıyor - kendi yönetmekle
+sorumlu olduğu ürünü kendine gizlemek anlamsız olurdu.
+
+**Logo yükleme.** Yeni `Seviye\Core\Http\BrandingRestController`
+(`seviye/v1/core/branding`, Genel Merkez only - `Capability::
+MANAGE_CORE_SETTINGS`), logoyu `scp_settings` üzerinde tek bir alan
+(`branding_logo_attachment_id`, mevcut bir WordPress medya eki) olarak
+saklıyor - dosyanın kendisi WordPress'in kendi `/wp/v2/media` REST uç
+noktasından yükleniyor, burada yeniden icat edilmiyor. Bu, YENİ bir JS
+yardımcı fonksiyonu gerektirdi: `scpUploadMedia()` (`assets/js/
+scp-api-fetch.js`) - `scpApiFetch()`'in aksine Content-Type header'ını
+ZORLA `application/json` yapmıyor (multipart/form-data yüklemesi
+tarayıcının kendi sınır (boundary) değerini ayarlamasını gerektirir).
+Genel Merkez'in (ve ürün fotoğrafı yükleyebilmesi için Şube Müdürü'nün de)
+çekirdek WordPress `upload_files` yetkisine ihtiyacı var - özel roller
+sıfır yetkiyle başladığı için `CoreServiceProvider`/`CommerceModule`
+`RbacManager::grantCapability()` ile bunu açıkça veriyor.
+
+Logo, `header.php` (her sayfanın üstü) ve `templates/login.php` (giriş
+ekranı) içindeki "S" harf-rozeti yerine gösteriliyor - hiç logo
+yüklenmemişse ikisi de eskisi gibi harf-rozetine düşüyor
+(`scp_logo_url()`, `inc/branding.php`).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

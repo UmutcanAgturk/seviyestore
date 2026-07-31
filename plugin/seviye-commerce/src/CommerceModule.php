@@ -5,22 +5,33 @@ declare(strict_types=1);
 namespace Seviye\Commerce;
 
 use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
+use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
+use Seviye\Commerce\Http\ProductsRestController;
+use Seviye\Commerce\Http\ProductVisibilityHooks;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
+use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
+use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
 use Seviye\Commerce\Repository\WpdbOrderLineItemQuery;
 use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
+use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
 use Seviye\Commerce\Support\CartPricingService;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
 use Seviye\Core\Events\EventBusInterface;
+use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
+use Seviye\Core\Rbac\RbacManager;
+use Seviye\Core\Rbac\Role;
 use Seviye\Core\Support\Environment;
 use Seviye\Pricing\Contracts\PriceResolverInterface;
+use Seviye\Students\Contracts\ParentBranchLookupInterface;
 use Seviye\Students\Contracts\StudentGuardianCheckInterface;
 use Seviye\Students\Contracts\StudentLookupInterface;
 
@@ -63,11 +74,46 @@ final class CommerceModule implements ModuleInterface
             )
         );
 
+        $container->singleton(
+            ProductBranchVisibilityRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbProductBranchVisibilityRepository =>
+                new WpdbProductBranchVisibilityRepository($c->get(ConnectionInterface::class))
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
+        $container->get(MigrationRunner::class)->register(new CreateProductBranchesTable());
+
+        $rbac = $container->get(RbacManager::class);
+        $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_PRODUCTS->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_PRODUCTS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, ProductCapability::MANAGE_PRODUCTS->value);
+
+        // Product photo uploads go through WordPress' own /wp/v2/media REST
+        // endpoint from the theme's "Ürünler" panel - simpler and more
+        // robust than reinventing file upload handling, but it requires
+        // the native `upload_files` capability, which none of these custom
+        // roles carry by default (every custom WP role starts with zero
+        // capabilities).
+        $rbac->grantCapability(Role::GENEL_MERKEZ, 'upload_files');
+        $rbac->grantCapability(Role::BOLGE_MUDURU, 'upload_files');
+        $rbac->grantCapability(Role::SUBE_MUDURU, 'upload_files');
 
         if (!Environment::isWooCommerceActive()) {
             return;
         }
+
+        // ProductsRestController's route handlers call WooCommerce
+        // functions (wc_get_product(s), WC_Product_Simple) directly, unlike
+        // the DB/RBAC wiring above - only registered once WC is confirmed
+        // active, matching the reasoning for deferring the two hook
+        // adapters below.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): ProductsRestController => new ProductsRestController(
+                $container->get(ProductBranchVisibilityRepositoryInterface::class),
+                $container->get(BranchMembershipInterface::class),
+                $container->get(BranchLookupInterface::class)
+            )
+        );
 
         // Deferred to `init` (not resolved here in boot()): CartPricingService and
         // OrderPersistenceHooks depend on other modules' Contracts (Students,
@@ -92,6 +138,12 @@ final class CommerceModule implements ModuleInterface
                 $container->get(EventBusInterface::class)
             );
             $orderHooks->register();
+
+            $visibilityHooks = new ProductVisibilityHooks(
+                $container->get(ProductBranchVisibilityRepositoryInterface::class),
+                $container->get(ParentBranchLookupInterface::class)
+            );
+            $visibilityHooks->register();
         });
     }
 }

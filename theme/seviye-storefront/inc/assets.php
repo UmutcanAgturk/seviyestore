@@ -67,6 +67,7 @@ function scp_enqueue_panel_assets(): void
 
     $localized = [
         'restUrl' => esc_url_raw(rest_url('seviye/v1/')),
+        'wpRestRoot' => esc_url_raw(rest_url()),
         'nonce' => wp_create_nonce('wp_rest'),
     ];
 
@@ -129,6 +130,18 @@ function scp_enqueue_panel_assets(): void
             'seviye-storefront'
         ),
         'studentDeleted' => __('Öğrenci silindi.', 'seviye-storefront'),
+        'productSaved' => __('Ürün kaydedildi.', 'seviye-storefront'),
+        'productDeleted' => __('Ürün silindi.', 'seviye-storefront'),
+        'confirmDeleteProduct' => __(
+            'Bu ürünü kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+            'seviye-storefront'
+        ),
+        'manageBranches' => __('Şubeler', 'seviye-storefront'),
+        'uploadingImage' => __('Yükleniyor…', 'seviye-storefront'),
+        'imageUploadError' => __('Görsel yüklenirken bir hata oluştu.', 'seviye-storefront'),
+        'branchStatusSaved' => __('Şube durumu güncellendi.', 'seviye-storefront'),
+        'brandingSaved' => __('Logo güncellendi.', 'seviye-storefront'),
+        'brandingRemoved' => __('Logo kaldırıldı.', 'seviye-storefront'),
         'sessionExpired' => __(
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'
@@ -160,6 +173,21 @@ function scp_enqueue_panel_assets(): void
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_products')) {
+        $handle = 'scp-products-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/products-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/products-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageAllBranches' => current_user_can('scp_manage_branches'),
+        ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
@@ -274,6 +302,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/api-keys-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/api-keys-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && current_user_can('scp_manage_core_settings')) {
+        $handle = 'scp-branding-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/branding-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/branding-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
