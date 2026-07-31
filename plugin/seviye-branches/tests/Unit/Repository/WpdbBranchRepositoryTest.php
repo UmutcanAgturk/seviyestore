@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Branches\Tests\Unit\Repository;
 
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Seviye\Branches\Domain\BranchStatus;
 use Seviye\Branches\Domain\CommissionRate;
 use Seviye\Branches\Domain\Iban;
@@ -84,6 +85,25 @@ final class WpdbBranchRepositoryTest extends TestCase
         self::assertNull($branch->address);
     }
 
+    public function testCreateThrowsWithTheRealDbErrorWhenInsertFails(): void
+    {
+        $connection = new FakeConnection();
+        $connection->insertShouldSucceed = false;
+        $repository = new WpdbBranchRepository($connection);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Şube eklenemedi:');
+
+        $repository->create(
+            'Kadıköy Şubesi',
+            'kadikoy-subesi',
+            Iban::fromString(self::VALID_IBAN),
+            CommissionRate::fromPercentage(12.5),
+            '02161234567',
+            'Kadıköy, İstanbul'
+        );
+    }
+
     public function testFindReturnsNullWhenNoRowMatches(): void
     {
         $connection = new FakeConnection();
@@ -144,5 +164,25 @@ final class WpdbBranchRepositoryTest extends TestCase
 
         self::assertSame('Güncellenmiş Şube', $branch->name);
         self::assertCount(1, $connection->queries);
+    }
+
+    public function testUpdateThrowsWithTheRealDbErrorWhenQueryFails(): void
+    {
+        $connection = new FakeConnection();
+        $connection->queryShouldSucceed = false;
+        $repository = new WpdbBranchRepository($connection);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Şube #1 güncellenemedi:');
+
+        $repository->update(
+            1,
+            'Güncellenmiş Şube',
+            Iban::fromString(self::VALID_IBAN),
+            CommissionRate::fromPercentage(12.5),
+            '02161234567',
+            'Kadıköy, İstanbul',
+            BranchStatus::ACTIVE
+        );
     }
 }

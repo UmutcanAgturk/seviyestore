@@ -27,7 +27,7 @@ final class WpdbBranchRepository implements BranchRepositoryInterface
     ): Branch {
         $now = $this->now();
 
-        $this->connection->insert($this->connection->table('branches'), [
+        $inserted = $this->connection->insert($this->connection->table('branches'), [
             'name' => $name,
             'slug' => $slug,
             'iban' => $iban?->value(),
@@ -38,6 +38,11 @@ final class WpdbBranchRepository implements BranchRepositoryInterface
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+
+        if (!$inserted) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+            throw new RuntimeException(sprintf('Şube eklenemedi: %s', $this->lastDbError()));
+        }
 
         // The unique slug constraint makes this read-back unambiguous
         // without needing a dedicated lastInsertId() port on ConnectionInterface.
@@ -66,7 +71,12 @@ final class WpdbBranchRepository implements BranchRepositoryInterface
             [$name, $iban?->value(), $commissionRate->percentage(), $phone, $address, $status->value, $this->now(), $id]
         );
 
-        $this->connection->query($sql);
+        $success = $this->connection->query($sql);
+
+        if (!$success) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+            throw new RuntimeException(sprintf('Şube #%d güncellenemedi: %s', $id, $this->lastDbError()));
+        }
 
         $branch = $this->find($id);
 
@@ -146,5 +156,19 @@ final class WpdbBranchRepository implements BranchRepositoryInterface
     private function now(): string
     {
         return function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s');
+    }
+
+    /**
+     * $wpdb->last_error is the only place WordPress exposes the real SQL
+     * failure reason - ConnectionInterface's insert()/query() collapse it
+     * to a bool, so without this a silent DB failure here would otherwise
+     * surface as the equally uninformative "could not be read back"
+     * message below, same gap fixed earlier in WpdbIdentityGateway::link().
+     */
+    private function lastDbError(): string
+    {
+        global $wpdb;
+
+        return isset($wpdb) && $wpdb->last_error !== '' ? $wpdb->last_error : 'bilinmeyen veritabanı hatası';
     }
 }
