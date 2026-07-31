@@ -1588,6 +1588,34 @@ kılavuzunun önerdiği yöntemle (şablon override değil, hook'lar):
    temanın CSS'i, WooCommerce markup'ı için TEK stil kaynağı - WC'nin
    kendi stylesheet'i hiç yüklenmiyor.
 
+### 26. "Çerez denetlenemedi" hatası ve paylaşılan `scpApiFetch()`
+
+Bir admin panel ekranında (ör. Öğrenciler) ilk REST çağrısı bile
+"Çerez denetlenemedi" hatasıyla başarısız oluyordu - bu, `scpPanelText`
+içindeki hiçbir metinle eşleşmiyordu çünkü hiç BENİM metnim değildi:
+WordPress'in kendi `rest_cookie_invalid_nonce` hatasının Türkçe çevirisi.
+`X-WP-Nonce` sayfa YÜKLENDIĞI anda `wp_localize_script`'le HTML'e
+gömülüyor; bir önbellekleme eklentisi bu sayfayı BAŞKA/DAHA ESKİ bir
+oturumla önbelleğe aldıysa, ya da sekme nonce'un geçerlilik penceresi
+kadar uzun süre açık kaldıysa, gömülü nonce artık geçerli oturumla
+eşleşmez - JS içinde tekrar denemek bunu çözmez, yalnızca sayfanın
+YENİDEN yüklenmesi (taze bir nonce gömülmesi) çözer.
+
+Bu araştırma sırasında ayrı bir sorun da ortaya çıktı: 11 panel script'i
+(`students-panel.js`, `branches-panel.js`, ...) birbirinin BİREBİR AYNISI
+13 satırlık bir `apiFetch()` fonksiyonunu kopyalayıp duruyordu - PHP
+modülleri arasında (composer bağımlılığı olmadan paylaşılamadıkları için)
+kabul edilen bir kopyalama deseni, ama BURADA hiçbir modül sınırı yok,
+hepsi aynı temanın parçası. Yeni `assets/js/scp-api-fetch.js`, TEK bir
+`scpApiFetch()` global fonksiyonu tanımlıyor - `inc/assets.php`'te bir kez
+enqueue ediliyor, her panel script'inin bağımlılığı olarak ekleniyor
+(`wp_enqueue_script($handle, ..., ['scp-api-fetch'], ...)`), her panel
+kendi kopyasını `var apiFetch = scpApiFetch;` ile değiştiriyor. Bu TEK
+yerde, `rest_cookie_invalid_nonce` kodunu tanıyıp WordPress'in genel
+mesajı yerine "Oturum bilgisi güncel değil, sayfayı yenileyin" gibi
+eyleme geçirilebilir bir mesaj gösteriyor - artık 11 kopyaya ayrı ayrı
+eklemek gerekmiyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

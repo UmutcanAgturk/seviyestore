@@ -43,6 +43,12 @@ function scp_enqueue_panel_assets(): void
 {
     $zone = (string) get_query_var('scp_zone');
 
+    // Shared by every panel script below (see assets/js/scp-api-fetch.js) -
+    // registered once here rather than re-declared identically in all 11 of
+    // them, and the one place that recognizes a stale X-WP-Nonce
+    // ("Çerez denetlenemedi") and turns it into an actionable message.
+    wp_enqueue_script('scp-api-fetch', SCP_THEME_URL . '/assets/js/scp-api-fetch.js', [], SCP_THEME_VERSION, true);
+
     $localized = [
         'restUrl' => esc_url_raw(rest_url('seviye/v1/')),
         'nonce' => wp_create_nonce('wp_rest'),
@@ -95,11 +101,21 @@ function scp_enqueue_panel_assets(): void
         'summaryPassword' => __('Veli Şifresi', 'seviye-storefront'),
         'summaryNotSet' => __('Girilmedi', 'seviye-storefront'),
         'summaryTcNoError' => __('T.C. Kimlik No bağlanamadı', 'seviye-storefront'),
+        'sessionExpired' => __(
+            'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
+            'seviye-storefront'
+        ),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
         $handle = 'scp-students-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/students-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/students-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
         ]));
@@ -108,14 +124,26 @@ function scp_enqueue_panel_assets(): void
 
     if ($zone === 'admin' && current_user_can('scp_manage_branches')) {
         $handle = 'scp-branches-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/branches-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/branches-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_pricing')) {
         $handle = 'scp-pricing-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/pricing-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/pricing-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
         ]));
@@ -126,7 +154,13 @@ function scp_enqueue_panel_assets(): void
 
     if ($zone === '' && $isParentZone) {
         $handle = 'scp-parent-dashboard';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/parent-dashboard.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/parent-dashboard.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
@@ -135,7 +169,13 @@ function scp_enqueue_panel_assets(): void
 
     if (in_array($zone, ['admin', 'sube'], true) && $canViewHakedis) {
         $handle = 'scp-hakedis-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/hakedis-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/hakedis-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_hakedis'),
             'canRecordSettlement' => current_user_can('scp_record_hakedis_settlement'),
@@ -147,7 +187,13 @@ function scp_enqueue_panel_assets(): void
 
     if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
         $handle = 'scp-reports-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/reports-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/reports-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_reports'),
         ]));
@@ -157,13 +203,25 @@ function scp_enqueue_panel_assets(): void
     // Every logged-in user manages their own account's 2FA, in every zone -
     // unlike every other script above, this one is never capability-gated.
     $handle = 'scp-account-security';
-    wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/account-security.js', [], SCP_THEME_VERSION, true);
+    wp_enqueue_script(
+        $handle,
+        SCP_THEME_URL . '/assets/js/account-security.js',
+        ['scp-api-fetch'],
+        SCP_THEME_VERSION,
+        true
+    );
     wp_localize_script($handle, 'scpPanel', $localized);
     wp_localize_script($handle, 'scpPanelText', $text);
 
     if ($zone === 'admin' && current_user_can('scp_manage_security_settings')) {
         $handle = 'scp-ip-allowlist-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/ip-allowlist-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/ip-allowlist-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
@@ -173,7 +231,7 @@ function scp_enqueue_panel_assets(): void
         wp_enqueue_script(
             $handle,
             SCP_THEME_URL . '/assets/js/notifications-settings-panel.js',
-            [],
+            ['scp-api-fetch'],
             SCP_THEME_VERSION,
             true
         );
@@ -183,7 +241,13 @@ function scp_enqueue_panel_assets(): void
 
     if ($zone === 'admin' && current_user_can('scp_manage_api_keys')) {
         $handle = 'scp-api-keys-panel';
-        wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/api-keys-panel.js', [], SCP_THEME_VERSION, true);
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/api-keys-panel.js',
+            ['scp-api-fetch'],
+            SCP_THEME_VERSION,
+            true
+        );
         wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
@@ -192,7 +256,13 @@ function scp_enqueue_panel_assets(): void
     // zone (and on WooCommerce shop/product pages, via header.php) - like
     // account-security.js, never capability-gated.
     $handle = 'scp-notifications-bell';
-    wp_enqueue_script($handle, SCP_THEME_URL . '/assets/js/notifications-bell.js', [], SCP_THEME_VERSION, true);
+    wp_enqueue_script(
+        $handle,
+        SCP_THEME_URL . '/assets/js/notifications-bell.js',
+        ['scp-api-fetch'],
+        SCP_THEME_VERSION,
+        true
+    );
     wp_localize_script($handle, 'scpPanel', $localized);
     wp_localize_script($handle, 'scpPanelText', $text);
 

@@ -35,20 +35,7 @@
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
     }
 
-    function apiFetch(path, options) {
-        options = options || {};
-        options.headers = Object.assign(
-            { 'Content-Type': 'application/json', 'X-WP-Nonce': scpPanel.nonce },
-            options.headers || {}
-        );
-        options.credentials = 'same-origin';
-
-        return fetch(scpPanel.restUrl + path, options).then(function (response) {
-            return response.json().then(function (data) {
-                return { ok: response.ok, status: response.status, data: data };
-            });
-        });
-    }
+    var apiFetch = scpApiFetch;
 
     function formatMoney(amount) {
         return Number(amount).toFixed(2) + ' ₺';
