@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Seviye\Branches\Http\Admin;
 
-use InvalidArgumentException;
 use Seviye\Branches\Domain\Branch;
 use Seviye\Branches\Domain\BranchStatus;
 use Seviye\Branches\Domain\CommissionRate;
@@ -266,8 +265,20 @@ final class BranchAdminPage
                 $this->stringOrNull('phone'),
                 $this->stringOrNull('address')
             );
-        } catch (InvalidArgumentException $exception) {
-            $this->redirectWithNotice('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            // \Throwable (not just InvalidArgumentException - a WP
+            // fatal-error screen with no detail is far less useful than
+            // the real message) - a raw PHP fatal here would otherwise
+            // surface as WordPress' own opaque "Bu sitede ciddi bir sorun
+            // çıktı" screen, same class of failure the setup wizard's
+            // scp_handle_setup_step() already guards against.
+            $this->redirectWithNotice('error', sprintf(
+                '%s: %s (%s:%d)',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
         }
 
         $this->redirectWithNotice('success', __('Şube oluşturuldu.', 'seviye-branches'));
@@ -315,8 +326,14 @@ final class BranchAdminPage
                 $this->stringOrNull('address'),
                 $status
             );
-        } catch (InvalidArgumentException $exception) {
-            $this->redirectWithNotice('error', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            $this->redirectWithNotice('error', sprintf(
+                '%s: %s (%s:%d)',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
         }
 
         $this->redirectWithNotice('success', __('Kaydedildi.', 'seviye-branches'));

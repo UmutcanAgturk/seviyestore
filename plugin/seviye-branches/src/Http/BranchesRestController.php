@@ -122,6 +122,12 @@ final class BranchesRestController extends AbstractRestController
             );
         } catch (InvalidArgumentException $exception) {
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
+        } catch (\Throwable $exception) {
+            // A raw PHP fatal here would otherwise surface as WordPress'
+            // own opaque "Bu sitede ciddi bir sorun çıktı" screen with no
+            // detail at all - same class of failure the setup wizard's
+            // scp_handle_setup_step() already guards against.
+            return new WP_REST_Response(['message' => $this->debugMessage($exception)], 500);
         }
 
         return new WP_REST_Response($this->serialize($branch), 201);
@@ -135,6 +141,17 @@ final class BranchesRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('Şube bulunamadı.', 'seviye-branches')], 404);
         }
 
+        // BranchStatus::from() (not tryFrom()) throws \ValueError - a
+        // native \Error, not an Exception - on an invalid value, so it was
+        // never caught by the InvalidArgumentException catch below; kept
+        // as its own explicit 422 rather than falling through to the
+        // generic 500 handler.
+        $status = BranchStatus::tryFrom((string) ($request->get_param('status') ?? BranchStatus::ACTIVE->value));
+
+        if ($status === null) {
+            return new WP_REST_Response(['message' => __('Geçersiz durum.', 'seviye-branches')], 422);
+        }
+
         try {
             $branch = $this->branches->update(
                 $id,
@@ -143,10 +160,12 @@ final class BranchesRestController extends AbstractRestController
                 CommissionRate::fromPercentage((float) $request->get_param('commission_rate')),
                 $this->stringOrNull($request->get_param('phone')),
                 $this->stringOrNull($request->get_param('address')),
-                BranchStatus::from((string) ($request->get_param('status') ?? BranchStatus::ACTIVE->value))
+                $status
             );
         } catch (InvalidArgumentException $exception) {
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
+        } catch (\Throwable $exception) {
+            return new WP_REST_Response(['message' => $this->debugMessage($exception)], 500);
         }
 
         return new WP_REST_Response($this->serialize($branch));
@@ -183,6 +202,22 @@ final class BranchesRestController extends AbstractRestController
         }
 
         return (string) $value;
+    }
+
+    /**
+     * Surfaces the real exception instead of WordPress' opaque generic
+     * "Bu sitede ciddi bir sorun çıktı" screen - same pattern as
+     * {@see \Seviye\Branches\Http\Admin\BranchAdminPage}.
+     */
+    private function debugMessage(\Throwable $exception): string
+    {
+        return sprintf(
+            '%s: %s (%s:%d)',
+            get_class($exception),
+            $exception->getMessage(),
+            $exception->getFile(),
+            $exception->getLine()
+        );
     }
 
     /**
