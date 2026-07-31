@@ -1616,6 +1616,29 @@ mesajı yerine "Oturum bilgisi güncel değil, sayfayı yenileyin" gibi
 eyleme geçirilebilir bir mesaj gösteriyor - artık 11 kopyaya ayrı ayrı
 eklemek gerekmiyor.
 
+### 27. "Veli eklendi ama görünmüyor" - mevcut hesaba bağlanma sessizdi
+
+Kullanıcı, öğrenci formunda veli bilgisi girip kaydettikten sonra wp-admin →
+Seviye Kullanıcılar → Veli listesinde YENİ bir kayıt göremediğini bildirdi.
+Kök neden bir DB hatası değildi: `maybeCreateAndLinkParent()` (bkz.
+`StudentsRestController`), girilen e-posta ADRESİYLE eşleşen bir WP
+kullanıcısı zaten varsa (aynı velinin ikinci çocuğu eklenirken bilerek
+tasarlanmış bir davranış) YENİ bir hesap OLUŞTURMAZ, öğrenciyi mevcut hesaba
+bağlar - bu doğru davranış, çünkü aksi halde her çocuk için ayrı bir veli
+hesabı türetilirdi. Ama bu "mevcut hesaba bağlandı" yolu ne bir hata
+(`parent_error`) ne de kimlik bilgisi (`parent_credentials`) üretiyordu, bu
+yüzden "Kayıt Özeti" kartı hiç açılmıyordu - başarılı bir bağlanma, arayüzde
+"hiçbir şey olmadı"dan AYIRT EDİLEMİYORDU.
+
+Düzeltme, `maybeCreateAndLinkParent()`'ın dönüş değerine üçüncü bir alan
+ekledi: `linked_existing` (`?array{name: string, email: string}`), yalnızca
+e-posta MEVCUT bir kullanıcıyla eşleştiğinde doldurulur. `store()` bunu
+`parent_linked_existing` olarak yanıta ekliyor; `students-panel.js` artık bu
+alanı da okuyup (yeni `credentials` yoksa) Kayıt Özeti kartını YİNE açıyor -
+şifre/T.C. No satırları olmadan, yerine "bu e-posta zaten kayıtlı bir veli
+hesabına ait, öğrenci mevcut hesaba bağlandı" notuyla. Böylece her iki yol da
+(yeni hesap / mevcut hesaba bağlanma) kullanıcıya görünür bir onay üretiyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

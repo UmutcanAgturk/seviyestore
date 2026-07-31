@@ -172,6 +172,10 @@ final class StudentsRestController extends AbstractRestController
             $response['parent_credentials'] = $parentResult['credentials'];
         }
 
+        if ($parentResult['linked_existing'] !== null) {
+            $response['parent_linked_existing'] = $parentResult['linked_existing'];
+        }
+
         return new WP_REST_Response($response, 201);
     }
 
@@ -198,11 +202,15 @@ final class StudentsRestController extends AbstractRestController
      * `parent_error` alanıyla öğrencinin oluştuğunu ama velinin manuel
      * bağlanması gerektiğini bildirir.
      *
-     * @return array{error: ?string, credentials: ?array{user_id: int, name: string, email: string, password: string}}
+     * @return array{
+     *     error: ?string,
+     *     credentials: ?array{user_id: int, name: string, email: string, password: string},
+     *     linked_existing: ?array{name: string, email: string}
+     * }
      */
     private function maybeCreateAndLinkParent(Student $student, WP_REST_Request $request): array
     {
-        $none = ['error' => null, 'credentials' => null];
+        $none = ['error' => null, 'credentials' => null, 'linked_existing' => null];
 
         $firstName = trim((string) $request->get_param('parent_first_name'));
         $lastName = trim((string) $request->get_param('parent_last_name'));
@@ -216,6 +224,7 @@ final class StudentsRestController extends AbstractRestController
             return [
                 'error' => __('Veli eklenemedi: ad, soyad ve geçerli bir e-posta gerekli.', 'seviye-students'),
                 'credentials' => null,
+                'linked_existing' => null,
             ];
         }
 
@@ -225,6 +234,9 @@ final class StudentsRestController extends AbstractRestController
         $existingUser = get_user_by('email', $email);
         $userId = $existingUser !== false ? $existingUser->ID : null;
         $credentials = null;
+        $linkedExisting = $existingUser !== false
+            ? ['name' => $existingUser->display_name, 'email' => $email]
+            : null;
 
         if ($userId === null) {
             $password = wp_generate_password(16, true);
@@ -247,6 +259,7 @@ final class StudentsRestController extends AbstractRestController
                         $created->get_error_message()
                     ),
                     'credentials' => null,
+                    'linked_existing' => null,
                 ];
             }
 
@@ -271,10 +284,11 @@ final class StudentsRestController extends AbstractRestController
                     $exception->getLine()
                 ),
                 'credentials' => $credentials,
+                'linked_existing' => $linkedExisting,
             ];
         }
 
-        return ['error' => null, 'credentials' => $credentials];
+        return ['error' => null, 'credentials' => $credentials, 'linked_existing' => $linkedExisting];
     }
 
     /**

@@ -101,6 +101,10 @@ function scp_enqueue_panel_assets(): void
         'summaryPassword' => __('Veli Şifresi', 'seviye-storefront'),
         'summaryNotSet' => __('Girilmedi', 'seviye-storefront'),
         'summaryTcNoError' => __('T.C. Kimlik No bağlanamadı', 'seviye-storefront'),
+        'summaryLinkedExistingNote' => __(
+            'Bu e-posta zaten kayıtlı bir veli hesabına ait. Yeni şifre oluşturulmadı, öğrenci mevcut hesaba bağlandı.',
+            'seviye-storefront'
+        ),
         'sessionExpired' => __(
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'

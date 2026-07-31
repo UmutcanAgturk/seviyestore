@@ -160,7 +160,7 @@
         summaryList.appendChild(dd);
     }
 
-    function showRegistrationSummary(payload, branchLabel, credentials, tcNo, tcNoError) {
+    function showRegistrationSummary(payload, branchLabel, parent, tcNo, tcNoError, isExisting) {
         summaryList.innerHTML = '';
 
         summaryRow(scpPanelText.summaryStudent, payload.first_name + ' ' + payload.last_name, false);
@@ -175,10 +175,15 @@
 
         summaryRow(scpPanelText.summaryClass, payload.class_name, false);
         summaryRow(scpPanelText.summaryEducationYear, payload.education_year, false);
-        summaryRow(scpPanelText.summaryParent, credentials.name, false);
-        summaryRow(scpPanelText.summaryParentEmail, credentials.email, false);
-        summaryRow(scpPanelText.summaryTcNo, tcNo || scpPanelText.summaryNotSet, true);
-        summaryRow(scpPanelText.summaryPassword, credentials.password, true);
+        summaryRow(scpPanelText.summaryParent, parent.name, false);
+        summaryRow(scpPanelText.summaryParentEmail, parent.email, false);
+
+        if (isExisting) {
+            summaryRow('', scpPanelText.summaryLinkedExistingNote, false);
+        } else {
+            summaryRow(scpPanelText.summaryTcNo, tcNo || scpPanelText.summaryNotSet, true);
+            summaryRow(scpPanelText.summaryPassword, parent.password, true);
+        }
 
         if (tcNoError) {
             summaryRow(scpPanelText.summaryTcNoError, tcNoError, false);
@@ -297,6 +302,7 @@
             }
 
             var credentials = result.data && result.data.parent_credentials;
+            var linkedExisting = result.data && result.data.parent_linked_existing;
 
             function finish(tcNoError) {
                 if (result.data && result.data.parent_error) {
@@ -306,7 +312,9 @@
                 }
 
                 if (credentials) {
-                    showRegistrationSummary(payload, branchLabel, credentials, tcNo, tcNoError);
+                    showRegistrationSummary(payload, branchLabel, credentials, tcNo, tcNoError, false);
+                } else if (linkedExisting) {
+                    showRegistrationSummary(payload, branchLabel, linkedExisting, tcNo, tcNoError, true);
                 }
 
                 form.hidden = true;
