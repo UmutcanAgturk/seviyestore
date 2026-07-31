@@ -16,15 +16,25 @@ function scp_enqueue_assets(): void
         return;
     }
 
-    wp_enqueue_style('scp-theme', SCP_THEME_URL . '/assets/css/theme.css', [], SCP_THEME_VERSION);
-    wp_enqueue_style('scp-panel', SCP_THEME_URL . '/assets/css/panel.css', ['scp-theme'], SCP_THEME_VERSION);
+    wp_enqueue_style(
+        'scp-theme',
+        SCP_THEME_URL . '/assets/css/theme.css',
+        [],
+        scp_asset_version('/assets/css/theme.css')
+    );
+    wp_enqueue_style(
+        'scp-panel',
+        SCP_THEME_URL . '/assets/css/panel.css',
+        ['scp-theme'],
+        scp_asset_version('/assets/css/panel.css')
+    );
 
     if (class_exists('WooCommerce')) {
         wp_enqueue_style(
             'scp-woocommerce',
             SCP_THEME_URL . '/assets/css/woocommerce.css',
             ['scp-theme'],
-            SCP_THEME_VERSION
+            scp_asset_version('/assets/css/woocommerce.css')
         );
     }
 
@@ -47,7 +57,13 @@ function scp_enqueue_panel_assets(): void
     // registered once here rather than re-declared identically in all 11 of
     // them, and the one place that recognizes a stale X-WP-Nonce
     // ("Çerez denetlenemedi") and turns it into an actionable message.
-    wp_enqueue_script('scp-api-fetch', SCP_THEME_URL . '/assets/js/scp-api-fetch.js', [], SCP_THEME_VERSION, true);
+    wp_enqueue_script(
+        'scp-api-fetch',
+        SCP_THEME_URL . '/assets/js/scp-api-fetch.js',
+        [],
+        scp_asset_version('/assets/js/scp-api-fetch.js'),
+        true
+    );
 
     $localized = [
         'restUrl' => esc_url_raw(rest_url('seviye/v1/')),
@@ -117,7 +133,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/students-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/students-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
@@ -132,7 +148,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/branches-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/branches-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -145,7 +161,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/pricing-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/pricing-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
@@ -162,7 +178,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/parent-dashboard.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/parent-dashboard.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -177,7 +193,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/hakedis-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/hakedis-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
@@ -195,7 +211,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/reports-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/reports-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
@@ -211,7 +227,7 @@ function scp_enqueue_panel_assets(): void
         $handle,
         SCP_THEME_URL . '/assets/js/account-security.js',
         ['scp-api-fetch'],
-        SCP_THEME_VERSION,
+        scp_asset_version('/assets/js/account-security.js'),
         true
     );
     wp_localize_script($handle, 'scpPanel', $localized);
@@ -223,7 +239,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/ip-allowlist-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/ip-allowlist-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -236,7 +252,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/notifications-settings-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/notifications-settings-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -249,7 +265,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/api-keys-panel.js',
             ['scp-api-fetch'],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/api-keys-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -264,7 +280,7 @@ function scp_enqueue_panel_assets(): void
         $handle,
         SCP_THEME_URL . '/assets/js/notifications-bell.js',
         ['scp-api-fetch'],
-        SCP_THEME_VERSION,
+        scp_asset_version('/assets/js/notifications-bell.js'),
         true
     );
     wp_localize_script($handle, 'scpPanel', $localized);
@@ -276,7 +292,7 @@ function scp_enqueue_panel_assets(): void
             $handle,
             SCP_THEME_URL . '/assets/js/product-student-picker.js',
             [],
-            SCP_THEME_VERSION,
+            scp_asset_version('/assets/js/product-student-picker.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);
@@ -286,8 +302,19 @@ function scp_enqueue_panel_assets(): void
 
 function scp_enqueue_auth_assets(): void
 {
-    wp_enqueue_style('scp-auth', SCP_THEME_URL . '/assets/css/auth.css', [], SCP_THEME_VERSION);
-    wp_enqueue_script('scp-auth', SCP_THEME_URL . '/assets/js/auth.js', [], SCP_THEME_VERSION, true);
+    wp_enqueue_style(
+        'scp-auth',
+        SCP_THEME_URL . '/assets/css/auth.css',
+        [],
+        scp_asset_version('/assets/css/auth.css')
+    );
+    wp_enqueue_script(
+        'scp-auth',
+        SCP_THEME_URL . '/assets/js/auth.js',
+        [],
+        scp_asset_version('/assets/js/auth.js'),
+        true
+    );
 
     wp_localize_script('scp-auth', 'scpAuth', [
         'restUrl' => esc_url_raw(rest_url('seviye/v1/auth/')),

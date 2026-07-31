@@ -205,8 +205,19 @@ function scp_enqueue_setup_assets(string $hook): void
         return;
     }
 
-    wp_enqueue_style('scp-setup', SCP_THEME_URL . '/assets/css/setup.css', [], SCP_THEME_VERSION);
-    wp_enqueue_script('scp-setup', SCP_THEME_URL . '/assets/js/setup-wizard.js', [], SCP_THEME_VERSION, true);
+    wp_enqueue_style(
+        'scp-setup',
+        SCP_THEME_URL . '/assets/css/setup.css',
+        [],
+        scp_asset_version('/assets/css/setup.css')
+    );
+    wp_enqueue_script(
+        'scp-setup',
+        SCP_THEME_URL . '/assets/js/setup-wizard.js',
+        [],
+        scp_asset_version('/assets/js/setup-wizard.js'),
+        true
+    );
 
     wp_localize_script('scp-setup', 'scpSetup', [
         'ajaxUrl' => admin_url('admin-ajax.php'),

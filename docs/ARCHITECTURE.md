@@ -1639,6 +1639,29 @@ alanı da okuyup (yeni `credentials` yoksa) Kayıt Özeti kartını YİNE açıy
 hesabına ait, öğrenci mevcut hesaba bağlandı" notuyla. Böylece her iki yol da
 (yeni hesap / mevcut hesaba bağlanma) kullanıcıya görünür bir onay üretiyor.
 
+### 28. Statik `SCP_THEME_VERSION` her güncellemeyi tarayıcı önbelleğine gömüyordu
+
+"Yeni paketi yükledim, hâlâ eski davranış" tarzı raporların (bu bölümdeki
+27. madde dahil, muhtemelen daha önceki turlardaki bazı "düzelttim ama
+görünmüyor" tekrarlarının da gerçek kök nedeni) altında yatan platform
+genelinde bir sorun bulundu: `functions.php`'deki `SCP_THEME_VERSION`
+sabiti, temanın İLK commit'inden beri hep `'0.1.0'` - hiç değişmemiş. Her
+`wp_enqueue_script()`/`wp_enqueue_style()` çağrısı bu SABİT değeri
+versiyon parametresi olarak kullanıyordu, yani `students-panel.js?ver=0.1.0`
+gibi bir URL, dosyanın içeriği KAÇ KEZ güncellenmiş olursa olsun HER
+zaman AYNI kalıyordu - tarayıcı (ve önündeki herhangi bir sayfa
+önbellekleme katmanı), dosyanın değiştiğini anlayabileceği HİÇBİR sinyal
+almıyordu. Sunucudaki dosya gerçekten güncellenmiş olsa bile, kullanıcının
+tarayıcısı eskisini önbellekten sunmaya devam edebiliyordu.
+
+Düzeltme: `functions.php`'ye `scp_asset_version(string $relativePath): string`
+eklendi - ilgili dosyanın `filemtime()`'ını (değişmemişse `SCP_THEME_VERSION`'a
+düşerek) döndürüyor. `inc/assets.php` ve `inc/plugin-installer.php`'teki
+YİRMİ enqueue çağrısının tamamı artık bare `SCP_THEME_VERSION` yerine
+`scp_asset_version('/assets/js/...')` kullanıyor - versiyon artık dosya
+her değiştiğinde OTOMATİK değişiyor, manuel bir sürüm numarası bakımı
+gerekmiyor ve bir daha asla statik kalıp bayatlayamıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
