@@ -174,6 +174,7 @@ get_header();
                         <tr>
                             <th><?php esc_html_e('Ad Soyad', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('T.C. Kimlik No', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Eğitim Yılı', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Sınıf', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
@@ -195,6 +196,10 @@ get_header();
                     <label>
                         <span><?php esc_html_e('Soyad', 'seviye-storefront'); ?></span>
                         <input type="text" name="last_name" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Öğrenci T.C. Kimlik No (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                        <input type="text" name="tc_no" inputmode="numeric" maxlength="11" pattern="[0-9]{11}">
                     </label>
                 </div>
 
@@ -269,20 +274,6 @@ get_header();
                     </div>
                 </div>
 
-                <div class="scp-reveal-card" data-scp-registration-summary hidden>
-                    <h3><?php esc_html_e('Kayıt Özeti', 'seviye-storefront'); ?></h3>
-                    <p class="scp-form__hint">
-                        <?php esc_html_e(
-                            'Bu bilgiler yalnızca bir kez gösterilir. Şifreyi kapatmadan önce veliye iletin.',
-                            'seviye-storefront'
-                        ); ?>
-                    </p>
-                    <dl class="scp-summary-list" data-scp-registration-summary-list></dl>
-                    <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-dismiss-summary>
-                        <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
-                    </button>
-                </div>
-
                 <div class="scp-form__actions">
                     <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
                     <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-student>
@@ -313,6 +304,20 @@ get_header();
                     </div>
                 </div>
             </form>
+
+            <div class="scp-reveal-card" data-scp-registration-summary hidden>
+                <h3><?php esc_html_e('Kayıt Özeti', 'seviye-storefront'); ?></h3>
+                <p class="scp-form__hint">
+                    <?php esc_html_e(
+                        'Bu bilgiler yalnızca bir kez gösterilir. Şifreyi kapatmadan önce veliye iletin.',
+                        'seviye-storefront'
+                    ); ?>
+                </p>
+                <dl class="scp-summary-list" data-scp-registration-summary-list></dl>
+                <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-dismiss-summary>
+                    <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                </button>
+            </div>
         </section>
     <?php else : ?>
         <div class="scp-card scp-empty">

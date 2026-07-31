@@ -18,7 +18,8 @@ final class Student
         public readonly string $lastName,
         public readonly EducationYear $educationYear,
         public readonly string $className,
-        public readonly StudentStatus $status
+        public readonly StudentStatus $status,
+        public readonly ?string $tcNo = null
     ) {
     }
 

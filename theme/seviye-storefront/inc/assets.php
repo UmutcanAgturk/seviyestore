@@ -86,6 +86,7 @@ function scp_enqueue_panel_assets(): void
         'twoFactorWrongPassword' => __('Şifre hatalı.', 'seviye-storefront'),
         'summaryStudent' => __('Öğrenci', 'seviye-storefront'),
         'summaryBranch' => __('Şube', 'seviye-storefront'),
+        'summaryStudentTcNo' => __('Öğrenci T.C. Kimlik No', 'seviye-storefront'),
         'summaryClass' => __('Sınıf', 'seviye-storefront'),
         'summaryEducationYear' => __('Eğitim Yılı', 'seviye-storefront'),
         'summaryParent' => __('Veli', 'seviye-storefront'),

@@ -102,6 +102,7 @@
             [
                 student.first_name + ' ' + student.last_name,
                 student.branch_name || '',
+                student.tc_no || scpPanelText.summaryNotSet,
                 student.education_year,
                 student.class_name
             ].forEach(function (text) {
@@ -134,6 +135,7 @@
         form.id.value = student ? student.id : '';
         form.first_name.value = student ? student.first_name : '';
         form.last_name.value = student ? student.last_name : '';
+        form.tc_no.value = student && student.tc_no ? student.tc_no : '';
         form.education_year.value = student ? student.education_year : '';
         form.class_name.value = student ? student.class_name : '';
 
@@ -178,6 +180,10 @@
 
         if (branchLabel) {
             summaryRow(scpPanelText.summaryBranch, branchLabel, false);
+        }
+
+        if (payload.tc_no) {
+            summaryRow(scpPanelText.summaryStudentTcNo, payload.tc_no, true);
         }
 
         summaryRow(scpPanelText.summaryClass, payload.class_name, false);
@@ -272,6 +278,7 @@
         var payload = {
             first_name: form.first_name.value,
             last_name: form.last_name.value,
+            tc_no: form.tc_no.value.trim(),
             education_year: form.education_year.value,
             class_name: form.class_name.value
         };

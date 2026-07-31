@@ -44,6 +44,30 @@ final class WpdbStudentRepositoryTest extends TestCase
         self::assertSame(7, $connection->inserted[0][1]['branch_id']);
     }
 
+    public function testCreatePersistsAndReadsBackTheTcNo(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [array_merge($this->studentRow(), ['tc_no' => '12345678901'])];
+        $repository = new WpdbStudentRepository($connection);
+
+        $student = $repository->create(7, 'Ahmet', 'Yılmaz', EducationYear::fromString('2025-2026'), '5-A', '12345678901');
+
+        self::assertSame('12345678901', $student->tcNo);
+        self::assertSame('12345678901', $connection->inserted[0][1]['tc_no']);
+    }
+
+    public function testCreateWithoutTcNoLeavesItNull(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [$this->studentRow()];
+        $repository = new WpdbStudentRepository($connection);
+
+        $student = $repository->create(7, 'Ahmet', 'Yılmaz', EducationYear::fromString('2025-2026'), '5-A');
+
+        self::assertNull($student->tcNo);
+        self::assertNull($connection->inserted[0][1]['tc_no']);
+    }
+
     public function testFindReturnsNullWhenNoRowMatches(): void
     {
         $connection = new FakeConnection();

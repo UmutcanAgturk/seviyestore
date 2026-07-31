@@ -21,7 +21,8 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
         string $firstName,
         string $lastName,
         EducationYear $educationYear,
-        string $className
+        string $className,
+        ?string $tcNo = null
     ): Student {
         $now = $this->now();
 
@@ -31,6 +32,7 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
             'last_name' => $lastName,
             'education_year' => $educationYear->value(),
             'class_name' => $className,
+            'tc_no' => $tcNo,
             'status' => StudentStatus::ACTIVE->value,
             'created_at' => $now,
             'updated_at' => $now,
@@ -52,13 +54,24 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
         string $lastName,
         EducationYear $educationYear,
         string $className,
-        StudentStatus $status
+        StudentStatus $status,
+        ?string $tcNo = null
     ): Student {
         $table = $this->connection->table('students');
         $sql = $this->connection->prepare(
             'UPDATE ' . $table . ' SET branch_id = %d, first_name = %s, last_name = %s, '
-                . 'education_year = %s, class_name = %s, status = %s, updated_at = %s WHERE id = %d',
-            [$branchId, $firstName, $lastName, $educationYear->value(), $className, $status->value, $this->now(), $id]
+                . 'education_year = %s, class_name = %s, tc_no = %s, status = %s, updated_at = %s WHERE id = %d',
+            [
+                $branchId,
+                $firstName,
+                $lastName,
+                $educationYear->value(),
+                $className,
+                $tcNo,
+                $status->value,
+                $this->now(),
+                $id,
+            ]
         );
 
         $this->connection->query($sql);
@@ -114,7 +127,8 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
             (string) $row['last_name'],
             EducationYear::fromString((string) $row['education_year']),
             (string) $row['class_name'],
-            StudentStatus::from((string) $row['status'])
+            StudentStatus::from((string) $row['status']),
+            isset($row['tc_no']) && $row['tc_no'] !== '' ? (string) $row['tc_no'] : null
         );
     }
 

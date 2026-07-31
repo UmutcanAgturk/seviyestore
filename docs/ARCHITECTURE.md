@@ -1494,6 +1494,55 @@ WC'nin KENDİ ürettiği markup'ı hedefleyen CSS ile yeniden tasarlandı
 sürüm güncellemelerine karşı daha güvenli. `class_exists('WooCommerce')`
 doğruysa `inc/assets.php`'te koşullu enqueue edildi.
 
+### 24. Kayıt özeti gizlenme hatası, Şube Müdürü T.C. No yetkisi, öğrencinin kendi T.C. No'su, mağaza sayfası kendiliğinden onarımı
+
+**Gerçek bir hata**: bölüm 23'te eklenen "Kayıt Özeti" reveal kartı,
+`<form data-scp-student-form>`'un İÇİNDE, form'un kapanış etiketinden
+hemen önce render ediliyordu. `students-panel.js`'in `finish()`'i,
+`showRegistrationSummary()`'i çağırıp kartı görünür yaptıktan HEMEN SONRA
+`form.hidden = true;` çalıştırıyordu - kart `hidden=false` olsa bile,
+HTML'de `[hidden]` bir ata elemente uygulanınca tüm alt elemanları da
+görünmez kılar, bu yüzden kart aslında hiç görünmüyordu. Düzeltme: kart
+artık `</form>`'dan SONRA, `<section>`'ın kendi içinde ama form'un
+DIŞINDA bir kardeş eleman - `form.hidden` artık onu etkilemiyor.
+
+**Şube Müdürü T.C. No bağlayamıyordu**: `IdentityRestController`'ın
+izin kontrolü yalnızca `SecurityCapability::MANAGE_SECURITY_SETTINGS`
+kabul ediyordu (yalnızca Genel Merkez/native administrator) - ama
+"öğrenci + veli ekle" akışını asıl KULLANAN kişi genelde Şube Müdürü,
+ki o yalnızca `scp_manage_students` taşıyor. Sonuç: Şube Müdürü T.C. No
+girse bile arkaplandaki `POST security/users/{id}/tc-no` çağrısı sessizce
+403 dönüyordu, T.C. No hiç kaydolmuyordu. Düzeltme: izin kontrolü artık
+`MANAGE_SECURITY_SETTINGS` VEYA ham `'scp_manage_students'` capability
+string'ini kabul ediyor (enum değil - `StudentCapability` import etmek
+döngüsel bağımlılığı geri getirirdi). `WpdbIdentityGateway::link()`'in
+`user_id` üzerindeki UNIQUE KEY'i zaten var olan bir kimliğin ÜZERİNE
+yazılmasını engelliyor, bu yüzden genişletilmiş yetki yalnızca henüz
+bağlanmamış bir hesaba T.C. No eklemeye izin veriyor, mevcut birini ele
+geçirmeye değil.
+
+**Öğrencinin kendi T.C. Kimlik No'su**: veli girişi için kullanılan T.C.
+No'dan (Security'nin `scp_user_identities`, checksum doğrulamalı) TAMAMEN
+AYRI, öğrencinin kendisi WP kullanıcısı olmadığı için `scp_students`
+tablosuna eklenen, yalnızca bilgi amaçlı yeni bir `tc_no CHAR(11) NULL`
+sütunu. `CreateStudentsTable::up()`'a eklendi - dbDelta zaten var olan
+tabloya eksik sütunu kendiliğinden ekler (bkz. "Üçüncü kural"), ayrı bir
+ALTER migration'a gerek yok. `Student` domain nesnesine, repository'ye ve
+REST controller'a eklendi; biçim doğrulaması yalnızca 11 hane (tam
+checksum değil - Security'nin `TcNumber`'ına bağımlı olamaz, bu alan zaten
+kimlik doğrulaması için kullanılmıyor).
+
+**Mağaza sayfası kendiliğinden onarımı**: WooCommerce'in kendi kurulumcusu
+(`WC_Install::create_pages()`) "Mağaza" sayfasını yalnızca WooCommerce
+PASİF'ten AKTİF'e geçtiğinde oluşturur - eklenti yeniden kurulduğunda
+(bu platformda tekrar tekrar yaşanan bir senaryo) bu adım bir daha
+çalışmaz. Sayfa silinmiş/kaybolmuşsa mağazanın render edecek hiçbir
+şeyi kalmaz - hiçbir CSS düzeltmesi bunu çözemez. `inc/woocommerce.php`
+artık her wp-admin yüklemesinde `wc_get_page_id('shop')`'u kontrol
+ediyor, geçersizse WooCommerce'in KENDİ `wc_create_page()` yardımcısıyla
+sayfayı yeniden oluşturuyor - MigrationRunner'ın "Üçüncü kural"ıyla
+birebir aynı gerekçe.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

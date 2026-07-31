@@ -15,7 +15,8 @@ interface StudentRepositoryInterface
         string $firstName,
         string $lastName,
         EducationYear $educationYear,
-        string $className
+        string $className,
+        ?string $tcNo = null
     ): Student;
 
     public function update(
@@ -25,7 +26,8 @@ interface StudentRepositoryInterface
         string $lastName,
         EducationYear $educationYear,
         string $className,
-        StudentStatus $status
+        StudentStatus $status,
+        ?string $tcNo = null
     ): Student;
 
     public function find(int $id): ?Student;

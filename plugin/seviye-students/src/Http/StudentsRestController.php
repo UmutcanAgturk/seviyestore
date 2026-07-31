@@ -154,7 +154,8 @@ final class StudentsRestController extends AbstractRestController
                 (string) $request->get_param('first_name'),
                 (string) $request->get_param('last_name'),
                 EducationYear::fromString((string) $request->get_param('education_year')),
-                (string) $request->get_param('class_name')
+                (string) $request->get_param('class_name'),
+                $this->resolveStudentTcNo($request)
             );
         } catch (InvalidArgumentException $exception) {
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
@@ -313,7 +314,8 @@ final class StudentsRestController extends AbstractRestController
                 (string) $request->get_param('last_name'),
                 EducationYear::fromString((string) $request->get_param('education_year')),
                 (string) $request->get_param('class_name'),
-                StudentStatus::from((string) ($request->get_param('status') ?? StudentStatus::ACTIVE->value))
+                StudentStatus::from((string) ($request->get_param('status') ?? StudentStatus::ACTIVE->value)),
+                $this->resolveStudentTcNo($request)
             );
         } catch (InvalidArgumentException $exception) {
             return new WP_REST_Response(['message' => $exception->getMessage()], 422);
@@ -386,8 +388,34 @@ final class StudentsRestController extends AbstractRestController
             'last_name' => $student->lastName,
             'education_year' => $student->educationYear->value(),
             'class_name' => $student->className,
+            'tc_no' => $student->tcNo,
             'status' => $student->status->value,
         ];
+    }
+
+    /**
+     * Öğrencinin KENDİ T.C. Kimlik No'su - Security'nin veli/personel giriş
+     * kimliğinden (scp_user_identities, TcNumber checksum'lı) tamamen ayrı,
+     * yalnızca bilgi amaçlı bir öğrenci kaydı alanı (öğrenciler WP
+     * kullanıcısı değil, giriş yapmıyor). Bu yüzden tam checksum
+     * doğrulaması yerine yalnızca biçim (11 hane) kontrol ediliyor - Security
+     * Contract yayınlamadığı için Students, TcNumber'a bağımlı olamaz (bkz.
+     * docs/ARCHITECTURE.md).
+     */
+    private function resolveStudentTcNo(WP_REST_Request $request): ?string
+    {
+        $raw = trim((string) $request->get_param('tc_no'));
+
+        if ($raw === '') {
+            return null;
+        }
+
+        if (!preg_match('/^\d{11}$/', $raw)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+            throw new InvalidArgumentException(__('Geçersiz T.C. Kimlik No biçimi (11 hane olmalı).', 'seviye-students'));
+        }
+
+        return $raw;
     }
 
     /**
@@ -401,6 +429,7 @@ final class StudentsRestController extends AbstractRestController
             'last_name' => ['required' => true, 'type' => 'string'],
             'education_year' => ['required' => true, 'type' => 'string'],
             'class_name' => ['required' => true, 'type' => 'string'],
+            'tc_no' => ['required' => false, 'type' => 'string'],
             'status' => ['required' => false, 'type' => 'string'],
             // Yalnızca öğrenci OLUŞTURULURKEN (store()) kullanılır - update()
             // aynı args'ı paylaşıyor ama bu alanları okumuyor, zararsız.

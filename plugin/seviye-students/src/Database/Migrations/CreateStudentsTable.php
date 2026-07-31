@@ -42,6 +42,7 @@ final class CreateStudentsTable implements MigrationInterface
             last_name VARCHAR(100) NOT NULL,
             education_year VARCHAR(9) NOT NULL,
             class_name VARCHAR(50) NOT NULL,
+            tc_no CHAR(11) NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'active',
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
