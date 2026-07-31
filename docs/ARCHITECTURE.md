@@ -116,6 +116,37 @@ tutan bir denetim kaydı olarak kalıyor, bir daha çalıştırmayı engelleyen
 bir kapı değil. Bu sayede kaybolmuş ya da hiç oluşmamış bir tablo, bir
 sonraki `run()` çağrısında kendiliğinden onarılıyor.
 
+**Dördüncü kural (`version()` string'leri sadece MODÜL İÇİNDE benzersizdir):**
+Her modül kendi migration'larını bağımsız numaralandırır - platform genelinde
+koordine edilmiş tek bir sayaç yok. Sonuç: Branches, Core, Security, Students
+ve Parents'ın İLK migration'larının hepsi `"2026_07_28_000001"` etiketini
+taşıyor (tesadüfen aynı gün yazıldıkları için). `MigrationRunner`'ın eski
+implementasyonu iç kayıt dizisini SADECE `version()`'a göre anahtarlıyordu -
+`register()` çağrıları PHP dizi anahtarı olarak çakışınca, aynı tarihli bir
+migration'ı kaydeden HER modül bir öncekini sessizce diziden düşürüyordu. Hangi
+eklentinin `boot()` sırasında en son kaydolduğu (bu da eklenti aktivasyon
+sırasına bağlı, deklare edilmiş bir bağımlılık grafiğine göre değil - bkz.
+"İkinci kural") o 5 migration'dan yalnızca BİRİNİN gerçekten çalışıp
+çalışmadığını belirliyordu; diğer dördünün `up()`'ı hiç çağrılmıyordu, hiçbir
+hata da fırlatılmıyordu. Canlıda gerçekten yaşandı: `scp_branches` tablosu bu
+yüzden kalıcı olarak hiç oluşmamıştı, "Üçüncü kural"daki kendiliğinden onarma
+mekanizması bile bunu kurtaramıyordu çünkü migration `run()`'ın iç listesine
+girmeden ÖNCE eviction oluyordu. Düzeltme: kayıt dizisi artık
+`version() . '@' . get_class($migration)` ile anahtarlanıyor - aynı tarihli
+farklı modül migration'ları artık birbirini silmiyor; `scp_migrations` audit
+tablosundaki `version` sütunu (ve "ilk kez uygulandı" izleme mantığı)
+değişmeden `version()`'ı kullanmaya devam ediyor, yani aynı etiketi paylaşan
+migration'lar audit kaydında tek bir satırda toplanıyor (kabul edilen bir
+sınırlama - audit log zaten yetkili kaynak değil, bkz. "Üçüncü kural"). Sınıf
+adı yalnızca çakışan `version()`'lar için bir sıralama belirleyicisidir;
+`ksort()` önce `version()`'a göre sıralar, bu yüzden Students'ın
+`scp_branches`'a gerçek bir FK bağımlılığı olan migration'ı (`CreateStudentsTable`)
+Branches'ın migration'ından SONRA çalışacağı garantisi yalnızca alfabetik sınıf
+adı sıralamasına dayanır (`Seviye\Branches...` < `Seviye\Students...`) -
+kesin bir bağımlılık grafiği değil. Bu yüzden `ForeignKeyInstaller::ensure()`
+referans tablo henüz yoksa exception fırlatmak yerine sessizce atlar (fail
+soft) - yanlış sırada çalışırsa FK eklenmez ama migration akışı durmaz.
+
 ## Neden bu tasarım
 
 ### 1. Ports & Adapters ile WordPress'ten ayrıştırma
