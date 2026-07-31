@@ -1709,6 +1709,30 @@ geniş uyumluluk için). `header.php`'nin nav'ına "Mağaza" linkinin yanına
 `wc_get_cart_url()` ile "Sepetim" linki eklendi (aynı `scp_view_own_children`
 kapasitesiyle kapılı).
 
+### 30. Sepetim sayfası "var" ama her zaman veli panosunu gösteriyordu
+
+"Sepet sayfası olmasına rağmen sepet sayfasına geçiş yapmıyor, ana sayfaya
+yönleniyor" raporu bir HTTP yönlendirmesi DEĞİLDİ (RoleRouter/access-gate
+sağlamdı, veli için `/sepetim` gibi bir yol zaten `/admin`/`/sube` dışında
+her şeyle aynı "parent" bölgesine giriyor, engellenmiyor) - asıl sorun
+`index.php`'nin ÇALIŞMA ŞEKLİYDİ. Temada `page.php` yok, bu yüzden gerçek
+bir WP Page (Sepetim sayfası dahil - `[woocommerce_cart]` shortcode'lu sıradan
+bir Page) WordPress'in şablon hiyerarşisinde `index.php`'ye düşüyor -
+`index.php` da `scp_view_own_children` yetkisi olan HERKES için (yani her
+veli) HANGİ SAYFADA olunduğuna bakmaksızın koşulsuzca
+`templates/parent-dashboard.php`'yi basıyordu. Mağaza/ürün sayfaları
+etkilenmiyordu çünkü WooCommerce onlar için kendi (daha spesifik) şablon
+öncelikli dosyalarını kullanıyor - ama sepet sadece düz bir Page olduğu
+için bu özel yolu yoktu, hep dashboard'a düşüyordu. Sepetim sayfasının
+kendisi gerçekten VARDI (`wc_get_page_id('cart')` doğru dönüyordu, link
+URL'i doğruydu) ama İÇERİĞİ hiçbir zaman render edilmiyordu.
+
+Düzeltme: `index.php`'deki dashboard dalına `!is_page()` şartı eklendi -
+artık dashboard yalnızca statik bir front page tanımlı olmadığı için
+köke ('/') düşen blog-index fallback'inde gösteriliyor, gerçek bir WP
+Page'e (Sepetim dahil, ileride eklenecek her Page için de) gelindiğinde
+`the_content()` kendi içeriğini basıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
