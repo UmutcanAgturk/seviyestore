@@ -27,6 +27,8 @@
     var parentUserIdInput = root.querySelector('[data-scp-parent-user-id]');
     var parentRelationshipSelect = root.querySelector('[data-scp-parent-relationship]');
     var parentQuickAdd = root.querySelector('[data-scp-parent-quick-add]');
+    var summaryCard = root.querySelector('[data-scp-registration-summary]');
+    var summaryList = root.querySelector('[data-scp-registration-summary-list]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -148,6 +150,48 @@
             parentsList.innerHTML = '';
             parentQuickAdd.hidden = false;
         }
+
+        summaryCard.hidden = true;
+    }
+
+    function summaryRow(label, value, useCode) {
+        var dt = document.createElement('dt');
+        dt.textContent = label;
+
+        var dd = document.createElement('dd');
+        if (useCode) {
+            var code = document.createElement('code');
+            code.textContent = value;
+            dd.appendChild(code);
+        } else {
+            dd.textContent = value;
+        }
+
+        summaryList.appendChild(dt);
+        summaryList.appendChild(dd);
+    }
+
+    function showRegistrationSummary(payload, branchLabel, credentials, tcNo, tcNoError) {
+        summaryList.innerHTML = '';
+
+        summaryRow(scpPanelText.summaryStudent, payload.first_name + ' ' + payload.last_name, false);
+
+        if (branchLabel) {
+            summaryRow(scpPanelText.summaryBranch, branchLabel, false);
+        }
+
+        summaryRow(scpPanelText.summaryClass, payload.class_name, false);
+        summaryRow(scpPanelText.summaryEducationYear, payload.education_year, false);
+        summaryRow(scpPanelText.summaryParent, credentials.name, false);
+        summaryRow(scpPanelText.summaryParentEmail, credentials.email, false);
+        summaryRow(scpPanelText.summaryTcNo, tcNo || scpPanelText.summaryNotSet, true);
+        summaryRow(scpPanelText.summaryPassword, credentials.password, true);
+
+        if (tcNoError) {
+            summaryRow(scpPanelText.summaryTcNoError, tcNoError, false);
+        }
+
+        summaryCard.hidden = false;
     }
 
     function loadParents(studentId) {
@@ -217,6 +261,10 @@
         });
     });
 
+    root.querySelector('[data-scp-dismiss-summary]').addEventListener('click', function () {
+        summaryCard.hidden = true;
+    });
+
     form.addEventListener('submit', function (event) {
         event.preventDefault();
 
@@ -228,15 +276,21 @@
             class_name: form.class_name.value
         };
 
+        var branchLabel = '';
+
         if (scpPanel.canManageAllBranches) {
             payload.branch_id = parseInt(branchSelect.value, 10);
+            branchLabel = branchSelect.selectedOptions.length ? branchSelect.selectedOptions[0].textContent : '';
         }
+
+        var tcNo = '';
 
         if (!id) {
             payload.parent_first_name = form.parent_first_name.value;
             payload.parent_last_name = form.parent_last_name.value;
             payload.parent_email = form.parent_email.value;
             payload.parent_relationship = form.parent_relationship.value;
+            tcNo = form.parent_tc_no.value.trim();
         }
 
         var path = id ? 'students/' + id : 'students';
@@ -248,14 +302,33 @@
                 return;
             }
 
-            if (result.data && result.data.parent_error) {
-                setStatus(scpPanelText.saved + ' ' + result.data.parent_error, true);
-            } else {
-                setStatus(scpPanelText.saved);
+            var credentials = result.data && result.data.parent_credentials;
+
+            function finish(tcNoError) {
+                if (result.data && result.data.parent_error) {
+                    setStatus(scpPanelText.saved + ' ' + result.data.parent_error, true);
+                } else {
+                    setStatus(scpPanelText.saved);
+                }
+
+                if (credentials) {
+                    showRegistrationSummary(payload, branchLabel, credentials, tcNo, tcNoError);
+                }
+
+                form.hidden = true;
+                loadStudents();
             }
 
-            form.hidden = true;
-            loadStudents();
+            if (credentials && tcNo) {
+                apiFetch('security/users/' + credentials.user_id + '/tc-no', {
+                    method: 'POST',
+                    body: JSON.stringify({ tc_no: tcNo })
+                }).then(function (tcResult) {
+                    finish(tcResult.ok ? '' : ((tcResult.data && tcResult.data.message) || scpPanelText.saveError));
+                });
+            } else {
+                finish('');
+            }
         });
     });
 

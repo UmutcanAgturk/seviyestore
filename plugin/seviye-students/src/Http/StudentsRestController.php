@@ -161,10 +161,14 @@ final class StudentsRestController extends AbstractRestController
         }
 
         $response = $this->serialize($student);
-        $parentError = $this->maybeCreateAndLinkParent($student, $request);
+        $parentResult = $this->maybeCreateAndLinkParent($student, $request);
 
-        if ($parentError !== null) {
-            $response['parent_error'] = $parentError;
+        if ($parentResult['error'] !== null) {
+            $response['parent_error'] = $parentResult['error'];
+        }
+
+        if ($parentResult['credentials'] !== null) {
+            $response['parent_credentials'] = $parentResult['credentials'];
         }
 
         return new WP_REST_Response($response, 201);
@@ -173,31 +177,45 @@ final class StudentsRestController extends AbstractRestController
     /**
      * Öğrenci oluşturulurken aynı formda doldurulan veli bilgilerini
      * (varsa) işler: e-postayla eşleşen bir WP kullanıcısı varsa onu
-     * kullanır (aynı velinin ikinci bir çocuğu eklenmesi durumu), yoksa
-     * "Veli" rolünde yeni bir WP kullanıcısı oluşturup öğrenciyle bağlar.
-     * T.C. Kimlik No / şifre bu akışın parçası değil - Security'nin
-     * "Seviye Kullanıcılar" sayfasından ayrıca tamamlanır (Students,
-     * Security'nin kimlik/T.C. No katmanına doğrudan bağımlı değil - bkz.
-     * docs/ARCHITECTURE.md).
+     * kullanır (aynı velinin ikinci bir çocuğu eklenmesi durumu, bu
+     * durumda yeni bir şifre ÜRETİLMEZ - mevcut hesabın kimlik bilgileri
+     * değişmez), yoksa "Veli" rolünde, rastgele üretilmiş bir şifreyle
+     * yeni bir WP kullanıcısı oluşturup öğrenciyle bağlar. T.C. Kimlik No
+     * bu metodun işi değil - Security'nin `seviye/v1/security/users/{id}
+     * /tc-no` REST uç noktası ayrıca çağrılır (Students, Security'nin
+     * kimlik katmanına doğrudan/PHP seviyesinde bağımlı değil, Security
+     * zaten Students'a bağımlı olduğu için tersi döngüsel bağımlılık
+     * yaratırdı - bkz. docs/ARCHITECTURE.md).
+     *
+     * WordPress şifreleri düz metin olarak saklamadığı için üretilen şifre
+     * yalnızca BU yanıtta bir kez görünür - `credentials` alanı bu yüzden
+     * var, admin panelde "bir kerelik" bir bilgilendirme kartında gösterilir.
      *
      * Öğrenci zaten oluşturulduktan SONRA çalışır; burada bir hata olması
      * öğrenci kaydını geri almaz (bu kod tabanında hiçbir yerde DB
      * transaction kullanılmıyor) - başarısızlık durumunda çağıran,
      * `parent_error` alanıyla öğrencinin oluştuğunu ama velinin manuel
      * bağlanması gerektiğini bildirir.
+     *
+     * @return array{error: ?string, credentials: ?array{user_id: int, name: string, email: string, password: string}}
      */
-    private function maybeCreateAndLinkParent(Student $student, WP_REST_Request $request): ?string
+    private function maybeCreateAndLinkParent(Student $student, WP_REST_Request $request): array
     {
+        $none = ['error' => null, 'credentials' => null];
+
         $firstName = trim((string) $request->get_param('parent_first_name'));
         $lastName = trim((string) $request->get_param('parent_last_name'));
         $email = trim((string) $request->get_param('parent_email'));
 
         if ($firstName === '' && $lastName === '' && $email === '') {
-            return null;
+            return $none;
         }
 
         if ($firstName === '' || $lastName === '' || $email === '' || !is_email($email)) {
-            return __('Veli eklenemedi: ad, soyad ve geçerli bir e-posta gerekli.', 'seviye-students');
+            return [
+                'error' => __('Veli eklenemedi: ad, soyad ve geçerli bir e-posta gerekli.', 'seviye-students'),
+                'credentials' => null,
+            ];
         }
 
         $relationship = ParentRelationship::tryFrom((string) $request->get_param('parent_relationship'))
@@ -205,12 +223,15 @@ final class StudentsRestController extends AbstractRestController
 
         $existingUser = get_user_by('email', $email);
         $userId = $existingUser !== false ? $existingUser->ID : null;
+        $credentials = null;
 
         if ($userId === null) {
+            $password = wp_generate_password(16, true);
+
             $created = wp_insert_user([
                 'user_login' => $this->uniqueLoginFor($email),
                 'user_email' => $email,
-                'user_pass' => wp_generate_password(24),
+                'user_pass' => $password,
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'display_name' => $firstName . ' ' . $lastName,
@@ -218,29 +239,41 @@ final class StudentsRestController extends AbstractRestController
             ]);
 
             if (is_wp_error($created)) {
-                return sprintf(
-                    // translators: %s is the underlying WordPress error message.
-                    __('Veli oluşturulamadı: %s', 'seviye-students'),
-                    $created->get_error_message()
-                );
+                return [
+                    'error' => sprintf(
+                        // translators: %s is the underlying WordPress error message.
+                        __('Veli oluşturulamadı: %s', 'seviye-students'),
+                        $created->get_error_message()
+                    ),
+                    'credentials' => null,
+                ];
             }
 
             $userId = (int) $created;
+            $credentials = [
+                'user_id' => $userId,
+                'name' => $firstName . ' ' . $lastName,
+                'email' => $email,
+                'password' => $password,
+            ];
         }
 
         try {
             $this->studentParents->link($student->id, $userId, $relationship);
         } catch (\Throwable $exception) {
-            return sprintf(
-                '%s: %s (%s:%d)',
-                get_class($exception),
-                $exception->getMessage(),
-                $exception->getFile(),
-                $exception->getLine()
-            );
+            return [
+                'error' => sprintf(
+                    '%s: %s (%s:%d)',
+                    get_class($exception),
+                    $exception->getMessage(),
+                    $exception->getFile(),
+                    $exception->getLine()
+                ),
+                'credentials' => $credentials,
+            ];
         }
 
-        return null;
+        return ['error' => null, 'credentials' => $credentials];
     }
 
     /**

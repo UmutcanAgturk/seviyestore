@@ -233,7 +233,7 @@ get_header();
                     <h3><?php esc_html_e('Veli Bilgileri (isteğe bağlı)', 'seviye-storefront'); ?></h3>
                     <p class="scp-form__hint">
                         <?php esc_html_e(
-                            'Doldurursanız, öğrenciyle birlikte bir veli hesabı oluşturulup otomatik olarak bağlanır. E-posta zaten kayıtlı bir veliyle eşleşirse yeni hesap açılmaz, öğrenci mevcut veliye bağlanır.',
+                            'Doldurursanız, öğrenciyle birlikte bir veli hesabı oluşturulup otomatik olarak bağlanır. Şifre otomatik oluşturulur ve kayıttan sonra bir kez gösterilir. E-posta zaten kayıtlı bir veliyle eşleşirse yeni hesap açılmaz, öğrenci mevcut veliye bağlanır (bu durumda T.C. Kimlik No/şifre değişmez).',
                             'seviye-storefront'
                         ); ?>
                     </p>
@@ -261,6 +261,26 @@ get_header();
                             </select>
                         </label>
                     </div>
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Veli T.C. Kimlik No', 'seviye-storefront'); ?></span>
+                            <input type="text" name="parent_tc_no" inputmode="numeric" maxlength="11" pattern="[0-9]{11}">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="scp-reveal-card" data-scp-registration-summary hidden>
+                    <h3><?php esc_html_e('Kayıt Özeti', 'seviye-storefront'); ?></h3>
+                    <p class="scp-form__hint">
+                        <?php esc_html_e(
+                            'Bu bilgiler yalnızca bir kez gösterilir. Şifreyi kapatmadan önce veliye iletin.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
+                    <dl class="scp-summary-list" data-scp-registration-summary-list></dl>
+                    <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-dismiss-summary>
+                        <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                    </button>
                 </div>
 
                 <div class="scp-form__actions">

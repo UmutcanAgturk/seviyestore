@@ -1441,19 +1441,40 @@ eklenmedi.
 ### 23. Öğrenci eklerken veli otomatik oluşturma/bağlama, eğitim yılı menüsü, kurumsal tasarım geçişi
 
 Öğrenci "Yeni Öğrenci" formuna isteğe bağlı bir "Veli Bilgileri" bölümü
-eklendi (ad/soyad/e-posta/yakınlık). Doldurulursa
+eklendi (ad/soyad/e-posta/yakınlık/T.C. Kimlik No). Doldurulursa
 `StudentsRestController::store()`, öğrenciyi oluşturduktan SONRA
 `maybeCreateAndLinkParent()`'ı çalıştırır: e-postayla eşleşen bir WP
-kullanıcısı zaten varsa onu kullanır (aynı velinin ikinci çocuğu durumu),
-yoksa native `wp_insert_user()` ile `Role::VELI` rolünde yeni bir kullanıcı
-açar, sonra `StudentParentRepositoryInterface::link()` ile bağlar. T.C.
-Kimlik No/şifre bu akışın parçası değil - Security Contract yayınlamadığı
-için (bkz. "İkinci kural") Students ona bağımlı olamaz; admin bu adımı
-ayrıca "Seviye Kullanıcılar"dan tamamlar. Öğrenci zaten oluştuktan sonra
-çalıştığı için burada bir hata öğrenci kaydını geri almaz (bu kod
-tabanında hiçbir yerde DB transaction yok) - `store()` 201 döner ama
-yanıta `parent_error` alanı eklenir, JS bunu "Kaydedildi" mesajının
-yanında gösterir.
+kullanıcısı zaten varsa onu kullanır (aynı velinin ikinci çocuğu durumu -
+bu durumda yeni şifre ÜRETİLMEZ, mevcut hesap değişmez), yoksa native
+`wp_insert_user()` ile `Role::VELI` rolünde, `wp_generate_password(16,
+true)` ile üretilmiş bir şifreyle yeni bir kullanıcı açar, sonra
+`StudentParentRepositoryInterface::link()` ile öğrenciye bağlar. Öğrenci
+zaten oluştuktan sonra çalıştığı için burada bir hata öğrenci kaydını
+geri almaz (bu kod tabanında hiçbir yerde DB transaction yok) - `store()`
+201 döner ama yanıta `parent_error` alanı eklenir, JS bunu "Kaydedildi"
+mesajının yanında gösterir. Yeni oluşturulan hesap için (mevcut hesap
+yeniden kullanılmadıysa) yanıta ayrıca bir kerelik `parent_credentials`
+(`user_id`/`name`/`email`/`password`) alanı eklenir - WordPress şifreleri
+düz metin saklamadığı için bu, üretilen şifrenin görünebileceği TEK an.
+
+**T.C. Kimlik No bağlama - döngüsel bağımlılık yerine REST kompozisyonu**:
+Students, T.C. No'yu KENDİSİ bağlayamaz - Security zaten Students'ın
+Contract'larına bağımlı (`StudentDirectoryInterface`, bkz.
+`SecurityModule::boot()`), Students'ın da Security'ye bağımlı olması
+PHP/composer seviyesinde DÖNGÜSEL bir bağımlılık yaratırdı. Bunun yerine
+Security'de yeni bir REST uç noktası açıldı:
+`POST seviye/v1/security/users/{id}/tc-no` (`IdentityRestController`,
+`SecurityCapability::MANAGE_SECURITY_SETTINGS` ile kapılı) -
+`IdentityGatewayInterface::link()`'i sarmalıyor, geçersiz biçim için 422,
+gerçek DB hatası (ör. zaten başka bir kullanıcıya bağlı bir T.C. No) için
+409 dönüyor. Temanın `students-panel.js`'i, `/students`'tan dönen
+`parent_credentials.user_id` ile bu uç noktayı AYRI bir istekte çağırıyor
+- tıpkı temanın öğrenciler/şubeler/fiyatlandırma REST API'lerini zaten
+bağımsız uç noktalar olarak birleştirdiği gibi, sadece PHP seviyesinde
+DEĞİL, JS seviyesinde bir kompozisyon. T.C. No bağlama başarısız olursa
+(kötü biçim/çakışma) veli hesabı ve şifresi yine de geçerlidir - sadece
+T.C. No ile giriş o ana kadar çalışmaz, `data-scp-registration-summary`
+kartında bu durum ayrıca gösterilir.
 
 Eğitim yılı artık `<input type="text" placeholder="2025-2026">` değil,
 `current_time('Y')`'den -1..+3 aralığında üretilen bir `<select>` -

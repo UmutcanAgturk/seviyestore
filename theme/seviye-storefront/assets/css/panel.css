@@ -346,3 +346,44 @@
   border-radius: 8px;
   font-size: 0.8125rem;
 }
+
+.scp-reveal-card {
+  margin: 16px 0;
+  padding: 18px 20px;
+  background: var(--scp-accent-bg);
+  border: 1px solid var(--scp-accent);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-reveal-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  color: var(--scp-accent-dark);
+}
+
+.scp-summary-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 12px 0;
+}
+
+.scp-summary-list dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+}
+
+.scp-summary-list dd {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--scp-text);
+}
+
+.scp-summary-list dd code {
+  padding: 2px 8px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+}

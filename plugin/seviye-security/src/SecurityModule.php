@@ -27,6 +27,7 @@ use Seviye\Security\Http\Admin\StudentDirectoryPage;
 use Seviye\Security\Http\Admin\UserAuthorizationAdminPage;
 use Seviye\Security\Http\Admin\UserListPage;
 use Seviye\Security\Http\AuthRestController;
+use Seviye\Security\Http\IdentityRestController;
 use Seviye\Security\Http\SecuritySettingsRestController;
 use Seviye\Security\Http\TwoFactorRestController;
 use Seviye\Security\Identity\IdentityGatewayInterface;
@@ -165,6 +166,12 @@ final class SecurityModule implements ModuleInterface
         $container->get(RestApiRegistrar::class)->register(
             static fn (): SecuritySettingsRestController => new SecuritySettingsRestController(
                 $container->get(SettingsRepositoryInterface::class)
+            )
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): IdentityRestController => new IdentityRestController(
+                $container->get(IdentityGatewayInterface::class)
             )
         );
 

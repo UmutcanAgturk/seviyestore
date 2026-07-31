@@ -84,6 +84,16 @@ function scp_enqueue_panel_assets(): void
         'twoFactorDisabled' => __('İki adımlı doğrulama devre dışı bırakıldı.', 'seviye-storefront'),
         'twoFactorInvalidCode' => __('Kod hatalı. Lütfen tekrar deneyin.', 'seviye-storefront'),
         'twoFactorWrongPassword' => __('Şifre hatalı.', 'seviye-storefront'),
+        'summaryStudent' => __('Öğrenci', 'seviye-storefront'),
+        'summaryBranch' => __('Şube', 'seviye-storefront'),
+        'summaryClass' => __('Sınıf', 'seviye-storefront'),
+        'summaryEducationYear' => __('Eğitim Yılı', 'seviye-storefront'),
+        'summaryParent' => __('Veli', 'seviye-storefront'),
+        'summaryParentEmail' => __('Veli E-posta', 'seviye-storefront'),
+        'summaryTcNo' => __('Veli T.C. Kimlik No', 'seviye-storefront'),
+        'summaryPassword' => __('Veli Şifresi', 'seviye-storefront'),
+        'summaryNotSet' => __('Girilmedi', 'seviye-storefront'),
+        'summaryTcNoError' => __('T.C. Kimlik No bağlanamadı', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
