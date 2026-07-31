@@ -233,8 +233,10 @@ function scp_enqueue_panel_assets(): void
     }
 
     $canViewOrders = current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders');
+    $isAdminOrdersPage = in_array($zone, ['admin', 'sube'], true)
+        && rtrim((string) get_query_var('scp_zone_path'), '/') === 'siparisler';
 
-    if (in_array($zone, ['admin', 'sube'], true) && $canViewOrders) {
+    if ($isAdminOrdersPage && $canViewOrders) {
         $handle = 'scp-admin-orders-panel';
         wp_enqueue_script(
             $handle,

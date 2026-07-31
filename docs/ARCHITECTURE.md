@@ -1972,6 +1972,56 @@ sabit mesajlarını) küçük bir eşleme tablosuyla kısa Türkçe açıklamala
 çeviriyor - eşleşmeyen bir rota gizlenmiyor, yalnızca ham haliyle
 gösteriliyor, bu yüzden tablo hiçbir zaman güncel tutulmak ZORUNDA değil.
 
+### 35. Sipariş Yönetimi bağımsız bir sayfaya taşındı
+
+"Arama ile değil direkt siparişleri ayrı bir sayfa olarak göster" - bölüm
+34'te Sipariş Yönetimi, `/admin` ve `/sube` panolarının içinde diğer
+bölümlerle birlikte yüklenen, quicknav'daki bir sayfa-içi çapaya
+(`#scp-admin-orders-panel`) tıklanarak ulaşılan bir SECTION olarak
+tasarlanmıştı. Artık kendi URL'sine sahip bağımsız bir sayfa:
+`/admin/siparisler` (Genel Merkez/Bölge Müdürü/Sistem) ve `/sube/siparisler`
+(Şube Müdürü/Muhasebe/Depo/Satış Danışmanı/Rehberlik).
+
+Bunun için yeni bir üst düzey rewrite kuralı EKLENMEDİ - `inc/zones.php`
+`^admin/(.+)/?$` ve `^sube/(.+)/?$` kalıplarını (scp_zone_path'e yakalayan)
+zaten en başından beri kayıtlı tutuyordu ama hiç kullanmıyordu; bu bölüm
+onu ilk kez gerçek bir amaç için devreye sokuyor.
+`/siparislerim`/`/profilim`'in aksine (bkz. bölüm 29/32 - bunlar üst düzey,
+`/admin` veya `/sube` ÖNEKİ OLMAYAN yollardır) bilinçli bir tasarım kararı
+gerekiyordu: `Seviye\Security\Routing\RoleRouter::isPathAllowedForRoles()`
+bir Genel Merkez/Bölge Müdürü/Sistem kullanıcısının izinli bölgesini
+YALNIZCA `/admin` ile başlayan yollara, bir Şube Müdürü/Muhasebe/Depo/Satış
+Danışmanı/Rehberlik kullanıcısınınkini YALNIZCA `/sube` ile başlayan
+yollara bağlıyor - üst düzey (`/siparisler` gibi) bir yol her iki grup için
+de "parent" bölgesiyle eşleşmediği için `inc/access-gate.php` tarafından
+geri yönlendirilirdi. Bu yüzden aynı sayfa iki farklı önekle (`/admin/...`,
+`/sube/...`) sunuluyor; yeni `scp_admin_orders_path()` yardımcı fonksiyonu
+(`inc/zones.php`) geçerli bölgeye göre doğru olanı üretiyor, quicknav'da ve
+yeni `templates/orders-admin.php`'nin "Panele Dön" bağlantısında kullanılıyor.
+
+`inc/zones.php`'nin `scp_render_zone_template()`'i artık `admin`/`sube`
+bölgelerinde `scp_zone_path === 'siparisler'` olduğunda (trailing-slash
+varyantı için `rtrim()` ile normalize edilmiş) `templates/zone.php` yerine
+doğrudan `templates/orders-admin.php`'yi render ediyor - `zone.php`'nin
+kendi bölüm/quicknav yapısını hiç görmüyor, tıpkı `/profilim`/`/siparislerim`
+gibi. Yetki kontrolü burada AYRICA yapılıyor (`scp_view_orders`/
+`scp_view_own_branch_orders`) çünkü `templates/zone.php`'nin aksine bu artık
+o dosyanın PHP `if` bloklarından birine değil, kendi render dalına bağlı.
+
+`inc/assets.php`'deki `admin-orders-panel.js` enqueue koşulu da aynı şekilde
+değişti: artık `$zone` yalnızca admin/sube olması yetmiyor, `scp_zone_path`
+da `'siparisler'` olmalı - aksi halde script hem eski (artık var olmayan)
+hem de yeni sayfada gereksiz yere yüklenirdi. Panelin kendi DOM
+kimlikleri/JS'i (`admin-orders-panel.js`) değişmedi - yalnızca nereye
+render edildiği değişti, `templates/orders-admin.php` aynı
+`id="scp-admin-orders-panel"`/`data-scp-admin-orders-*` yapısını koruyor.
+
+Ayrıca quicknav'ın href'leri artık iki türlü olabildiği için (sayfa-içi
+çapa VEYA gerçek bir URL - yalnızca "Siparişler" girdisi) `templates/zone.php`
+`esc_attr()` yerine `esc_url()` kullanacak şekilde düzeltildi - `esc_attr()`
+bir URL'yi doğru kaçırmak için doğru fonksiyon değildi, yalnızca `#anchor`
+değerleriyle çalıştığı için önceden fark edilmiyordu.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

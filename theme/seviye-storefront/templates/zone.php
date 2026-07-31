@@ -80,7 +80,13 @@
  * capability (+ zone) checks each section below already gates on ($scp_
  * -prefixed locals, computed once before get_header()) - it never invents a
  * link a section wouldn't actually render, and only appears once there is
- * more than one section to jump between.
+ * more than one section to jump between. Every entry is an in-page anchor
+ * (`#scp-x-panel`) EXCEPT "Siparişler", whose value is a real URL
+ * (scp_admin_orders_path(), `/admin/siparisler` or `/sube/siparisler`) -
+ * Sipariş Yönetimi is its own standalone page, not a section on this one
+ * (see inc/zones.php, templates/orders-admin.php), so esc_url() (not
+ * esc_attr()) is used on every $scp_href below to render both kinds
+ * correctly.
  */
 
 declare(strict_types=1);
@@ -110,7 +116,7 @@ if (current_user_can('scp_manage_products') || current_user_can('scp_view_produc
 }
 
 if (current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders')) {
-    $scp_sections['#scp-admin-orders-panel'] = __('Siparişler', 'seviye-storefront');
+    $scp_sections[scp_admin_orders_path()] = __('Siparişler', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_pricing')) {
@@ -168,7 +174,7 @@ get_header();
     <?php if (count($scp_sections) > 1) : ?>
         <nav class="scp-quicknav" aria-label="<?php esc_attr_e('Bölüm kısayolları', 'seviye-storefront'); ?>">
             <?php foreach ($scp_sections as $scp_href => $scp_label) : ?>
-                <a href="<?php echo esc_attr($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+                <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
             <?php endforeach; ?>
         </nav>
     <?php endif; ?>
@@ -526,61 +532,6 @@ get_header();
                     </button>
                 </div>
             <?php endif; ?>
-        </section>
-    <?php endif; ?>
-
-    <?php if (current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders')) : ?>
-        <section class="scp-card" id="scp-admin-orders-panel">
-            <div class="scp-card__header">
-                <h2><?php esc_html_e('Siparişler', 'seviye-storefront'); ?></h2>
-            </div>
-
-            <p class="scp-status" data-scp-admin-orders-status></p>
-
-            <form class="scp-form scp-form--inline" data-scp-admin-orders-form>
-                <label data-scp-admin-orders-branch-field hidden>
-                    <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
-                    <select></select>
-                </label>
-                <label>
-                    <span><?php esc_html_e('Ürün ID', 'seviye-storefront'); ?></span>
-                    <input type="number" min="1" name="product_id">
-                </label>
-                <label>
-                    <span><?php esc_html_e('Öğrenci ID', 'seviye-storefront'); ?></span>
-                    <input type="number" min="1" name="student_id">
-                </label>
-                <label>
-                    <span><?php esc_html_e('Durum', 'seviye-storefront'); ?></span>
-                    <select name="status">
-                        <option value=""><?php esc_html_e('Tümü', 'seviye-storefront'); ?></option>
-                        <option value="pending"><?php esc_html_e('Ödeme Bekliyor', 'seviye-storefront'); ?></option>
-                        <option value="processing"><?php esc_html_e('Hazırlanıyor', 'seviye-storefront'); ?></option>
-                        <option value="completed"><?php esc_html_e('Tamamlandı', 'seviye-storefront'); ?></option>
-                        <option value="on-hold"><?php esc_html_e('Beklemede', 'seviye-storefront'); ?></option>
-                        <option value="cancelled"><?php esc_html_e('İptal Edildi', 'seviye-storefront'); ?></option>
-                        <option value="refunded"><?php esc_html_e('İade Edildi', 'seviye-storefront'); ?></option>
-                    </select>
-                </label>
-                <label>
-                    <span><?php esc_html_e('Başlangıç', 'seviye-storefront'); ?></span>
-                    <input type="date" name="from">
-                </label>
-                <label>
-                    <span><?php esc_html_e('Bitiş', 'seviye-storefront'); ?></span>
-                    <input type="date" name="to">
-                </label>
-                <label>
-                    <span><?php esc_html_e('Ara (Sipariş No / Veli)', 'seviye-storefront'); ?></span>
-                    <input type="text" name="search">
-                </label>
-
-                <div class="scp-form__actions">
-                    <button type="submit" class="scp-btn"><?php esc_html_e('Getir', 'seviye-storefront'); ?></button>
-                </div>
-            </form>
-
-            <div class="scp-orders-list" data-scp-admin-orders-list></div>
         </section>
     <?php endif; ?>
 

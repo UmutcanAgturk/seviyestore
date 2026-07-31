@@ -103,6 +103,35 @@ function scp_render_zone_template(): void
         exit;
     }
 
+    // /admin/siparisler and /sube/siparisler - Sipariş Yönetimi as its own
+    // page rather than a section inside the big /admin or /sube dashboard
+    // (originally a section there; moved out on explicit request - "arama
+    // ile değil direkt siparişleri ayrı bir sayfa olarak göster"). Reuses
+    // the `^admin/(.+)/?$` / `^sube/(.+)/?$` rewrite rules already
+    // registered above (captured into scp_zone_path) rather than adding
+    // yet another top-level rewrite rule: RoleRouter::isPathAllowedForRoles()
+    // ties a Genel Merkez/Bölge Müdürü/Sistem user's allowed zone to
+    // paths starting with /admin, and a Şube Müdürü/Muhasebe/Depo/Satış
+    // Danışmanı/Rehberlik user's to /sube - a bare top-level `/siparisler`
+    // (like veli's /siparislerim above) would be redirected away for
+    // either group, since neither's role maps to RoleRouter's "parent"
+    // zone. `rtrim` handles the trailing-slash variant PCRE's greedy
+    // `(.+)` capture leaves in scp_zone_path for a `/admin/siparisler/`
+    // request.
+    $zonePath = rtrim((string) get_query_var('scp_zone_path'), '/');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $zonePath === 'siparisler') {
+        if (!current_user_can('scp_view_orders') && !current_user_can('scp_view_own_branch_orders')) {
+            wp_safe_redirect(home_url('/' . $zone));
+            exit;
+        }
+
+        get_header();
+        include SCP_THEME_DIR . '/templates/orders-admin.php';
+        get_footer();
+        exit;
+    }
+
     $labels = [
         'admin' => __('Genel Merkez', 'seviye-storefront'),
         'sube' => __('Şube', 'seviye-storefront'),
@@ -126,6 +155,17 @@ function scp_render_zone_template(): void
 function scp_current_zone(): string
 {
     return (string) get_query_var('scp_zone');
+}
+
+/**
+ * The Sipariş Yönetimi page's URL for the CURRENT zone - /admin/siparisler
+ * inside /admin, /sube/siparisler inside /sube. Only meaningful from
+ * within one of those two zones (see scp_render_zone_template()'s
+ * /admin/siparisler /sube/siparisler branch above).
+ */
+function scp_admin_orders_path(): string
+{
+    return home_url('/' . scp_current_zone() . '/siparisler');
 }
 
 /**

@@ -1,0 +1,77 @@
+<?php
+
+/**
+ * Sipariş Yönetimi - a standalone page (/admin/siparisler, /sube/siparisler,
+ * see inc/zones.php) rather than a section inside the big /admin or /sube
+ * dashboard, per explicit request. Reached at all already implies
+ * inc/zones.php's own capability check (scp_view_orders /
+ * scp_view_own_branch_orders) passed - see the render branch there.
+ * Data comes from
+ * Seviye\Commerce\Http\AdminOrdersRestController's seviye/v1/commerce/orders
+ * endpoint (assets/js/admin-orders-panel.js).
+ */
+
+declare(strict_types=1);
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+?>
+<div class="scp-panel">
+    <h1><?php esc_html_e('Siparişler', 'seviye-storefront'); ?></h1>
+    <p>
+        <a href="<?php echo esc_url(home_url('/' . scp_current_zone())); ?>">
+            <?php esc_html_e('← Panele Dön', 'seviye-storefront'); ?>
+        </a>
+    </p>
+
+    <section class="scp-card" id="scp-admin-orders-panel">
+        <p class="scp-status" data-scp-admin-orders-status></p>
+
+        <form class="scp-form scp-form--inline" data-scp-admin-orders-form>
+            <label data-scp-admin-orders-branch-field hidden>
+                <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
+                <select></select>
+            </label>
+            <label>
+                <span><?php esc_html_e('Ürün ID', 'seviye-storefront'); ?></span>
+                <input type="number" min="1" name="product_id">
+            </label>
+            <label>
+                <span><?php esc_html_e('Öğrenci ID', 'seviye-storefront'); ?></span>
+                <input type="number" min="1" name="student_id">
+            </label>
+            <label>
+                <span><?php esc_html_e('Durum', 'seviye-storefront'); ?></span>
+                <select name="status">
+                    <option value=""><?php esc_html_e('Tümü', 'seviye-storefront'); ?></option>
+                    <option value="pending"><?php esc_html_e('Ödeme Bekliyor', 'seviye-storefront'); ?></option>
+                    <option value="processing"><?php esc_html_e('Hazırlanıyor', 'seviye-storefront'); ?></option>
+                    <option value="completed"><?php esc_html_e('Tamamlandı', 'seviye-storefront'); ?></option>
+                    <option value="on-hold"><?php esc_html_e('Beklemede', 'seviye-storefront'); ?></option>
+                    <option value="cancelled"><?php esc_html_e('İptal Edildi', 'seviye-storefront'); ?></option>
+                    <option value="refunded"><?php esc_html_e('İade Edildi', 'seviye-storefront'); ?></option>
+                </select>
+            </label>
+            <label>
+                <span><?php esc_html_e('Başlangıç', 'seviye-storefront'); ?></span>
+                <input type="date" name="from">
+            </label>
+            <label>
+                <span><?php esc_html_e('Bitiş', 'seviye-storefront'); ?></span>
+                <input type="date" name="to">
+            </label>
+            <label>
+                <span><?php esc_html_e('Ara (Sipariş No / Veli)', 'seviye-storefront'); ?></span>
+                <input type="text" name="search">
+            </label>
+
+            <div class="scp-form__actions">
+                <button type="submit" class="scp-btn"><?php esc_html_e('Getir', 'seviye-storefront'); ?></button>
+            </div>
+        </form>
+
+        <div class="scp-orders-list" data-scp-admin-orders-list></div>
+    </section>
+</div>
