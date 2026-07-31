@@ -10,6 +10,7 @@ use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
+use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
@@ -121,6 +122,14 @@ final class CommerceModule implements ModuleInterface
                 $container->get(ProductBranchVisibilityRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class)
+            )
+        );
+
+        // Same WC-active gating as ProductsRestController above - its
+        // route handler calls wc_get_orders()/WC_Order directly.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): OrdersRestController => new OrdersRestController(
+                $container->get(StudentLookupInterface::class)
             )
         );
 

@@ -48,6 +48,9 @@ if (!defined('ABSPATH')) {
         <?php endif; ?>
 
         <?php if (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile')) : ?>
+            <a href="<?php echo esc_url(home_url('/siparislerim')); ?>">
+                <?php esc_html_e('Siparişlerim', 'seviye-storefront'); ?>
+            </a>
             <a href="<?php echo esc_url(home_url('/profilim')); ?>">
                 <?php esc_html_e('Profilim', 'seviye-storefront'); ?>
             </a>

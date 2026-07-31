@@ -142,6 +142,19 @@ function scp_enqueue_panel_assets(): void
         'branchStatusSaved' => __('Şube durumu güncellendi.', 'seviye-storefront'),
         'brandingSaved' => __('Logo güncellendi.', 'seviye-storefront'),
         'brandingRemoved' => __('Logo kaldırıldı.', 'seviye-storefront'),
+        'noOrders' => __('Henüz bir siparişiniz yok.', 'seviye-storefront'),
+        'orderNumberLabel' => __('Sipariş No', 'seviye-storefront'),
+        'orderDateLabel' => __('Tarih', 'seviye-storefront'),
+        'orderPaymentMethodLabel' => __('Ödeme Yöntemi', 'seviye-storefront'),
+        'orderSubtotalLabel' => __('Ara Toplam', 'seviye-storefront'),
+        'orderTaxLabel' => __('KDV', 'seviye-storefront'),
+        'orderTotalLabel' => __('Genel Toplam', 'seviye-storefront'),
+        'orderItemProductLabel' => __('Ürün', 'seviye-storefront'),
+        'orderItemStudentLabel' => __('Öğrenci', 'seviye-storefront'),
+        'orderItemQuantityLabel' => __('Adet', 'seviye-storefront'),
+        'orderItemUnitPriceLabel' => __('Birim Fiyat', 'seviye-storefront'),
+        'orderItemTaxLabel' => __('KDV', 'seviye-storefront'),
+        'orderItemTotalLabel' => __('Ara Toplam', 'seviye-storefront'),
         'sessionExpired' => __(
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'
@@ -220,6 +233,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/parent-dashboard.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/parent-dashboard.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'siparislerim' && $isParentZone) {
+        $handle = 'scp-orders-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/orders-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/orders-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

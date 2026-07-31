@@ -33,6 +33,7 @@ function scp_register_zone_rewrites(): void
     add_rewrite_rule('^sube/?$', 'index.php?scp_zone=sube', 'top');
     add_rewrite_rule('^sube/(.+)/?$', 'index.php?scp_zone=sube&scp_zone_path=$matches[1]', 'top');
     add_rewrite_rule('^profilim/?$', 'index.php?scp_zone=profilim', 'top');
+    add_rewrite_rule('^siparislerim/?$', 'index.php?scp_zone=siparislerim', 'top');
 }
 
 /**
@@ -65,6 +66,17 @@ function scp_render_zone_template(): void
     if ($zone === 'profilim') {
         get_header();
         include SCP_THEME_DIR . '/templates/parent-dashboard.php';
+        get_footer();
+        exit;
+    }
+
+    // /siparislerim - Veli's own past orders (see templates/orders.php,
+    // plugin/seviye-commerce/src/Http/OrdersRestController.php's /mine
+    // endpoint). Same "reaching it at all already implies the role-zone
+    // check passed" reasoning as /profilim above.
+    if ($zone === 'siparislerim') {
+        get_header();
+        include SCP_THEME_DIR . '/templates/orders.php';
         get_footer();
         exit;
     }
