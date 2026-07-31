@@ -109,6 +109,28 @@
                 openStudentForm(student);
             });
             actionsCell.appendChild(editButton);
+
+            var deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+            deleteButton.textContent = scpPanelText.remove;
+            deleteButton.addEventListener('click', function () {
+                if (!window.confirm(scpPanelText.confirmDeleteStudent)) {
+                    return;
+                }
+
+                apiFetch('students/' + student.id, { method: 'DELETE' }).then(function (result) {
+                    if (!result.ok) {
+                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        return;
+                    }
+
+                    setStatus(scpPanelText.studentDeleted);
+                    loadStudents();
+                });
+            });
+            actionsCell.appendChild(deleteButton);
+
             row.appendChild(actionsCell);
 
             tableBody.appendChild(row);
@@ -200,30 +222,89 @@
                 return;
             }
 
-            result.data.forEach(function (parentUserId) {
-                var item = document.createElement('li');
-
-                var label = document.createElement('span');
-                label.textContent = String(parentUserId);
-                item.appendChild(label);
-
-                var removeButton = document.createElement('button');
-                removeButton.type = 'button';
-                removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                removeButton.textContent = scpPanelText.remove;
-                removeButton.addEventListener('click', function () {
-                    apiFetch('students/' + studentId + '/parents/' + parentUserId, { method: 'DELETE' })
-                        .then(function (removeResult) {
-                            if (removeResult.ok) {
-                                loadParents(studentId);
-                            }
-                        });
-                });
-                item.appendChild(removeButton);
-
-                parentsList.appendChild(item);
+            result.data.forEach(function (parent) {
+                parentsList.appendChild(renderParentItem(studentId, parent));
             });
         });
+    }
+
+    function renderParentItem(studentId, parent) {
+        var item = document.createElement('li');
+
+        var label = document.createElement('span');
+        label.textContent = parent.name + ' (' + parent.email + ')';
+        item.appendChild(label);
+
+        var editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        editButton.textContent = scpPanelText.edit;
+        editButton.addEventListener('click', function () {
+            item.replaceWith(renderParentEditForm(studentId, parent));
+        });
+        item.appendChild(editButton);
+
+        var removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        removeButton.textContent = scpPanelText.remove;
+        removeButton.addEventListener('click', function () {
+            apiFetch('students/' + studentId + '/parents/' + parent.id, { method: 'DELETE' })
+                .then(function (removeResult) {
+                    if (removeResult.ok) {
+                        loadParents(studentId);
+                    }
+                });
+        });
+        item.appendChild(removeButton);
+
+        return item;
+    }
+
+    function renderParentEditForm(studentId, parent) {
+        var item = document.createElement('li');
+        item.className = 'scp-form scp-form--inline';
+
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = parent.name;
+        item.appendChild(nameInput);
+
+        var emailInput = document.createElement('input');
+        emailInput.type = 'email';
+        emailInput.value = parent.email;
+        item.appendChild(emailInput);
+
+        var saveButton = document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.className = 'scp-btn scp-btn--small';
+        saveButton.textContent = scpPanelText.save;
+        saveButton.addEventListener('click', function () {
+            apiFetch('students/' + studentId + '/parents/' + parent.id, {
+                method: 'PUT',
+                body: JSON.stringify({ display_name: nameInput.value, email: emailInput.value })
+            }).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    return;
+                }
+
+                setStatus(scpPanelText.parentUpdated);
+                loadParents(studentId);
+            });
+        });
+        item.appendChild(saveButton);
+
+        var cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        cancelButton.textContent = scpPanelText.cancel;
+        cancelButton.addEventListener('click', function () {
+            loadParents(studentId);
+        });
+        item.appendChild(cancelButton);
+
+        return item;
     }
 
     root.querySelector('[data-scp-new-student]').addEventListener('click', function () {

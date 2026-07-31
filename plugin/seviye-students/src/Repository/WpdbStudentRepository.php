@@ -96,6 +96,36 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
         return isset($rows[0]) ? $this->hydrate($rows[0]) : null;
     }
 
+    /**
+     * scp_student_parents and scp_price_rules both declare
+     * `FOREIGN KEY (student_id) ... ON DELETE CASCADE` (see their own
+     * migrations), so those rows clean up automatically. Seviye Commerce's
+     * scp_order_line_items deliberately does NOT cascade (see
+     * CreateOrderLineItemsTable) - a student with purchase history must not
+     * be silently deletable, so that specific FK violation is translated
+     * into an actionable message instead of a raw MySQL error string.
+     */
+    public function delete(int $id): void
+    {
+        $table = $this->connection->table('students');
+        $sql = $this->connection->prepare("DELETE FROM {$table} WHERE id = %d", [$id]);
+
+        if ($this->connection->query($sql)) {
+            return;
+        }
+
+        $error = $this->lastDbError();
+
+        if (stripos($error, 'foreign key constraint') !== false) {
+            throw new RuntimeException(
+                'Bu öğrenciye ait sipariş kayıtları olduğu için silinemiyor.'
+            );
+        }
+
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
+        throw new RuntimeException(sprintf('Öğrenci #%d silinemedi: %s', $id, $error));
+    }
+
     public function all(): array
     {
         $table = $this->connection->table('students');
@@ -135,5 +165,12 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
     private function now(): string
     {
         return function_exists('current_time') ? current_time('mysql') : gmdate('Y-m-d H:i:s');
+    }
+
+    private function lastDbError(): string
+    {
+        global $wpdb;
+
+        return isset($wpdb) && $wpdb->last_error !== '' ? $wpdb->last_error : 'bilinmeyen veritabanı hatası';
     }
 }

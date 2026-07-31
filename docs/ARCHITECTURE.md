@@ -1662,6 +1662,53 @@ YİRMİ enqueue çağrısının tamamı artık bare `SCP_THEME_VERSION` yerine
 her değiştiğinde OTOMATİK değişiyor, manuel bir sürüm numarası bakımı
 gerekmiyor ve bir daha asla statik kalıp bayatlayamıyor.
 
+### 29. Öğrenci silme, veli düzenleme, Sepetim sayfası
+
+Üç eksik özellik tamamlandı:
+
+**Öğrenci sil.** `StudentRepositoryInterface`'e `delete()` eklendi;
+`WpdbStudentRepository::delete()` ham bir `DELETE` sorgusu çalıştırıyor.
+`scp_student_parents` ve `scp_price_rules` tabloları `student_id` üzerinde
+`ON DELETE CASCADE` tanımlıyor, o yüzden bağlı veli-bağlantıları ve fiyat
+kuralları otomatik temizleniyor - ama Seviye Commerce'in
+`scp_order_line_items` tablosu KASITLI OLARAK cascade yapmıyor (sipariş
+geçmişi olan bir öğrencinin sessizce silinebilmesi istenmiyor); bu FK
+ihlali `stripos($error, 'foreign key constraint')` ile yakalanıp
+"Bu öğrenciye ait sipariş kayıtları olduğu için silinemiyor." gibi
+anlaşılır bir mesaja çevriliyor. REST: `DELETE /students/{id}`,
+`canAccessStudent` (mevcut GET/PUT ile aynı) permission_callback'i
+kullanıyor - Şube Müdürü yalnızca kendi şubesindeki öğrencileri silebiliyor.
+`students-panel.js`'te her satıra "Kaldır" butonu eklendi (window.confirm
+ile onay isteniyor).
+
+**Veli düzenle.** Daha önce bir Şube Müdürü/Genel Merkez, Öğrenciler
+panelinden bağlı bir velinin ad/e-postasını göremiyor veya değiştiremiyordu
+(tek yol wp-admin → Seviye Kullanıcılar, admin-only). `listParents()`
+artık ham `parent_user_id` yerine `{id, name, email}` döndürüyor
+(`get_userdata()` - çekirdek WordPress fonksiyonu, Security'ye bağımlılık
+gerektirmiyor). Yeni `PUT /students/{id}/parents/{parent_user_id}`
+`display_name`/`email` günceller (`wp_update_user()`). ÖNEMLİ güvenlik
+notu: `canAccessStudent` yalnızca URL'deki öğrenci id'sinin çağıranın
+kapsamında (şubesinde) olduğunu doğruluyor, `parent_user_id`'nin O
+öğrenciyle GERÇEKTEN bağlı olduğunu DEĞİL - bu kontrol olmadan bir Şube
+Müdürü, kendi şubesinden geçerli bir öğrenci id'si + kapsamı dışındaki
+rastgele bir kullanıcı id'si vererek o kullanıcının hesabını
+değiştirebilirdi (IDOR). Bu yüzden `updateParent()` içinde AYRICA
+`parentUserIdsForStudent()` ile "bu veli gerçekten bu öğrenciyle bağlı mı"
+kontrolü var. `students-panel.js`'teki veli listesi artık ad/e-posta
+gösteriyor, "Düzenle" satırı inline bir ad/e-posta formuna dönüşüyor.
+
+**Sepetim sayfası.** `scp_ensure_shop_page_exists()`'in aynısı `cart`
+için: `scp_ensure_cart_page_exists()`, `wc_get_page_id('cart')` yoksa/
+yayınlanmamışsa `wc_create_page(..., 'woocommerce_cart_page_id', 'Sepetim',
+'[woocommerce_cart]')` ile oluşturuyor. Mağaza sayfasından farklı olarak
+cart WC'nin özel "ürün arşivi" sayfa tipi değil, gerçek sayfa İÇERİĞİNE
+(shortcode) ihtiyaç duyuyor - modern Cart bloğu yerine kasıtlı olarak
+`[woocommerce_cart]` shortcode'u kullanıldı (WC sürümleri arasında en
+geniş uyumluluk için). `header.php`'nin nav'ına "Mağaza" linkinin yanına
+`wc_get_cart_url()` ile "Sepetim" linki eklendi (aynı `scp_view_own_children`
+kapasitesiyle kapılı).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

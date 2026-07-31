@@ -32,6 +32,8 @@ interface StudentRepositoryInterface
 
     public function find(int $id): ?Student;
 
+    public function delete(int $id): void;
+
     /**
      * @return list<Student>
      */

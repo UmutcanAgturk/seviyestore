@@ -70,6 +70,11 @@ final class StudentsRestController extends AbstractRestController
                 'permission_callback' => [$this, 'canAccessStudent'],
                 'args' => $this->writableArgs(),
             ],
+            [
+                'methods' => 'DELETE',
+                'callback' => [$this, 'destroy'],
+                'permission_callback' => [$this, 'canAccessStudent'],
+            ],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/students/(?P<id>\d+)/parents', [
@@ -90,9 +95,20 @@ final class StudentsRestController extends AbstractRestController
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/students/(?P<id>\d+)/parents/(?P<parent_user_id>\d+)', [
-            'methods' => 'DELETE',
-            'callback' => [$this, 'unlinkParent'],
-            'permission_callback' => [$this, 'canAccessStudent'],
+            [
+                'methods' => 'DELETE',
+                'callback' => [$this, 'unlinkParent'],
+                'permission_callback' => [$this, 'canAccessStudent'],
+            ],
+            [
+                'methods' => 'PUT',
+                'callback' => [$this, 'updateParent'],
+                'permission_callback' => [$this, 'canAccessStudent'],
+                'args' => [
+                    'display_name' => ['required' => true, 'type' => 'string'],
+                    'email' => ['required' => true, 'type' => 'string'],
+                ],
+            ],
         ]);
     }
 
@@ -338,9 +354,42 @@ final class StudentsRestController extends AbstractRestController
         return new WP_REST_Response($this->serialize($student));
     }
 
+    public function destroy(WP_REST_Request $request): WP_REST_Response
+    {
+        $id = (int) $request->get_param('id');
+
+        try {
+            $this->students->delete($id);
+        } catch (\Throwable $exception) {
+            return new WP_REST_Response(['message' => $exception->getMessage()], 409);
+        }
+
+        return new WP_REST_Response(['success' => true]);
+    }
+
+    /**
+     * Öğrenciyle bağlı velilerin ad/e-postasını da döndürür - ham
+     * `parent_user_id` listesi paneldeki "Veliler" bölümünde hangi velinin
+     * hangisi olduğunu göstermeye yetmiyordu. `get_userdata()` çekirdek
+     * WordPress fonksiyonu, Security'nin kimlik katmanına bağımlılık
+     * gerektirmiyor (bkz. docs/ARCHITECTURE.md, modül sınırı kuralları).
+     */
     public function listParents(WP_REST_Request $request): WP_REST_Response
     {
-        return new WP_REST_Response($this->studentParents->parentUserIdsForStudent((int) $request->get_param('id')));
+        $parentIds = $this->studentParents->parentUserIdsForStudent((int) $request->get_param('id'));
+
+        $parents = array_values(array_filter(array_map(
+            static function (int $id): ?array {
+                $user = get_userdata($id);
+
+                return $user !== false
+                    ? ['id' => $id, 'name' => $user->display_name, 'email' => $user->user_email]
+                    : null;
+            },
+            $parentIds
+        )));
+
+        return new WP_REST_Response($parents);
     }
 
     public function linkParent(WP_REST_Request $request): WP_REST_Response
@@ -369,6 +418,58 @@ final class StudentsRestController extends AbstractRestController
         $this->studentParents->unlink((int) $request->get_param('id'), (int) $request->get_param('parent_user_id'));
 
         return new WP_REST_Response(['success' => true]);
+    }
+
+    /**
+     * Velinin ad/e-postasını düzenler - `canAccessStudent` yalnızca URL'deki
+     * öğrenci id'sinin çağıranın kapsamında olduğunu doğruluyor, veli
+     * hesabının GERÇEKTEN o öğrenciyle bağlı olduğunu doğrulamıyor. Bu
+     * yüzden burada AYRICA `parentUserIdsForStudent()` ile kontrol ediliyor
+     * - aksi halde bir Şube Müdürü, kendi şubesinden geçerli bir öğrenci
+     * id'si + kapsamı dışındaki RASTGELE bir kullanıcı id'si vererek o
+     * kullanıcının hesabını (bağlı olmasa bile) düzenleyebilirdi.
+     */
+    public function updateParent(WP_REST_Request $request): WP_REST_Response
+    {
+        $studentId = (int) $request->get_param('id');
+        $parentUserId = (int) $request->get_param('parent_user_id');
+
+        if (!in_array($parentUserId, $this->studentParents->parentUserIdsForStudent($studentId), true)) {
+            return new WP_REST_Response(['message' => __('Veli bu öğrenciyle bağlı değil.', 'seviye-students')], 404);
+        }
+
+        $user = get_userdata($parentUserId);
+
+        if ($user === false || in_array('administrator', $user->roles, true)) {
+            return new WP_REST_Response(['message' => __('Geçersiz veli hesabı.', 'seviye-students')], 404);
+        }
+
+        $displayName = trim((string) $request->get_param('display_name'));
+        $email = trim((string) $request->get_param('email'));
+
+        if ($displayName === '' || $email === '' || !is_email($email)) {
+            return new WP_REST_Response(
+                ['message' => __('Ad Soyad ve geçerli bir e-posta gerekli.', 'seviye-students')],
+                422
+            );
+        }
+
+        $existingByEmail = email_exists($email);
+
+        if ($existingByEmail !== false && (int) $existingByEmail !== $parentUserId) {
+            return new WP_REST_Response(
+                ['message' => __('Bu e-posta zaten başka bir kullanıcıya ait.', 'seviye-students')],
+                422
+            );
+        }
+
+        $updated = wp_update_user(['ID' => $parentUserId, 'display_name' => $displayName, 'user_email' => $email]);
+
+        if (is_wp_error($updated)) {
+            return new WP_REST_Response(['message' => $updated->get_error_message()], 500);
+        }
+
+        return new WP_REST_Response(['id' => $parentUserId, 'name' => $displayName, 'email' => $email]);
     }
 
     /**

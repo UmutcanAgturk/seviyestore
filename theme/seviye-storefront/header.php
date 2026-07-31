@@ -33,6 +33,9 @@ if (!defined('ABSPATH')) {
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
                 <?php esc_html_e('Mağaza', 'seviye-storefront'); ?>
             </a>
+            <a href="<?php echo esc_url(wc_get_cart_url()); ?>">
+                <?php esc_html_e('Sepetim', 'seviye-storefront'); ?>
+            </a>
         <?php endif; ?>
         <div class="scp-notif-bell" id="scp-notifications-bell">
             <button

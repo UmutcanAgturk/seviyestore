@@ -21,6 +21,8 @@ final class FakeConnection implements ConnectionInterface
 
     public bool $insertShouldSucceed = true;
 
+    public bool $queryShouldSucceed = true;
+
     public function table(string $suffix): string
     {
         return 'test_scp_' . $suffix;
@@ -52,7 +54,7 @@ final class FakeConnection implements ConnectionInterface
     {
         $this->queries[] = $sql;
 
-        return true;
+        return $this->queryShouldSucceed;
     }
 
     public function getResults(string $sql): array

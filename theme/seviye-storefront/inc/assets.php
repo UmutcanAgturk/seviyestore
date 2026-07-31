@@ -121,6 +121,14 @@ function scp_enqueue_panel_assets(): void
             'Bu e-posta zaten kayıtlı bir veli hesabına ait. Yeni şifre oluşturulmadı, öğrenci mevcut hesaba bağlandı.',
             'seviye-storefront'
         ),
+        'save' => __('Kaydet', 'seviye-storefront'),
+        'cancel' => __('Vazgeç', 'seviye-storefront'),
+        'parentUpdated' => __('Veli bilgileri güncellendi.', 'seviye-storefront'),
+        'confirmDeleteStudent' => __(
+            'Bu öğrenciyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+            'seviye-storefront'
+        ),
+        'studentDeleted' => __('Öğrenci silindi.', 'seviye-storefront'),
         'sessionExpired' => __(
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'

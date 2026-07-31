@@ -35,6 +35,7 @@ if (!class_exists('WooCommerce')) {
 }
 
 add_action('admin_init', 'scp_ensure_shop_page_exists');
+add_action('admin_init', 'scp_ensure_cart_page_exists');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
@@ -83,6 +84,35 @@ function scp_ensure_shop_page_exists(): void
         esc_sql(_x('shop', 'Page slug', 'woocommerce')),
         'woocommerce_shop_page_id',
         _x('Mağaza', 'Page title', 'seviye-storefront')
+    );
+}
+
+/**
+ * Same self-heal as {@see scp_ensure_shop_page_exists()}, for the "Sepetim"
+ * page - unlike the shop page (a special product-archive page type WC
+ * recognizes automatically), the cart page needs actual page content: the
+ * `[woocommerce_cart]` shortcode, which WC_Install::create_pages() would
+ * normally seed on first activation. The shortcode (rather than the newer
+ * Cart block) is used deliberately for maximum compatibility across
+ * WooCommerce versions.
+ */
+function scp_ensure_cart_page_exists(): void
+{
+    if (!function_exists('wc_get_page_id') || !function_exists('wc_create_page')) {
+        return;
+    }
+
+    $cartPageId = wc_get_page_id('cart');
+
+    if ($cartPageId > 0 && get_post_status($cartPageId) === 'publish') {
+        return;
+    }
+
+    wc_create_page(
+        esc_sql(_x('sepetim', 'Page slug', 'seviye-storefront')),
+        'woocommerce_cart_page_id',
+        _x('Sepetim', 'Page title', 'seviye-storefront'),
+        '[woocommerce_cart]'
     );
 }
 

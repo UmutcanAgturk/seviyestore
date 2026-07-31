@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Students\Tests\Unit\Repository;
 
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Seviye\Students\Domain\EducationYear;
 use Seviye\Students\Domain\StudentStatus;
 use Seviye\Students\Repository\WpdbStudentRepository;
@@ -116,5 +117,29 @@ final class WpdbStudentRepositoryTest extends TestCase
 
         self::assertSame('6-A', $student->className);
         self::assertCount(1, $connection->queries);
+    }
+
+    public function testDeleteRunsADeleteQueryForTheGivenId(): void
+    {
+        $connection = new FakeConnection();
+        $repository = new WpdbStudentRepository($connection);
+
+        $repository->delete(1);
+
+        self::assertCount(1, $connection->queries);
+        self::assertStringContainsString('DELETE FROM', $connection->queries[0]);
+        self::assertStringContainsString('WHERE id = 1', $connection->queries[0]);
+    }
+
+    public function testDeleteThrowsWithTheRealDbErrorWhenQueryFails(): void
+    {
+        $connection = new FakeConnection();
+        $connection->queryShouldSucceed = false;
+        $repository = new WpdbStudentRepository($connection);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Öğrenci #1 silinemedi:');
+
+        $repository->delete(1);
     }
 }
