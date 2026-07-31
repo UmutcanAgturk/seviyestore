@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Seviye\Branches\Http\Admin;
 
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Branches\Domain\Branch;
 use Seviye\Branches\Domain\BranchStatus;
 use Seviye\Branches\Domain\CommissionRate;
@@ -25,14 +26,22 @@ use Seviye\Branches\Repository\BranchRepositoryInterface;
  * BranchesModule::boot()). Not unit tested, same as every other direct
  * WP-admin-touching adapter in this codebase (see docs/ARCHITECTURE.md,
  * "Test stratejisi").
+ *
+ * Also the only place in the whole codebase that assigns a Şube Müdürü to a
+ * branch (scp_branch_users) - {@see BranchMembershipInterface::assign()}
+ * previously had no caller anywhere, native wp-admin or theme panel, so
+ * there was no way to do this at all before this page grew the "Yetkili"
+ * section below the edit form.
  */
 final class BranchAdminPage
 {
     public const SLUG = 'scp-subeler';
     private const NONCE_ACTION = 'scp_branch_admin';
 
-    public function __construct(private readonly BranchRepositoryInterface $branches)
-    {
+    public function __construct(
+        private readonly BranchRepositoryInterface $branches,
+        private readonly BranchMembershipInterface $memberships
+    ) {
     }
 
     public function register(): void
@@ -40,6 +49,8 @@ final class BranchAdminPage
         add_action('admin_menu', [$this, 'registerMenu']);
         add_action('admin_post_scp_create_branch', [$this, 'handleCreate']);
         add_action('admin_post_scp_save_branch', [$this, 'handleSave']);
+        add_action('admin_post_scp_assign_branch_manager', [$this, 'handleAssignManager']);
+        add_action('admin_post_scp_unassign_branch_manager', [$this, 'handleUnassignManager']);
     }
 
     public function registerMenu(): void
@@ -89,8 +100,9 @@ final class BranchAdminPage
                     </tr>
                 </thead>
                 <tbody>
+                    <?php $users = get_users(['fields' => ['ID', 'display_name']]); ?>
                     <?php foreach ($this->branches->all() as $branch) : ?>
-                        <?php $this->renderRow($branch); ?>
+                        <?php $this->renderRow($branch, $users); ?>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -100,6 +112,10 @@ final class BranchAdminPage
         .scp-branch-row-fields input[type="text"],
         .scp-branch-row-fields input[type="number"],
         .scp-branch-row-fields select { width: 100%; max-width: 160px; }
+        .scp-branch-managers { margin-top: 12px; padding-top: 12px; border-top: 1px solid #dcdcde; }
+        .scp-branch-managers ul { margin: 6px 0; }
+        .scp-branch-managers li { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; }
+        .scp-branch-managers form.scp-inline { display: inline-flex; align-items: center; gap: 6px; }
         </style>
         <?php
     }
@@ -167,7 +183,10 @@ final class BranchAdminPage
         <?php
     }
 
-    private function renderRow(Branch $branch): void
+    /**
+     * @param list<\WP_User> $users
+     */
+    private function renderRow(Branch $branch, array $users): void
     {
         ?>
         <tr>
@@ -232,8 +251,63 @@ final class BranchAdminPage
                         </tr>
                     </table>
                 </form>
+
+                <div class="scp-branch-managers">
+                    <strong><?php esc_html_e('Şube Müdürü / Yetkili', 'seviye-branches'); ?></strong>
+                    <?php $this->renderBranchManagers($branch, $users); ?>
+                </div>
             </td>
         </tr>
+        <?php
+    }
+
+    /**
+     * @param list<\WP_User> $users
+     */
+    private function renderBranchManagers(Branch $branch, array $users): void
+    {
+        $assignedUserIds = $this->memberships->usersForBranch($branch->id);
+        ?>
+        <ul>
+            <?php foreach ($assignedUserIds as $userId) : ?>
+                <?php $user = get_userdata($userId); ?>
+                <li>
+                    <?php echo esc_html($user !== false ? $user->display_name : sprintf('#%d', $userId)); ?>
+                    <form
+                        method="post"
+                        class="scp-inline"
+                        action="<?php echo esc_url(admin_url('admin-post.php')); ?>"
+                    >
+                        <?php wp_nonce_field(self::NONCE_ACTION); ?>
+                        <input type="hidden" name="action" value="scp_unassign_branch_manager">
+                        <input type="hidden" name="branch_id" value="<?php echo esc_attr((string) $branch->id); ?>">
+                        <input type="hidden" name="user_id" value="<?php echo esc_attr((string) $userId); ?>">
+                        <button type="submit" class="button button-link-delete">
+                            <?php esc_html_e('Kaldır', 'seviye-branches'); ?>
+                        </button>
+                    </form>
+                </li>
+            <?php endforeach; ?>
+            <?php if ($assignedUserIds === []) : ?>
+                <li><em><?php esc_html_e('Atanmış yetkili yok.', 'seviye-branches'); ?></em></li>
+            <?php endif; ?>
+        </ul>
+        <form method="post" class="scp-inline" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <?php wp_nonce_field(self::NONCE_ACTION); ?>
+            <input type="hidden" name="action" value="scp_assign_branch_manager">
+            <input type="hidden" name="branch_id" value="<?php echo esc_attr((string) $branch->id); ?>">
+            <select name="user_id" required>
+                <option value=""><?php esc_html_e('Kullanıcı seçin...', 'seviye-branches'); ?></option>
+                <?php foreach ($users as $user) : ?>
+                    <option value="<?php echo esc_attr((string) $user->ID); ?>">
+                        <?php echo esc_html($user->display_name); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="button">
+                <?php esc_html_e('Ata', 'seviye-branches'); ?>
+            </button>
+        </form>
         <?php
     }
 
@@ -337,6 +411,71 @@ final class BranchAdminPage
         }
 
         $this->redirectWithNotice('success', __('Kaydedildi.', 'seviye-branches'));
+    }
+
+    public function handleAssignManager(): void
+    {
+        check_admin_referer(self::NONCE_ACTION);
+
+        if (!current_user_can(BranchCapability::MANAGE_BRANCHES->value)) {
+            wp_die(esc_html__('Bu işlem için yetkiniz yok.', 'seviye-branches'));
+        }
+
+        $branchId = isset($_POST['branch_id']) ? (int) $_POST['branch_id'] : 0;
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $userId = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+
+        if ($this->branches->find($branchId) === null) {
+            $this->redirectWithNotice('error', __('Şube bulunamadı.', 'seviye-branches'));
+        }
+
+        if ($userId <= 0 || get_userdata($userId) === false) {
+            $this->redirectWithNotice('error', __('Kullanıcı bulunamadı.', 'seviye-branches'));
+        }
+
+        try {
+            $this->memberships->assign($userId, $branchId);
+        } catch (\Throwable $exception) {
+            $this->redirectWithNotice('error', sprintf(
+                '%s: %s (%s:%d)',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
+        }
+
+        $this->redirectWithNotice('success', __('Yetkili atandı.', 'seviye-branches'));
+    }
+
+    public function handleUnassignManager(): void
+    {
+        check_admin_referer(self::NONCE_ACTION);
+
+        if (!current_user_can(BranchCapability::MANAGE_BRANCHES->value)) {
+            wp_die(esc_html__('Bu işlem için yetkiniz yok.', 'seviye-branches'));
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified above via check_admin_referer().
+        $userId = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+
+        if ($userId <= 0) {
+            $this->redirectWithNotice('error', __('Kullanıcı bulunamadı.', 'seviye-branches'));
+        }
+
+        try {
+            $this->memberships->unassign($userId);
+        } catch (\Throwable $exception) {
+            $this->redirectWithNotice('error', sprintf(
+                '%s: %s (%s:%d)',
+                get_class($exception),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
+        }
+
+        $this->redirectWithNotice('success', __('Yetkili kaldırıldı.', 'seviye-branches'));
     }
 
     private function resolveIban(): ?Iban

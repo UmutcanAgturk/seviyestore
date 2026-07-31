@@ -54,4 +54,22 @@ final class WpdbBranchMembershipRepositoryTest extends TestCase
 
         self::assertCount(1, $connection->queries);
     }
+
+    public function testUsersForBranchReturnsEveryMatchingUserId(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [['user_id' => '5'], ['user_id' => '9']];
+        $repository = new WpdbBranchMembershipRepository($connection);
+
+        self::assertSame([5, 9], $repository->usersForBranch(7));
+    }
+
+    public function testUsersForBranchReturnsEmptyArrayWhenNoneAssigned(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [];
+        $repository = new WpdbBranchMembershipRepository($connection);
+
+        self::assertSame([], $repository->usersForBranch(7));
+    }
 }

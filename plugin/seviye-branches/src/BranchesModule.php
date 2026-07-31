@@ -84,7 +84,10 @@ final class BranchesModule implements ModuleInterface
             )
         );
 
-        (new BranchAdminPage($container->get(BranchRepositoryInterface::class)))->register();
+        (new BranchAdminPage(
+            $container->get(BranchRepositoryInterface::class),
+            $container->get(BranchMembershipInterface::class)
+        ))->register();
     }
 
     /**

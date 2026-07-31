@@ -21,4 +21,13 @@ interface BranchMembershipInterface
     public function branchIdForUser(int $userId): ?int;
 
     public function unassign(int $userId): void;
+
+    /**
+     * The reverse of {@see branchIdForUser()} - who is currently assigned
+     * to a given branch. Normally at most one user (a single Şube Müdürü),
+     * but the schema does not enforce that, so callers must not assume it.
+     *
+     * @return list<int>
+     */
+    public function usersForBranch(int $branchId): array;
 }

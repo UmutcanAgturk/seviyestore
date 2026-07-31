@@ -51,4 +51,14 @@ final class WpdbBranchMembershipRepository implements BranchMembershipInterface
 
         $this->connection->query($sql);
     }
+
+    public function usersForBranch(int $branchId): array
+    {
+        $table = $this->connection->table('branch_users');
+        $sql = $this->connection->prepare("SELECT user_id FROM {$table} WHERE branch_id = %d", [$branchId]);
+
+        $rows = $this->connection->getResults($sql);
+
+        return array_map(static fn (array $row): int => (int) $row['user_id'], $rows);
+    }
 }

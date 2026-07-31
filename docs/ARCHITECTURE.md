@@ -1419,6 +1419,25 @@ mevcut olanla değiştir" akışını kullanabiliyor (ek kod gerekmedi, sadece
 silmeden üzerine yükleme).
 - Hiçbiri unit test edilmedi, aynı gerekçeyle.
 
+### 22. "Seviye Şubeler" sayfasında Şube Müdürü/Yetkili atama (Seviye Branches)
+
+`BranchMembershipInterface::assign()`/`unassign()` (scp_branch_users -
+"Yetkililer") daha önce hiçbir yerden - ne native wp-admin'den ne temanın
+kendi `/admin` panelinden - çağrılmıyordu; bir kullanıcıyı bir şubeye
+atamanın hiçbir yolu yoktu, yalnızca alt katman (repository + migration)
+mevcuttu. `BranchAdminPage`'in her şube satırına "Şube Müdürü / Yetkili"
+bölümü eklendi: o şubeye atanmış kullanıcılar (ve her biri için "Kaldır"
+butonu) + WordPress'teki tüm kullanıcıları listeleyen bir seçim kutusuyla
+"Ata" formu. `BranchMembershipInterface`'e yeni bir `usersForBranch(int
+$branchId): list<int>` metodu eklendi (`branchIdForUser()`'ın tersi
+yönü) - tek implementasyonu `WpdbBranchMembershipRepository`, başka hiçbir
+modülde bu Contract'ı implemente eden bir sahte (fake) yok (REST
+controller'ları zaten unit test edilmiyor), bu yüzden interface'i
+genişletmek güvenliydi. Aynı `BranchCapability::MANAGE_BRANCHES` capability'si
+kullanılıyor - branch CRUD'u yapabilen (Genel Merkez/Bölge Müdürü + native
+`administrator`) yetkili atamasını da yapabiliyor, ayrı bir capability
+eklenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
