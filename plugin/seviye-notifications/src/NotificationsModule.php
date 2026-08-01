@@ -31,6 +31,7 @@ use Seviye\Notifications\Recipient\RecipientResolverInterface;
 use Seviye\Notifications\Recipient\WpRecipientResolver;
 use Seviye\Notifications\Repository\NotificationRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
+use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\PasswordResetNotificationListener;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
@@ -114,6 +115,18 @@ final class NotificationsModule implements ModuleInterface
             $container->get(EventBusInterface::class)->listen(
                 'commerce.order_placed',
                 [$orderPlacedListener, 'onOrderPlaced']
+            );
+
+            // "Düşük stok uyarısı" - see LowStockNotificationListener and
+            // Seviye\Commerce\Http\LowStockNotificationHooks, which fires
+            // this event. Same deferred-to-`init` reasoning as the
+            // listeners above.
+            $lowStockListener = new LowStockNotificationListener(
+                $container->get(NotificationDispatcherInterface::class)
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.product_low_stock',
+                [$lowStockListener, 'onLowStock']
             );
         });
 

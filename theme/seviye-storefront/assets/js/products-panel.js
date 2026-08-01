@@ -12,7 +12,12 @@
  *     DOM (see zone.php), so this script never queries for them unless
  *     canManageProducts is true.
  *
- * See plugin/seviye-commerce/src/Http/ProductsRestController.php.
+ * "Bedenler"/"Renkler" on the create form (visible only for a NEW product -
+ * an existing product's variant structure can't be changed here) produce a
+ * variable WooCommerce product; "Varyantları Düzenle" then edits each
+ * generated variation's own price/stock (canManageAllBranches only, same
+ * gating as edit/delete). See
+ * plugin/seviye-commerce/src/Http/ProductsRestController.php.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
  *   scpPanel     { restUrl, wpRestRoot, nonce, canManageProducts, canManageAllBranches }
@@ -38,6 +43,28 @@
 
     function formatPrice(price) {
         return Number(price).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function priceCellText(product) {
+        if (product.type !== 'variable') {
+            return formatPrice(product.price);
+        }
+
+        if (!product.price_range) {
+            return scpPanelText.summaryNotSet;
+        }
+
+        return product.price_range.min === product.price_range.max
+            ? formatPrice(product.price_range.min)
+            : formatPrice(product.price_range.min) + ' - ' + formatPrice(product.price_range.max);
+    }
+
+    function stockCellText(product) {
+        if (product.type === 'variable') {
+            return scpPanelText.variantStock;
+        }
+
+        return product.manage_stock ? String(product.stock_quantity) : scpPanelText.summaryNotSet;
     }
 
     function loadProducts() {
@@ -76,9 +103,9 @@
             row.appendChild(imageCell);
             row.appendChild(textCell(String(product.id)));
             row.appendChild(textCell(product.name));
-            row.appendChild(textCell(formatPrice(product.price)));
+            row.appendChild(textCell(priceCellText(product)));
             row.appendChild(textCell(product.category || scpPanelText.summaryNotSet));
-            row.appendChild(textCell(product.manage_stock ? String(product.stock_quantity) : scpPanelText.summaryNotSet));
+            row.appendChild(textCell(stockCellText(product)));
 
             if (scpPanel.canManageProducts) {
                 row.appendChild(statusCell(product));
@@ -151,30 +178,58 @@
 
     var openProductForm = function () {};
     var openBranchesPanel = function () {};
+    var openVariationsPanel = function () {};
 
     if (scpPanel.canManageProducts) {
         var form = root.querySelector('[data-scp-product-form]');
         var deleteButton = root.querySelector('[data-scp-delete-product]');
         var manageStockCheckbox = form.querySelector('[data-scp-manage-stock]');
         var stockQuantityField = form.querySelector('[data-scp-stock-quantity-field]');
+        var lowStockField = form.querySelector('[data-scp-low-stock-field]');
         var imageInput = form.querySelector('[data-scp-product-image-input]');
         var imagePreview = form.querySelector('[data-scp-product-image-preview]');
         var imageStatus = form.querySelector('[data-scp-product-image-status]');
         var branchesPanel = root.querySelector('[data-scp-product-branches-panel]');
         var branchesList = root.querySelector('[data-scp-product-branches-list]');
+        var variantFields = form.querySelector('[data-scp-variant-fields]');
+        var variantHint = form.querySelector('[data-scp-variant-hint]');
+        var variantLockedNotice = form.querySelector('[data-scp-variant-locked-notice]');
+        var editVariationsButton = form.querySelector('[data-scp-edit-variations]');
+        var variationsPanel = root.querySelector('[data-scp-product-variations-panel]');
+        var variationsList = root.querySelector('[data-scp-product-variations-list]');
         var allBranches = null;
+        var currentProduct = null;
 
         openProductForm = function (product) {
             form.hidden = false;
             branchesPanel.hidden = true;
+            variationsPanel.hidden = true;
             setStatus('');
             form.reset();
+            currentProduct = product;
             form.id.value = product ? product.id : '';
             form.name.value = product ? product.name : '';
             form.description.value = product ? product.description : '';
-            form.price.value = product ? product.price : '';
             form.category.value = product && product.category ? product.category : '';
             form.image_id.value = product && product.image_id ? product.image_id : '';
+
+            var isVariable = Boolean(product && product.type === 'variable');
+
+            variantFields.hidden = Boolean(product);
+            variantHint.hidden = Boolean(product);
+            variantLockedNotice.hidden = !isVariable;
+            editVariationsButton.hidden = !isVariable;
+
+            form.price.disabled = isVariable;
+            form.price.value = product && !isVariable ? product.price : '';
+            manageStockCheckbox.disabled = isVariable;
+            manageStockCheckbox.checked = Boolean(product && !isVariable && product.manage_stock);
+            stockQuantityField.hidden = !manageStockCheckbox.checked;
+            lowStockField.hidden = !manageStockCheckbox.checked;
+            form.stock_quantity.value = product && !isVariable && product.manage_stock ? product.stock_quantity : '';
+            form.low_stock_amount.value = product && !isVariable && product.low_stock_amount !== null
+                ? product.low_stock_amount
+                : '';
 
             if (product && product.image_url) {
                 imagePreview.src = product.image_url;
@@ -183,10 +238,6 @@
                 imagePreview.hidden = true;
             }
 
-            manageStockCheckbox.checked = Boolean(product && product.manage_stock);
-            stockQuantityField.hidden = !manageStockCheckbox.checked;
-            form.stock_quantity.value = product && product.manage_stock ? product.stock_quantity : '';
-
             deleteButton.hidden = !product;
 
             form.scrollIntoView({ block: 'nearest' });
@@ -194,6 +245,7 @@
 
         manageStockCheckbox.addEventListener('change', function () {
             stockQuantityField.hidden = !manageStockCheckbox.checked;
+            lowStockField.hidden = !manageStockCheckbox.checked;
         });
 
         imageInput.addEventListener('change', function () {
@@ -230,6 +282,16 @@
             branchesPanel.hidden = true;
         });
 
+        root.querySelector('[data-scp-close-product-variations]').addEventListener('click', function () {
+            variationsPanel.hidden = true;
+        });
+
+        editVariationsButton.addEventListener('click', function () {
+            if (currentProduct) {
+                openVariationsPanel(currentProduct);
+            }
+        });
+
         deleteButton.addEventListener('click', function () {
             var id = form.id.value;
 
@@ -253,20 +315,30 @@
             event.preventDefault();
 
             var id = form.id.value;
+            var isVariable = Boolean(currentProduct && currentProduct.type === 'variable');
             var payload = {
                 name: form.name.value,
                 description: form.description.value,
-                price: parseFloat(form.price.value),
+                price: isVariable ? 0 : parseFloat(form.price.value) || 0,
                 category: form.category.value,
-                manage_stock: manageStockCheckbox.checked
+                manage_stock: isVariable ? false : manageStockCheckbox.checked
             };
 
             if (form.image_id.value) {
                 payload.image_id = parseInt(form.image_id.value, 10);
             }
 
-            if (manageStockCheckbox.checked) {
+            if (!isVariable && manageStockCheckbox.checked) {
                 payload.stock_quantity = parseInt(form.stock_quantity.value, 10) || 0;
+
+                if (form.low_stock_amount.value) {
+                    payload.low_stock_amount = parseInt(form.low_stock_amount.value, 10);
+                }
+            }
+
+            if (!id) {
+                payload.sizes = form.sizes.value;
+                payload.colors = form.colors.value;
             }
 
             var path = id ? 'commerce/products/' + id : 'commerce/products';
@@ -317,6 +389,82 @@
                 });
             });
         };
+
+        openVariationsPanel = function (product) {
+            form.hidden = true;
+            branchesPanel.hidden = true;
+            variationsPanel.hidden = false;
+            variationsList.innerHTML = '';
+
+            apiFetch('commerce/products/' + product.id + '/variations').then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    return;
+                }
+
+                result.data.forEach(function (variation) {
+                    variationsList.appendChild(renderVariationRow(variation));
+                });
+            });
+        };
+
+        root.querySelector('[data-scp-save-variations]').addEventListener('click', function () {
+            if (!currentProduct) {
+                return;
+            }
+
+            var rows = [];
+
+            variationsList.querySelectorAll('tr').forEach(function (row) {
+                rows.push({
+                    id: parseInt(row.getAttribute('data-scp-variation-id'), 10),
+                    price: parseFloat(row.querySelector('[data-scp-variation-price]').value) || 0,
+                    stock_quantity: parseInt(row.querySelector('[data-scp-variation-stock]').value, 10) || 0
+                });
+            });
+
+            apiFetch('commerce/products/' + currentProduct.id + '/variations', {
+                method: 'PUT',
+                body: JSON.stringify({ variations: rows })
+            }).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    return;
+                }
+
+                setStatus(scpPanelText.productSaved);
+                loadProducts();
+            });
+        });
+    }
+
+    function renderVariationRow(variation) {
+        var row = document.createElement('tr');
+        row.setAttribute('data-scp-variation-id', String(variation.id));
+
+        row.appendChild(textCell(variation.label));
+
+        var priceCell = document.createElement('td');
+        var priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.min = '0';
+        priceInput.step = '0.01';
+        priceInput.value = variation.price;
+        priceInput.setAttribute('data-scp-variation-price', '');
+        priceCell.appendChild(priceInput);
+        row.appendChild(priceCell);
+
+        var stockCell = document.createElement('td');
+        var stockInput = document.createElement('input');
+        stockInput.type = 'number';
+        stockInput.min = '0';
+        stockInput.step = '1';
+        stockInput.value = variation.stock_quantity || 0;
+        stockInput.setAttribute('data-scp-variation-stock', '');
+        stockCell.appendChild(stockInput);
+        row.appendChild(stockCell);
+
+        return row;
     }
 
     function renderBranchStatusRow(productId, branch, currentStatus) {

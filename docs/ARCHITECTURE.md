@@ -2157,6 +2157,112 @@ kanallar: e-posta + panel; SMS isteğe bağlı, NetGSM yapılandırılmamışsa
 zaten sessizce başarısız kaydediliyor - platformun her yerinde geçerli
 "dürüst başarısızlık" kuralı).
 
+### 38. Ürün varyantları, düşük stok uyarısı, öğrenci harcama limiti, mağaza arama/filtreleme, kupon sistemi
+
+Kullanıcının "daha farklı neler yapabiliriz" sorusuna verilen beş öneri
+listesinin tamamının ("Bunları yap") uygulandığı tur - beş ayrı, birbirinden
+bağımsız özellik:
+
+**1. Ürün varyantları (beden/renk).** `ProductsRestController::store()`
+artık `sizes`/`colors` (virgülle ayrılmış listeler) verilirse
+`WC_Product_Variable` (verilmezse eskisi gibi `WC_Product_Simple`)
+oluşturuyor. `beden`/`renk` global öznitelik taksonomileri
+(`wc_create_attribute()`) yoksa oluşturuluyor; WooCommerce'in kendi
+gotcha'sı - yeni oluşturulan bir öznitelik taksonomisi AYNI istek içinde
+kayıtlı değil - `delete_transient('wc_attribute_taxonomies')` +
+`WC_Post_Types::register_taxonomies()` ile WC çekirdeğinin kendi admin Ajax
+düzeltmesi birebir taklit edilerek çözüldü. Her beden×renk kombinasyonu
+için ayrı bir `WC_Product_Variation` (kendi fiyat/stok alanlarıyla)
+otomatik üretiliyor (`generateVariations()`). Yeni
+`GET/PUT /commerce/products/{id}/variations` uç noktası varyantları listeler/
+günceller - `updateVariations()` yalnızca gerçekten o ürünün çocuğu olan
+varyant id'lerine yazıyor (`in_array($variationId, $childIds, true)`),
+kötü niyetli bir istekle başka bir ürünün varyantının ele geçirilmesini
+engelliyor. Tema tarafında "Ürünler" panelinde beden/renk alanları (yalnızca
+YENİ ürün oluştururken - mevcut bir varyanlı ürünün varyant KÜMESİ
+sonradan değiştirilemiyor, yalnızca tek tek varyantların fiyat/stoğu) ve
+ayrı bir "Varyantları Düzenle" alt paneli eklendi.
+
+**2. Düşük stok uyarısı.** WooCommerce'in kendi
+`woocommerce_product_low_stock_notification`/
+`woocommerce_variation_low_stock_notification` hook'larını (stok, ürünün
+kendi `_low_stock_amount`'ı ya da site varsayılanı eşiğinin altına
+düştüğünde WC çekirdeğinin ateşlediği, eşik tespitini yeniden yazmaya
+gerek bırakmayan noktalar) dinleyen yeni
+`Seviye\Commerce\Http\LowStockNotificationHooks`, platform-native
+`commerce.product_low_stock` event'ini fırlatıyor. Notifications'ın yeni
+`LowStockNotificationListener`'ı bunu dinleyip HER Genel Merkez/Bölge
+Müdürü kullanıcısına (stok şubeye değil TÜM platforma ait paylaşılan bir
+`WC_Product` olduğu için tüm HQ'ya, `OrderPlacedNotificationListener`/
+`BroadcastRestController`'ın aksine tek bir şubeye değil) hem panel hem
+e-posta kanalından bildirim gönderiyor - az önce (bölüm 36) kurulan Gmail
+SMTP altyapısını yeniden kullanıyor, yeni bir gönderim mekanizması yok.
+
+**3. Öğrenci/veli bazlı harcama limiti.** Yeni `scp_student_spending_limits`
+tablosu (`student_id` UNIQUE, `period` monthly/term, `limit_amount`,
+`scp_students`'a `ON DELETE CASCADE` FK) - satırın YOKLUĞU "limit yok"
+anlamına geliyor (opt-in, `scp_product_branches`'ın opt-out modelinin
+tersi). `period=term` ("dönemlik") bilinçli olarak sınırsız/kümülatif -
+platformun Türk okul dönemi takvimine dair hiçbir doğruluk kaynağı
+olmadığından "dönem" başlangıç/bitiş tarihini türetmeye çalışmak yerine bu
+basitleştirme tercih edildi; `period=monthly` ("aylık") içinde bulunulan
+takvim ayıyla sınırlı.
+
+Harcanan tutar, `AdminOrdersRestController`/`OverviewRestController`'ın
+bölüm 36-37'de benimsediği aynı ilkeyle -
+`scp_order_line_items` yerine `wc_get_orders()`'ı DOĞRUDAN okuyup
+`_scp_student_id` meta'sı eşleşen kalemleri toplayarak
+(`StudentSpendingCalculator`, yalnızca ödenmiş - `wc_get_is_paid_statuses()`
+- siparişler sayılıyor) hesaplanıyor.
+
+Uygulama noktası: `WooCommerceCartHooks`'un aynı
+`woocommerce_add_to_cart_validation` filtresine, ondan SONRAKİ bir
+öncelikte (20 vs. 10) kaydolan yeni `SpendingLimitCartHooks` -
+öğrencinin onaylanmış harcaması + sepetteki (o öğrenciye ait, henüz
+sipariş olmamış) diğer kalemler + eklenmek istenen kalem limiti aşarsa,
+`ProductVisibilityHooks`/`WooCommerceCartHooks`'un zaten kurduğu
+`wc_add_notice()` + `return false` sert-engelleme örüntüsüyle sepete
+eklemeyi reddediyor (kalan limit tutarıyla birlikte). Yönetim uç noktası
+`GET/PUT/DELETE /commerce/students/{id}/spending-limit`, Students'ın
+kendi `scp_manage_students` yetkisini ve `StudentsRestController::
+canAccessStudent()` ile BİREBİR aynı şube-kapsama mantığını yeniden
+kullanıyor (yeni bir yetki TANIMLANMADI). Tema tarafında "Öğrenciler"
+panelindeki öğrenci düzenleme formuna gömülü küçük bir "Harcama Limiti"
+alt bölümü eklendi.
+
+**4. Mağaza tarafında arama ve kategori filtreleme.** Bu turdan önce hiç
+yapılmamış, tamamen müşteri (veli) tarafına dönük ilk round. Özel bir
+REST/JS filtre arayüzü YAZILMADI - WooCommerce'in kendi native arama formu
+(`get_product_search_form()`) ve kategori taksonomi listesi
+(`wp_list_categories(['taxonomy' => 'product_cat', ...])`) `inc/
+woocommerce.php`'deki yeni `scp_render_shop_filters()` ile, mağaza sayfası
+ve her ürün kategorisi arşivinin (`woocommerce_before_shop_loop` hook'u,
+öncelik 5 - ürün döngüsünden hemen önce) üstünde render ediliyor. Bu
+sayede WC'nin zaten var olan `?s=...` arama sorgu işleme ve
+`product_cat` arşiv URL yapısı hiçbir ek kod olmadan çalışmaya devam
+ediyor. `assets/css/woocommerce.css`'e platformun tasarım
+token'larıyla (`--scp-*`) uyumlu bir `.scp-shop-filters` stili eklendi.
+
+**5. Kupon/kampanya kodu sistemi.** "OKUL2026" gibi zaman sınırlı promosyon
+kodları - Seviye Pricing'in mevcut şube/öğrenci bazlı fiyat kurallarından
+(otomatik, satır bazında çözülen yapısal indirimler) tamamen ayrı bir
+ihtiyaç: müşterinin ödeme sırasında KENDİSİNİN girdiği bir kod. Yeni
+`Seviye\Commerce\Http\CouponsRestController` (`GET/POST /commerce/coupons`,
+`PUT/DELETE /commerce/coupons/{id}`), WooCommerce'in kendi `WC_Coupon`'unu
+(`shop_coupon` post type) sarmalayan ince bir katman - kupon depolaması da
+Products/Orders gibi tamamen WooCommerce'in kendisinde kalıyor (bkz.
+"Kural"). Müşteri tarafında hiçbir tema işi gerekmiyor: WooCommerce'in
+`[woocommerce_cart]` şort kodunun kendi native "Kupon Kodu Uygula" formu
+zaten çalışıyor.
+
+Yeni `CouponCapability::MANAGE_COUPONS`, Products/Pricing'in aksine YALNIZCA
+Genel Merkez/Bölge Müdürü'ne veriliyor - Şube Müdürü katmanı YOK, çünkü bir
+kampanya kodu platform/kampanya seviyesinde bir kavram (paylaşılan
+`shop_coupon` post type'ı), öğrenci/şube gibi tek bir şubeye ait değil.
+Tema tarafında yalnızca `/admin`'de (Bölge Müdürü de `/admin` bölgesinde
+oturduğu için ayrıca bir `/bolge` kontrolüne gerek yok) yeni bir "Kampanya
+Kodları" paneli eklendi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -29,6 +29,10 @@
     var parentQuickAdd = root.querySelector('[data-scp-parent-quick-add]');
     var summaryCard = root.querySelector('[data-scp-registration-summary]');
     var summaryList = root.querySelector('[data-scp-registration-summary-list]');
+    var spendingLimitPanel = root.querySelector('[data-scp-spending-limit-panel]');
+    var spendingLimitStatus = root.querySelector('[data-scp-spending-limit-status]');
+    var spendingLimitPeriodSelect = root.querySelector('[data-scp-spending-limit-period]');
+    var spendingLimitAmountInput = root.querySelector('[data-scp-spending-limit-amount]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -156,13 +160,50 @@
             parentsPanel.hidden = false;
             parentQuickAdd.hidden = true;
             loadParents(student.id);
+            spendingLimitPanel.hidden = false;
+            loadSpendingLimit(student.id);
         } else {
             parentsPanel.hidden = true;
             parentsList.innerHTML = '';
             parentQuickAdd.hidden = false;
+            spendingLimitPanel.hidden = true;
         }
 
         summaryCard.hidden = true;
+    }
+
+    function periodLabel(period) {
+        return period === 'term' ? scpPanelText.spendingLimitPeriodTerm : scpPanelText.spendingLimitPeriodMonthly;
+    }
+
+    function formatCurrency(amount) {
+        return Number(amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' TRY';
+    }
+
+    function loadSpendingLimit(studentId) {
+        spendingLimitStatus.textContent = '';
+        spendingLimitPeriodSelect.value = 'monthly';
+        spendingLimitAmountInput.value = '';
+
+        apiFetch('commerce/students/' + studentId + '/spending-limit').then(function (result) {
+            if (!result.ok) {
+                spendingLimitStatus.textContent = scpPanelText.spendingLimitLoadError;
+                return;
+            }
+
+            var data = result.data;
+
+            if (!data.period) {
+                spendingLimitStatus.textContent = scpPanelText.spendingLimitNone;
+                return;
+            }
+
+            spendingLimitPeriodSelect.value = data.period;
+            spendingLimitAmountInput.value = data.limit_amount;
+            spendingLimitStatus.textContent = periodLabel(data.period) + ' limit: ' + formatCurrency(data.limit_amount)
+                + ' - ' + scpPanelText.spendingLimitSpent + ': ' + formatCurrency(data.spent_amount)
+                + ' - ' + scpPanelText.spendingLimitRemaining + ': ' + formatCurrency(data.remaining_amount);
+        });
     }
 
     function summaryRow(label, value, useCode) {
@@ -342,6 +383,48 @@
 
     root.querySelector('[data-scp-dismiss-summary]').addEventListener('click', function () {
         summaryCard.hidden = true;
+    });
+
+    root.querySelector('[data-scp-save-spending-limit]').addEventListener('click', function () {
+        var studentId = form.id.value;
+
+        if (!studentId || !spendingLimitAmountInput.value) {
+            return;
+        }
+
+        apiFetch('commerce/students/' + studentId + '/spending-limit', {
+            method: 'PUT',
+            body: JSON.stringify({
+                period: spendingLimitPeriodSelect.value,
+                limit_amount: parseFloat(spendingLimitAmountInput.value)
+            })
+        }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.spendingLimitSaved);
+            loadSpendingLimit(studentId);
+        });
+    });
+
+    root.querySelector('[data-scp-remove-spending-limit]').addEventListener('click', function () {
+        var studentId = form.id.value;
+
+        if (!studentId) {
+            return;
+        }
+
+        apiFetch('commerce/students/' + studentId + '/spending-limit', { method: 'DELETE' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.spendingLimitRemoved);
+            loadSpendingLimit(studentId);
+        });
     });
 
     form.addEventListener('submit', function (event) {

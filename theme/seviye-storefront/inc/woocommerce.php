@@ -39,6 +39,13 @@ add_action('admin_init', 'scp_ensure_cart_page_exists');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
+// "Mağaza tarafında arama ve kategori filtreleme" - reuses WooCommerce's own
+// native search form (get_product_search_form()) and category taxonomy
+// listing (wp_list_categories()) rather than a custom REST/JS filter UI, so
+// existing WC query-string handling (?s=..., the product_cat archive URL)
+// keeps working with zero extra plumbing. See scp_render_shop_filters().
+add_action('woocommerce_before_shop_loop', 'scp_render_shop_filters', 5);
+
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
@@ -129,6 +136,34 @@ function scp_render_student_picker(): void
                 <option value=""><?php esc_html_e('Yükleniyor…', 'seviye-storefront'); ?></option>
             </select>
         </label>
+    </div>
+    <?php
+}
+
+/**
+ * Renders above the product loop on the shop page and every product
+ * category archive - not on the single product page, where a search/filter
+ * bar has no product grid below it to act on.
+ */
+function scp_render_shop_filters(): void
+{
+    if (!is_shop() && !is_product_taxonomy()) {
+        return;
+    }
+    ?>
+    <div class="scp-shop-filters">
+        <?php get_product_search_form(); ?>
+        <nav class="scp-shop-filters__categories" aria-label="<?php esc_attr_e('Kategoriler', 'seviye-storefront'); ?>">
+            <?php
+            wp_list_categories([
+                'taxonomy' => 'product_cat',
+                'title_li' => '',
+                'hide_empty' => true,
+                'show_count' => true,
+                'current_category' => is_product_taxonomy() ? get_queried_object_id() : 0,
+            ]);
+            ?>
+        </nav>
     </div>
     <?php
 }

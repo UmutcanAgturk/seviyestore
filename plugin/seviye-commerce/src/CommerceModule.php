@@ -11,21 +11,30 @@ use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
 use Seviye\Commerce\Http\AdminOrdersRestController;
 use Seviye\Commerce\Http\CustomerAddressRestController;
+use Seviye\Commerce\Database\Migrations\CreateStudentSpendingLimitsTable;
+use Seviye\Commerce\Http\CouponsRestController;
+use Seviye\Commerce\Http\LowStockNotificationHooks;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
+use Seviye\Commerce\Http\SpendingLimitCartHooks;
+use Seviye\Commerce\Http\SpendingLimitRestController;
 use Seviye\Commerce\Http\Support\OrderPresenter;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
+use Seviye\Commerce\Rbac\CouponCapability;
 use Seviye\Commerce\Rbac\OrderCapability;
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
+use Seviye\Commerce\Repository\SpendingLimitRepositoryInterface;
 use Seviye\Commerce\Repository\WpdbOrderLineItemQuery;
 use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
+use Seviye\Commerce\Repository\WpdbSpendingLimitRepository;
 use Seviye\Commerce\Support\CartPricingService;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
+use Seviye\Commerce\Support\StudentSpendingCalculator;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
@@ -85,8 +94,21 @@ final class CommerceModule implements ModuleInterface
                 new WpdbProductBranchVisibilityRepository($c->get(ConnectionInterface::class))
         );
 
+        $container->singleton(
+            SpendingLimitRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbSpendingLimitRepository => new WpdbSpendingLimitRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            StudentSpendingCalculator::class,
+            static fn (): StudentSpendingCalculator => new StudentSpendingCalculator()
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
         $container->get(MigrationRunner::class)->register(new CreateProductBranchesTable());
+        $container->get(MigrationRunner::class)->register(new CreateStudentSpendingLimitsTable());
 
         $rbac = $container->get(RbacManager::class);
         $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_PRODUCTS->value);
@@ -118,6 +140,11 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::VIEW_ORDERS->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::VIEW_ORDERS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::VIEW_OWN_BRANCH_ORDERS->value);
+
+        // "Kupon/kampanya kodu sistemi" - platform/campaign-level, HQ-only
+        // (no Şube Müdürü tier, unlike Products/Orders) - see CouponCapability.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, CouponCapability::MANAGE_COUPONS->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, CouponCapability::MANAGE_COUPONS->value);
 
         $container->singleton(
             OrderPresenter::class,
@@ -168,6 +195,27 @@ final class CommerceModule implements ModuleInterface
             static fn (): CustomerAddressRestController => new CustomerAddressRestController()
         );
 
+        // "Öğrenci/veli bazlı harcama limiti" - reuses Students' own
+        // scp_manage_students capability (already granted to
+        // Genel Merkez/Bölge Müdürü/Şube Müdürü by StudentsModule::boot()),
+        // no new capability grant needed here. Same WC-active gating as the
+        // controllers above - its spend calculation calls wc_get_orders()
+        // directly.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): SpendingLimitRestController => new SpendingLimitRestController(
+                $container->get(SpendingLimitRepositoryInterface::class),
+                $container->get(StudentSpendingCalculator::class),
+                $container->get(StudentLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
+            )
+        );
+
+        // Same WC-active gating as the controllers above - its route
+        // handlers construct WC_Coupon directly.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): CouponsRestController => new CouponsRestController()
+        );
+
         // Deferred to `init` (not resolved here in boot()): CartPricingService and
         // OrderPersistenceHooks depend on other modules' Contracts (Students,
         // Branches), and ModuleRegistry::bootAll() boots modules in plugin
@@ -183,6 +231,12 @@ final class CommerceModule implements ModuleInterface
             );
             $cartHooks->register();
 
+            $spendingLimitCartHooks = new SpendingLimitCartHooks(
+                $container->get(SpendingLimitRepositoryInterface::class),
+                $container->get(StudentSpendingCalculator::class)
+            );
+            $spendingLimitCartHooks->register();
+
             $orderHooks = new OrderPersistenceHooks(
                 $container->get(OrderLineItemRepositoryInterface::class),
                 $container->get(StudentLookupInterface::class),
@@ -197,6 +251,8 @@ final class CommerceModule implements ModuleInterface
                 $container->get(ParentBranchLookupInterface::class)
             );
             $visibilityHooks->register();
+
+            (new LowStockNotificationHooks($container->get(EventBusInterface::class)))->register();
         });
     }
 }

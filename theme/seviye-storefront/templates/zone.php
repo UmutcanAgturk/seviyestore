@@ -127,6 +127,10 @@ if (current_user_can('scp_manage_pricing')) {
     $scp_sections['#scp-pricing-panel'] = __('Fiyat Kuralları', 'seviye-storefront');
 }
 
+if (current_user_can('scp_manage_coupons')) {
+    $scp_sections['#scp-coupons-panel'] = __('Kampanya Kodları', 'seviye-storefront');
+}
+
 if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
     $scp_sections['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
 }
@@ -392,6 +396,30 @@ get_header();
                         </button>
                     </div>
                 </div>
+
+                <div data-scp-spending-limit-panel hidden>
+                    <h3><?php esc_html_e('Harcama Limiti', 'seviye-storefront'); ?></h3>
+                    <p class="scp-form__hint" data-scp-spending-limit-status></p>
+                    <div class="scp-form scp-form--inline">
+                        <label>
+                            <span><?php esc_html_e('Dönem', 'seviye-storefront'); ?></span>
+                            <select data-scp-spending-limit-period>
+                                <option value="monthly"><?php esc_html_e('Aylık', 'seviye-storefront'); ?></option>
+                                <option value="term"><?php esc_html_e('Dönemlik', 'seviye-storefront'); ?></option>
+                            </select>
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Limit Tutarı (TRY)', 'seviye-storefront'); ?></span>
+                            <input type="number" min="0" step="0.01" data-scp-spending-limit-amount>
+                        </label>
+                        <button type="button" class="scp-btn" data-scp-save-spending-limit>
+                            <?php esc_html_e('Kaydet', 'seviye-storefront'); ?>
+                        </button>
+                        <button type="button" class="scp-btn scp-btn--ghost" data-scp-remove-spending-limit>
+                            <?php esc_html_e('Limiti Kaldır', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </div>
             </form>
 
             <div class="scp-reveal-card" data-scp-registration-summary hidden>
@@ -563,7 +591,37 @@ get_header();
                             <span><?php esc_html_e('Stok Adedi', 'seviye-storefront'); ?></span>
                             <input type="number" min="0" step="1" name="stock_quantity">
                         </label>
+                        <label data-scp-low-stock-field hidden>
+                            <span>
+                                <?php esc_html_e('Düşük Stok Eşiği (isteğe bağlı)', 'seviye-storefront'); ?>
+                            </span>
+                            <input type="number" min="0" step="1" name="low_stock_amount">
+                        </label>
                     </div>
+
+                    <div class="scp-form__row" data-scp-variant-fields>
+                        <label>
+                            <span><?php esc_html_e('Bedenler (virgülle ayırın, ör. S,M,L,XL)', 'seviye-storefront'); ?></span>
+                            <input type="text" name="sizes" placeholder="S,M,L,XL">
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Renkler (virgülle ayırın, ör. Kırmızı,Mavi)', 'seviye-storefront'); ?></span>
+                            <input type="text" name="colors" placeholder="Kırmızı,Mavi">
+                        </label>
+                    </div>
+                    <p class="scp-form__hint" data-scp-variant-hint>
+                        <?php esc_html_e(
+                            'Beden ve/veya renk girilirse ürün varyantlı oluşturulur, her kombinasyon için ayrı stok/fiyat sonradan "Varyantları Düzenle" ile ayarlanır. Mevcut bir ürünün varyant yapısı sonradan değiştirilemez.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
+
+                    <p class="scp-form__hint" data-scp-variant-locked-notice hidden>
+                        <?php esc_html_e(
+                            'Bu ürün varyantlı - fiyat/stok tek tek her varyant için "Varyantları Düzenle" ile ayarlanır.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
 
                     <label>
                         <span><?php esc_html_e('Görsel', 'seviye-storefront'); ?></span>
@@ -577,11 +635,40 @@ get_header();
                         <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-product>
                             <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
                         </button>
+                        <button type="button" class="scp-btn scp-btn--ghost" data-scp-edit-variations hidden>
+                            <?php esc_html_e('Varyantları Düzenle', 'seviye-storefront'); ?>
+                        </button>
                         <button type="button" class="scp-btn scp-btn--danger" data-scp-delete-product hidden>
                             <?php esc_html_e('Sil', 'seviye-storefront'); ?>
                         </button>
                     </div>
                 </form>
+
+                <div class="scp-card scp-card--nested" data-scp-product-variations-panel hidden>
+                    <div class="scp-card__header">
+                        <h3><?php esc_html_e('Varyantlar', 'seviye-storefront'); ?></h3>
+                    </div>
+                    <div class="scp-table-wrapper">
+                        <table class="scp-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Varyant', 'seviye-storefront'); ?></th>
+                                    <th><?php esc_html_e('Fiyat (TRY)', 'seviye-storefront'); ?></th>
+                                    <th><?php esc_html_e('Stok Adedi', 'seviye-storefront'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody data-scp-product-variations-list></tbody>
+                        </table>
+                    </div>
+                    <div class="scp-form__actions">
+                        <button type="button" class="scp-btn" data-scp-save-variations>
+                            <?php esc_html_e('Kaydet', 'seviye-storefront'); ?>
+                        </button>
+                        <button type="button" class="scp-btn scp-btn--ghost" data-scp-close-product-variations>
+                            <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </div>
 
                 <div class="scp-card scp-card--nested" data-scp-product-branches-panel hidden>
                     <div class="scp-card__header">
@@ -599,6 +686,86 @@ get_header();
                     </button>
                 </div>
             <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_manage_coupons')) : ?>
+        <section class="scp-card" id="scp-coupons-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Kampanya Kodları', 'seviye-storefront'); ?></h2>
+                <button type="button" class="scp-btn" data-scp-new-coupon>
+                    <?php esc_html_e('Yeni Kod', 'seviye-storefront'); ?>
+                </button>
+            </div>
+
+            <p class="scp-status" data-scp-coupons-status></p>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Kod', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('İndirim', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Kullanım', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Son Geçerlilik', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-coupons-body></tbody>
+                </table>
+            </div>
+
+            <form class="scp-form" data-scp-coupon-form hidden>
+                <input type="hidden" name="id">
+
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Kod', 'seviye-storefront'); ?></span>
+                        <input type="text" name="code" required placeholder="OKUL2026">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('İndirim Türü', 'seviye-storefront'); ?></span>
+                        <select name="discount_type" required>
+                            <option value="percent"><?php esc_html_e('Yüzde (%)', 'seviye-storefront'); ?></option>
+                            <option value="fixed_cart">
+                                <?php esc_html_e('Sabit Tutar (Sepet)', 'seviye-storefront'); ?>
+                            </option>
+                            <option value="fixed_product">
+                                <?php esc_html_e('Sabit Tutar (Ürün)', 'seviye-storefront'); ?>
+                            </option>
+                        </select>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Tutar', 'seviye-storefront'); ?></span>
+                        <input type="number" name="amount" min="0" step="0.01" required>
+                    </label>
+                </div>
+
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Kullanım Limiti (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                        <input type="number" name="usage_limit" min="1" step="1" placeholder="1">
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Son Geçerlilik Tarihi (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                        <input type="date" name="expiry_date">
+                    </label>
+                </div>
+
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Açıklama (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                        <input type="text" name="description">
+                    </label>
+                </div>
+
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-coupon>
+                        <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </form>
         </section>
     <?php endif; ?>
 

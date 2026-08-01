@@ -106,6 +106,7 @@ function scp_enqueue_panel_assets(): void
         'addressSaved' => __('Adres bilgileri kaydedildi.', 'seviye-storefront'),
         'overviewOrdersLabel' => __('sipariş', 'seviye-storefront'),
         'broadcastSentSuffix' => __('alıcıya gönderildi.', 'seviye-storefront'),
+        'variantStock' => __('Varyantlı', 'seviye-storefront'),
         'apiKeyActive' => __('Aktif', 'seviye-storefront'),
         'apiKeyRevoked' => __('İptal Edildi', 'seviye-storefront'),
         'apiKeyRevokeAction' => __('İptal Et', 'seviye-storefront'),
@@ -137,6 +138,20 @@ function scp_enqueue_panel_assets(): void
             'seviye-storefront'
         ),
         'studentDeleted' => __('Öğrenci silindi.', 'seviye-storefront'),
+        'spendingLimitNone' => __('Bu öğrenci için harcama limiti tanımlı değil.', 'seviye-storefront'),
+        'spendingLimitSaved' => __('Harcama limiti kaydedildi.', 'seviye-storefront'),
+        'spendingLimitRemoved' => __('Harcama limiti kaldırıldı.', 'seviye-storefront'),
+        'spendingLimitLoadError' => __('Harcama limiti yüklenemedi.', 'seviye-storefront'),
+        'spendingLimitPeriodMonthly' => __('Aylık', 'seviye-storefront'),
+        'spendingLimitPeriodTerm' => __('Dönemlik', 'seviye-storefront'),
+        'spendingLimitSpent' => __('Harcanan', 'seviye-storefront'),
+        'spendingLimitRemaining' => __('Kalan', 'seviye-storefront'),
+        'couponSaved' => __('Kampanya kodu kaydedildi.', 'seviye-storefront'),
+        'couponDeleted' => __('Kampanya kodu silindi.', 'seviye-storefront'),
+        'confirmDeleteCoupon' => __(
+            'Bu kampanya kodunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+            'seviye-storefront'
+        ),
         'productSaved' => __('Ürün kaydedildi.', 'seviye-storefront'),
         'productDeleted' => __('Ürün silindi.', 'seviye-storefront'),
         'confirmDeleteProduct' => __(
@@ -271,6 +286,19 @@ function scp_enqueue_panel_assets(): void
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
             'canManageBasePricing' => current_user_can('scp_manage_base_pricing'),
         ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && current_user_can('scp_manage_coupons')) {
+        $handle = 'scp-coupons-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/coupons-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/coupons-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 

@@ -11,10 +11,15 @@ use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
+use WC_Post_Types;
 use WC_Product;
+use WC_Product_Attribute;
 use WC_Product_Simple;
+use WC_Product_Variable;
+use WC_Product_Variation;
 use WP_REST_Request;
 use WP_REST_Response;
+use WP_Term;
 
 /**
  * seviye/v1/commerce/products/*. Products stay entirely WooCommerce's own
@@ -26,6 +31,19 @@ use WP_REST_Response;
  * CREATE into the shared catalog and toggle a product's active/passive
  * status for their OWN branch only - never another branch's, never the
  * product's own name/price/etc.
+ *
+ * "Ürün varyantları (beden/renk)" - a product may optionally be created
+ * with `sizes`/`colors` (comma-separated), producing a real WooCommerce
+ * WC_Product_Variable with global `pa_beden`/`pa_renk` attributes and one
+ * WC_Product_Variation per combination, each with its own stock quantity -
+ * NOT a Seviye-owned variant schema. The shop-facing variation picker is
+ * WooCommerce's own default single-product template, unmodified; this
+ * controller's job ends at producing data WooCommerce already knows how to
+ * render. Existing variation stock/price is edited afterward through
+ * variations()/updateVariations() (HQ only, same gating as
+ * canManageProductFully()) - converting an EXISTING simple product to
+ * variable, or vice versa, is intentionally not supported here (a much
+ * riskier operation against a product that may already have real orders).
  */
 final class ProductsRestController extends AbstractRestController
 {
@@ -103,6 +121,22 @@ final class ProductsRestController extends AbstractRestController
                 'status' => ['required' => true, 'type' => 'string'],
             ],
         ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/commerce/products/(?P<id>\d+)/variations', [
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'variations'],
+                'permission_callback' => [$this, 'canViewProducts'],
+            ],
+            [
+                'methods' => 'PUT',
+                'callback' => [$this, 'updateVariations'],
+                'permission_callback' => [$this, 'canManageProductFully'],
+                'args' => [
+                    'variations' => ['required' => true, 'type' => 'array'],
+                ],
+            ],
+        ]);
     }
 
     public function canViewProducts(): bool
@@ -133,6 +167,9 @@ final class ProductsRestController extends AbstractRestController
     {
         $name = trim((string) $request->get_param('name'));
         $price = (float) $request->get_param('price');
+        $sizes = $this->parseCsvList($request->get_param('sizes'));
+        $colors = $this->parseCsvList($request->get_param('colors'));
+        $hasVariants = $sizes !== [] || $colors !== [];
 
         if ($name === '' || $price < 0) {
             return new WP_REST_Response(
@@ -141,11 +178,16 @@ final class ProductsRestController extends AbstractRestController
             );
         }
 
-        $product = new WC_Product_Simple();
+        $product = $hasVariants ? new WC_Product_Variable() : new WC_Product_Simple();
         $this->applyWritableFields($product, $request);
         $product->set_status('publish');
         $productId = $product->save();
         $this->applyCategory($productId, $request);
+
+        if ($hasVariants) {
+            $termsByKey = $this->applyVariants(wc_get_product($productId), $sizes, $colors);
+            $this->generateVariations(wc_get_product($productId), $termsByKey, $price);
+        }
 
         return new WP_REST_Response($this->serialize(wc_get_product($productId)), 201);
     }
@@ -254,7 +296,7 @@ final class ProductsRestController extends AbstractRestController
         // Müdürü's power over the shared catalog is limited to creating
         // into it and toggling their own branch's visibility (see
         // canToggleBranchStatus()), never rewriting another branch-created
-        // product's name/price/etc.
+        // product's name/price/etc, nor its variations.
         return $this->currentUserBranchId() === null;
     }
 
@@ -277,11 +319,80 @@ final class ProductsRestController extends AbstractRestController
         return $ownBranchId === null || $ownBranchId === $branchId;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function variations(WP_REST_Request $request): WP_REST_Response
+    {
+        $product = wc_get_product((int) $request->get_param('id'));
+
+        if (!$product instanceof WC_Product_Variable) {
+            return new WP_REST_Response([]);
+        }
+
+        $variations = array_map(
+            fn (int $variationId): array => $this->serializeVariation(wc_get_product($variationId)),
+            $product->get_children()
+        );
+
+        return new WP_REST_Response(array_values(array_filter($variations)));
+    }
+
+    /**
+     * Only ever writes to a variation that is actually this product's own
+     * child (`in_array($variationId, $childIds, true)`) - the request
+     * supplies variation ids, and nothing stops a caller from naming a
+     * variation belonging to a DIFFERENT product otherwise.
+     */
+    public function updateVariations(WP_REST_Request $request): WP_REST_Response
+    {
+        $product = wc_get_product((int) $request->get_param('id'));
+
+        if (!$product instanceof WC_Product_Variable) {
+            return new WP_REST_Response(['message' => __('Bu ürün varyantlı değil.', 'seviye-commerce')], 422);
+        }
+
+        $childIds = $product->get_children();
+        $rows = (array) $request->get_param('variations');
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $variationId = (int) ($row['id'] ?? 0);
+
+            if (!in_array($variationId, $childIds, true)) {
+                continue;
+            }
+
+            $variation = wc_get_product($variationId);
+
+            if (!$variation instanceof WC_Product_Variation) {
+                continue;
+            }
+
+            if (array_key_exists('stock_quantity', $row)) {
+                $variation->set_manage_stock(true);
+                $variation->set_stock_quantity((int) $row['stock_quantity']);
+            }
+
+            if (array_key_exists('price', $row) && $row['price'] !== '' && $row['price'] !== null) {
+                $variation->set_regular_price((string) (float) $row['price']);
+            }
+
+            $variation->save();
+        }
+
+        WC_Product_Variable::sync($product->get_id());
+
+        return $this->variations($request);
+    }
+
     private function applyWritableFields(WC_Product $product, WP_REST_Request $request): void
     {
         $product->set_name(trim((string) $request->get_param('name')));
         $product->set_description((string) ($request->get_param('description') ?? ''));
-        $product->set_regular_price((string) (float) $request->get_param('price'));
 
         $imageId = (int) $request->get_param('image_id');
 
@@ -289,12 +400,217 @@ final class ProductsRestController extends AbstractRestController
             $product->set_image_id($imageId);
         }
 
+        if ($product instanceof WC_Product_Variable) {
+            // Variable products carry no price/stock of their own - each
+            // generated variation (see generateVariations()) owns those
+            // instead.
+            return;
+        }
+
+        $product->set_regular_price((string) (float) $request->get_param('price'));
+
         $manageStock = (bool) $request->get_param('manage_stock');
         $product->set_manage_stock($manageStock);
 
         if ($manageStock) {
             $product->set_stock_quantity((int) $request->get_param('stock_quantity'));
+
+            $lowStockAmount = $request->get_param('low_stock_amount');
+            $product->set_low_stock_amount(
+                $lowStockAmount !== null && $lowStockAmount !== '' ? (int) $lowStockAmount : ''
+            );
         }
+    }
+
+    /**
+     * @param list<string> $sizes
+     * @param list<string> $colors
+     * @return array<string, list<string>> attribute slug ('beden'/'renk') ->
+     *     the term slugs assigned, for generateVariations()'s cartesian
+     *     product
+     */
+    private function applyVariants(WC_Product_Variable $product, array $sizes, array $colors): array
+    {
+        $attributes = [];
+        $termsByKey = [];
+
+        if ($sizes !== []) {
+            [$attribute, $termSlugs] = $this->buildVariationAttribute(
+                $product->get_id(),
+                'beden',
+                __('Beden', 'seviye-commerce'),
+                $sizes,
+                0
+            );
+            $attributes[] = $attribute;
+            $termsByKey['beden'] = $termSlugs;
+        }
+
+        if ($colors !== []) {
+            [$attribute, $termSlugs] = $this->buildVariationAttribute(
+                $product->get_id(),
+                'renk',
+                __('Renk', 'seviye-commerce'),
+                $colors,
+                1
+            );
+            $attributes[] = $attribute;
+            $termsByKey['renk'] = $termSlugs;
+        }
+
+        $product->set_attributes($attributes);
+        $product->save();
+
+        return $termsByKey;
+    }
+
+    /**
+     * @param list<string> $values
+     * @return array{0: WC_Product_Attribute, 1: list<string>}
+     */
+    private function buildVariationAttribute(
+        int $productId,
+        string $slug,
+        string $label,
+        array $values,
+        int $position
+    ): array {
+        $taxonomy = $this->ensureAttributeTaxonomy($slug, $label);
+        $termIds = [];
+        $termSlugs = [];
+
+        foreach ($values as $value) {
+            $term = $this->ensureTerm($taxonomy, $value);
+            $termIds[] = $term->term_id;
+            $termSlugs[] = $term->slug;
+        }
+
+        wp_set_object_terms($productId, $termSlugs, $taxonomy);
+
+        $attribute = new WC_Product_Attribute();
+        $attribute->set_id(wc_attribute_taxonomy_id_by_name($slug));
+        $attribute->set_name($taxonomy);
+        $attribute->set_options($termIds);
+        $attribute->set_position($position);
+        $attribute->set_visible(true);
+        $attribute->set_variation(true);
+
+        return [$attribute, $termSlugs];
+    }
+
+    /**
+     * Creates the `pa_beden`/`pa_renk` global attribute taxonomy on first
+     * use (mirrors applyCategory()'s "create the term if it doesn't exist
+     * yet" convenience for product_cat). A taxonomy created via
+     * wc_create_attribute() is not yet registered within THIS same
+     * request - WooCommerce only re-registers attribute taxonomies on
+     * `init` - so WC_Post_Types::register_taxonomies() is called
+     * immediately after, the same fix WooCommerce's own admin Ajax
+     * attribute-creation handler applies.
+     */
+    private function ensureAttributeTaxonomy(string $slug, string $label): string
+    {
+        $taxonomy = wc_attribute_taxonomy_name($slug);
+
+        if (wc_attribute_taxonomy_id_by_name($slug) === 0) {
+            wc_create_attribute([
+                'name' => $label,
+                'slug' => $slug,
+                'type' => 'select',
+                'order_by' => 'menu_order',
+                'has_archives' => false,
+            ]);
+
+            delete_transient('wc_attribute_taxonomies');
+            WC_Post_Types::register_taxonomies();
+        }
+
+        return $taxonomy;
+    }
+
+    private function ensureTerm(string $taxonomy, string $name): WP_Term
+    {
+        $existing = get_term_by('name', $name, $taxonomy);
+
+        if ($existing instanceof WP_Term) {
+            return $existing;
+        }
+
+        $created = wp_insert_term($name, $taxonomy);
+
+        if (!is_wp_error($created)) {
+            return get_term((int) $created['term_id'], $taxonomy);
+        }
+
+        // wp_insert_term() failing usually means a slug collision (a
+        // different-cased/accented name slugifying the same way) rather
+        // than the name genuinely being new - fall back to whatever term
+        // already owns that slug.
+        $bySlug = get_term_by('slug', sanitize_title($name), $taxonomy);
+
+        if ($bySlug instanceof WP_Term) {
+            return $bySlug;
+        }
+
+        return $this->ensureTerm($taxonomy, $name . '-' . wp_generate_password(4, false));
+    }
+
+    /**
+     * @param array<string, list<string>> $termsByKey
+     */
+    private function generateVariations(WC_Product_Variable $product, array $termsByKey, float $price): void
+    {
+        foreach ($this->cartesianProduct($termsByKey) as $combination) {
+            $variation = new WC_Product_Variation();
+            $variation->set_parent_id($product->get_id());
+            $variation->set_attributes($combination);
+            $variation->set_regular_price((string) $price);
+            $variation->set_manage_stock(true);
+            $variation->set_stock_quantity(0);
+            $variation->set_status('publish');
+            $variation->save();
+        }
+
+        WC_Product_Variable::sync($product->get_id());
+    }
+
+    /**
+     * @param array<string, list<string>> $termsByKey attribute slug ->
+     *     term slugs
+     * @return list<array<string, string>> each entry is a
+     *     [taxonomy => term_slug] map ready for
+     *     WC_Product_Variation::set_attributes()
+     */
+    private function cartesianProduct(array $termsByKey): array
+    {
+        $combinations = [[]];
+
+        foreach ($termsByKey as $key => $slugs) {
+            $taxonomy = wc_attribute_taxonomy_name($key);
+            $next = [];
+
+            foreach ($combinations as $combination) {
+                foreach ($slugs as $slug) {
+                    $next[] = $combination + [$taxonomy => $slug];
+                }
+            }
+
+            $combinations = $next;
+        }
+
+        return $combinations;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parseCsvList(mixed $raw): array
+    {
+        if (!is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
     }
 
     /**
@@ -345,21 +661,82 @@ final class ProductsRestController extends AbstractRestController
     {
         $imageId = $product->get_image_id();
         $ownBranchId = $this->currentUserBranchId();
+        $isVariable = $product instanceof WC_Product_Variable;
 
         return [
             'id' => $product->get_id(),
             'name' => $product->get_name(),
             'description' => $product->get_description(),
-            'price' => (float) $product->get_regular_price(),
+            'type' => $product->get_type(),
+            'price' => $isVariable ? null : (float) $product->get_regular_price(),
+            'price_range' => $isVariable ? $this->variationPriceRange($product) : null,
             'image_id' => $imageId ?: null,
             'image_url' => $imageId ? wp_get_attachment_image_url($imageId, 'thumbnail') : null,
-            'manage_stock' => $product->get_manage_stock(),
-            'stock_quantity' => $product->get_manage_stock() ? $product->get_stock_quantity() : null,
+            'manage_stock' => $isVariable ? null : $product->get_manage_stock(),
+            'stock_quantity' => !$isVariable && $product->get_manage_stock() ? $product->get_stock_quantity() : null,
+            'low_stock_amount' => !$isVariable && $product->get_manage_stock()
+                ? $this->nullableLowStockAmount($product)
+                : null,
             'category' => $this->firstCategoryName($product),
             'own_branch_active' => $ownBranchId !== null
                 ? $this->visibility->isActiveForBranch($product->get_id(), $ownBranchId)
                 : null,
         ];
+    }
+
+    /**
+     * WC_Product::get_low_stock_amount() returns '' (not null) when unset -
+     * meaning "use the site-wide default threshold", not "zero".
+     */
+    private function nullableLowStockAmount(WC_Product $product): ?int
+    {
+        $amount = $product->get_low_stock_amount();
+
+        return $amount === '' ? null : (int) $amount;
+    }
+
+    /**
+     * @return array{min: float, max: float}|null
+     */
+    private function variationPriceRange(WC_Product_Variable $product): ?array
+    {
+        $prices = array_map('floatval', $product->get_variation_prices()['price'] ?? []);
+
+        if ($prices === []) {
+            return null;
+        }
+
+        return ['min' => min($prices), 'max' => max($prices)];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function serializeVariation(mixed $variation): ?array
+    {
+        if (!$variation instanceof WC_Product_Variation) {
+            return null;
+        }
+
+        return [
+            'id' => $variation->get_id(),
+            'label' => $this->variationLabel($variation),
+            'price' => (float) $variation->get_regular_price(),
+            'stock_quantity' => $variation->get_manage_stock() ? $variation->get_stock_quantity() : null,
+        ];
+    }
+
+    private function variationLabel(WC_Product_Variation $variation): string
+    {
+        $parts = [];
+
+        foreach ($variation->get_variation_attributes() as $attributeKey => $termSlug) {
+            $taxonomy = str_replace('attribute_', '', $attributeKey);
+            $term = $termSlug !== '' ? get_term_by('slug', (string) $termSlug, $taxonomy) : null;
+            $parts[] = $term instanceof WP_Term ? $term->name : ucfirst((string) $termSlug);
+        }
+
+        return implode(' / ', array_filter($parts));
     }
 
     private function firstCategoryName(WC_Product $product): ?string
@@ -372,7 +749,7 @@ final class ProductsRestController extends AbstractRestController
 
         $first = reset($terms);
 
-        return $first instanceof \WP_Term ? $first->name : null;
+        return $first instanceof WP_Term ? $first->name : null;
     }
 
     /**
@@ -387,7 +764,10 @@ final class ProductsRestController extends AbstractRestController
             'image_id' => ['required' => false, 'type' => 'integer'],
             'manage_stock' => ['required' => false, 'type' => 'boolean'],
             'stock_quantity' => ['required' => false, 'type' => 'integer'],
+            'low_stock_amount' => ['required' => false, 'type' => 'integer'],
             'category' => ['required' => false, 'type' => 'string'],
+            'sizes' => ['required' => false, 'type' => 'string'],
+            'colors' => ['required' => false, 'type' => 'string'],
         ];
     }
 }
