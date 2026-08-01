@@ -66,6 +66,7 @@ function scp_setup_steps(): array
         scp_bundled_setup_step('bundled', 'seviye-parents', 'Seviye Parents', 'seviye-parents/seviye-parents.php'),
         scp_bundled_setup_step('bundled', 'seviye-pricing', 'Seviye Pricing', 'seviye-pricing/seviye-pricing.php'),
         scp_bundled_setup_step('bundled', 'seviye-commerce', 'Seviye Commerce', 'seviye-commerce/seviye-commerce.php'),
+        scp_bundled_setup_step('bundled', 'seviye-depo', 'Seviye Depo', 'seviye-depo/seviye-depo.php'),
         scp_bundled_setup_step('bundled', 'seviye-finance', 'Seviye Finance', 'seviye-finance/seviye-finance.php'),
         scp_bundled_setup_step('bundled', 'seviye-reports', 'Seviye Reports', 'seviye-reports/seviye-reports.php'),
         scp_bundled_setup_step(

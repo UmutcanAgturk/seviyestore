@@ -18,11 +18,11 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 
 ## Kurulum: tek adım (önerilen)
 
-`Seviye Storefront` teması artık 11 Seviye eklentisinin tamamını
+`Seviye Storefront` teması artık 12 Seviye eklentisinin tamamını
 `inc/bundled-plugins/*.zip` altında gömülü halde içerir. Yalnızca temayı
 WordPress'e yükleyip etkinleştirin — otomatik olarak wp-admin'e "Seviye
 Kurulum" adlı bir sayfaya yönlendirilirsiniz; oradaki "Kurulumu Başlat"
-düğmesi WooCommerce'i (yüklü değilse wordpress.org'dan) ve 11 eklentiyi
+düğmesi WooCommerce'i (yüklü değilse wordpress.org'dan) ve 12 eklentiyi
 doğru sırayla kurup etkinleştirir, son adımda ilk Genel Merkez hesabını
 (T.C. Kimlik No + şifre) oluşturur. Ayrıntılar için
 [`theme/README.md`](theme/README.md)'nin "Tek adımlı kurulum" bölümüne
@@ -55,7 +55,8 @@ içindir (her eklentiyi kendi klasöründe `composer install` ile kurmak).
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
-| Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`, KDV tutarı dahil) ve split payment + hakediş event tetikleme kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
+| Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`, KDV tutarı dahil), split payment + hakediş event tetikleme, ürün varyantları (beden/renk), düşük stok uyarısı, öğrenci bazlı harcama limiti ve kupon/kampanya kodu sistemi kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
+| Seviye Depo | 🟡 Tedarikçi kaydı, satın alma siparişi + mal kabul, append-only stok hareketi defteri (`scp_stock_movements`) ve tema paneli kuruldu (faz 1 - tek merkezi depo modeli); stok sayımı (cycle count) ve depo raporları planlandı |
 | Seviye Finance | 🟡 Hakediş defteri (`scp_hakedis_entries`, Commerce'in event'lerini dinleyen değişmez kayıtlar, KDV tutarı dahil), cari bakiye REST'i, tahsilat (settlement) defteri + REST'i ve tema paneli kuruldu; iade akışı planlandı |
 | Seviye Reports | ✅ Şube/ürün/kategori/dönem bazlı satış raporu (`GET seviye/v1/reports/sales`, JSON/CSV/XLSX), Commerce'in `OrderLineItemQueryInterface` Contract'ı üzerinden, RBAC, tema paneli kuruldu; PDF çıktısı planlandı |
 | Seviye Notifications | ✅ `scp_notifications` günlüğü, e-posta (`wp_mail()`), SMS (NetGSM, Parents'ın `ParentContactLookupInterface`'i üzerinden veli telefon numarası) ve panel-içi (tema bildirim çanı) kanalları, `security.password_reset_requested` dinleyicisi, RBAC, tema paneli kuruldu |
@@ -80,6 +81,7 @@ cd plugin/seviye-students && composer install && cd -
 cd plugin/seviye-parents && composer install && cd -
 cd plugin/seviye-pricing && composer install && cd -
 cd plugin/seviye-commerce && composer install && cd -
+cd plugin/seviye-depo && composer install && cd -
 cd plugin/seviye-finance && composer install && cd -
 cd plugin/seviye-reports && composer install && cd -
 cd plugin/seviye-notifications && composer install && cd -
@@ -88,14 +90,14 @@ cd plugin/seviye-api && composer install && cd -
 
 `plugin/seviye-core`, `plugin/seviye-security`, `plugin/seviye-branches`,
 `plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-pricing`,
-`plugin/seviye-commerce`, `plugin/seviye-finance`, `plugin/seviye-reports`,
-`plugin/seviye-notifications` ve `plugin/seviye-api` klasörlerini
-WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u ise
-`wp-content/themes/` altına sembolik link ile bağlayın. Ardından
+`plugin/seviye-commerce`, `plugin/seviye-depo`, `plugin/seviye-finance`,
+`plugin/seviye-reports`, `plugin/seviye-notifications` ve `plugin/seviye-api`
+klasörlerini WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u
+ise `wp-content/themes/` altına sembolik link ile bağlayın. Ardından
 WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
 Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye
-Pricing'i**, **Seviye Commerce'i**, **Seviye Finance'ı**, **Seviye
-Reports'u**, **Seviye Notifications'ı** ve **Seviye API'yi** (bu sırayla —
+Pricing'i**, **Seviye Commerce'i**, **Seviye Depo'yu**, **Seviye Finance'ı**,
+**Seviye Reports'u**, **Seviye Notifications'ı** ve **Seviye API'yi** (bu sırayla —
 Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
 olmasını gerektirir; Pricing hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
@@ -127,7 +129,11 @@ FK'ları kurulamaz) ve kendi migration'unu (`scp_price_rules`) çalıştırır.
 Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın**,
 **Students'ın** ve **Pricing'in aktif olduğunu** doğrular (aksi halde
 `scp_order_line_items`'ın FK'ları kurulamaz) ve kendi migration'unu
-(`scp_order_line_items`) çalıştırır. Finance aktivasyonu Core'u, **Branches'ın** ve **Students'ın aktif
+(`scp_order_line_items`) çalıştırır. Depo aktivasyonu yalnızca Core'u ve
+WooCommerce'in aktif olduğunu doğrular ("Tek bir depo vardır" - şube
+kavramından bağımsız, Branches/Students'ın Contracts'ına bağımlı değildir)
+ve kendi migration'larını (`scp_suppliers`, `scp_purchase_orders`,
+`scp_purchase_order_items`, `scp_stock_movements`) çalıştırır. Finance aktivasyonu Core'u, **Branches'ın** ve **Students'ın aktif
 olduğunu** doğrular (Commerce'in kendisine değil — hakediş defteri
 event'leri yalnızca Core'un EventBus'ı üzerinden dinler; ama cari bakiye
 REST'i Branches'ın Contracts'ını tüketir, ve migration'ı `scp_students`'a
@@ -165,6 +171,7 @@ cd plugin/seviye-students && composer test
 cd plugin/seviye-parents && composer test
 cd plugin/seviye-pricing && composer test
 cd plugin/seviye-commerce && composer test
+cd plugin/seviye-depo && composer test
 cd plugin/seviye-finance && composer test
 cd plugin/seviye-reports && composer test
 cd plugin/seviye-notifications && composer test

@@ -77,6 +77,7 @@ function scp_enqueue_panel_assets(): void
         'saved' => __('Kaydedildi.', 'seviye-storefront'),
         'edit' => __('Düzenle', 'seviye-storefront'),
         'remove' => __('Kaldır', 'seviye-storefront'),
+        'details' => __('Detay', 'seviye-storefront'),
         'parentLinked' => __('Veli bağlandı.', 'seviye-storefront'),
         'profileSaved' => __('Profiliniz güncellendi.', 'seviye-storefront'),
         'noChildren' => __('Sisteme bağlı bir öğrenci bulunamadı.', 'seviye-storefront'),
@@ -152,6 +153,21 @@ function scp_enqueue_panel_assets(): void
             'Bu kampanya kodunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             'seviye-storefront'
         ),
+        'confirmDeleteSupplier' => __(
+            'Bu tedarikçiyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
+            'seviye-storefront'
+        ),
+        'supplierDeleted' => __('Tedarikçi silindi.', 'seviye-storefront'),
+        'confirmCancelPurchaseOrder' => __(
+            'Bu satın alma siparişini iptal etmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'stockReceived' => __('Mal kabul kaydedildi, stok güncellendi.', 'seviye-storefront'),
+        'poStatus_draft' => __('Taslak', 'seviye-storefront'),
+        'poStatus_sent' => __('Gönderildi', 'seviye-storefront'),
+        'poStatus_partially_received' => __('Kısmen Teslim Alındı', 'seviye-storefront'),
+        'poStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
+        'poStatus_cancelled' => __('İptal Edildi', 'seviye-storefront'),
         'productSaved' => __('Ürün kaydedildi.', 'seviye-storefront'),
         'productDeleted' => __('Ürün silindi.', 'seviye-storefront'),
         'confirmDeleteProduct' => __(
@@ -286,6 +302,19 @@ function scp_enqueue_panel_assets(): void
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
             'canManageBasePricing' => current_user_can('scp_manage_base_pricing'),
         ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_purchase_orders')) {
+        $handle = 'scp-depo-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/depo-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/depo-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
