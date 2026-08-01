@@ -7,25 +7,40 @@ namespace Seviye\Depo;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
+use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Core\Support\Environment;
+use Seviye\Depo\Contracts\SupplierLookupInterface;
+use Seviye\Depo\Contracts\WarehouseReportQueryInterface;
 use Seviye\Depo\Database\Migrations\CreatePurchaseOrderItemsTable;
 use Seviye\Depo\Database\Migrations\CreatePurchaseOrdersTable;
+use Seviye\Depo\Database\Migrations\CreatePurchaseSuggestionsTable;
+use Seviye\Depo\Database\Migrations\CreateStockCountItemsTable;
+use Seviye\Depo\Database\Migrations\CreateStockCountsTable;
 use Seviye\Depo\Database\Migrations\CreateStockMovementsTable;
 use Seviye\Depo\Database\Migrations\CreateSuppliersTable;
 use Seviye\Depo\Http\PurchaseOrdersRestController;
+use Seviye\Depo\Http\PurchaseSuggestionsRestController;
+use Seviye\Depo\Http\StockCountsRestController;
 use Seviye\Depo\Http\StockMovementsRestController;
 use Seviye\Depo\Http\SuppliersRestController;
 use Seviye\Depo\Rbac\WarehouseCapability;
 use Seviye\Depo\Repository\PurchaseOrderRepositoryInterface;
+use Seviye\Depo\Repository\PurchaseSuggestionRepositoryInterface;
+use Seviye\Depo\Repository\StockCountRepositoryInterface;
 use Seviye\Depo\Repository\StockMovementRepositoryInterface;
 use Seviye\Depo\Repository\SupplierRepositoryInterface;
 use Seviye\Depo\Repository\WpdbPurchaseOrderRepository;
+use Seviye\Depo\Repository\WpdbPurchaseSuggestionRepository;
+use Seviye\Depo\Repository\WpdbStockCountRepository;
 use Seviye\Depo\Repository\WpdbStockMovementRepository;
+use Seviye\Depo\Repository\WpdbSupplierLookup;
 use Seviye\Depo\Repository\WpdbSupplierRepository;
+use Seviye\Depo\Repository\WpdbWarehouseReportQuery;
+use Seviye\Depo\Support\LowStockPurchaseSuggestionListener;
 use Seviye\Depo\Support\PurchaseOrderStatusCalculator;
 
 /**
@@ -67,10 +82,46 @@ final class DepoModule implements ModuleInterface
             )
         );
 
+        $container->singleton(
+            StockCountRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbStockCountRepository => new WpdbStockCountRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            PurchaseSuggestionRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbPurchaseSuggestionRepository => new WpdbPurchaseSuggestionRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        // Published Contract (bkz. Contracts\WarehouseReportQueryInterface'in
+        // docblock'u) - Reports'un "Depo Raporları" bölümü bu arayüz
+        // üzerinden okur, Domain\PurchaseOrder'a asla doğrudan bağımlı
+        // olmaz. Commerce'in OrderLineItemQueryInterface::class binding'iyle
+        // aynı ilke.
+        $container->singleton(
+            WarehouseReportQueryInterface::class,
+            static fn (ServiceContainer $c): WpdbWarehouseReportQuery => new WpdbWarehouseReportQuery(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            SupplierLookupInterface::class,
+            static fn (ServiceContainer $c): WpdbSupplierLookup => new WpdbSupplierLookup(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateSuppliersTable());
         $container->get(MigrationRunner::class)->register(new CreatePurchaseOrdersTable());
         $container->get(MigrationRunner::class)->register(new CreatePurchaseOrderItemsTable());
         $container->get(MigrationRunner::class)->register(new CreateStockMovementsTable());
+        $container->get(MigrationRunner::class)->register(new CreateStockCountsTable());
+        $container->get(MigrationRunner::class)->register(new CreateStockCountItemsTable());
+        $container->get(MigrationRunner::class)->register(new CreatePurchaseSuggestionsTable());
 
         $rbac = $container->get(RbacManager::class);
 
@@ -79,7 +130,25 @@ final class DepoModule implements ModuleInterface
             $rbac->grantCapability($role, WarehouseCapability::MANAGE_PURCHASE_ORDERS->value);
             $rbac->grantCapability($role, WarehouseCapability::RECEIVE_STOCK->value);
             $rbac->grantCapability($role, WarehouseCapability::VIEW_STOCK_MOVEMENTS->value);
+            $rbac->grantCapability($role, WarehouseCapability::MANAGE_STOCK_COUNTS->value);
+            $rbac->grantCapability($role, WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value);
         }
+
+        // Deferred to `init`: LowStockPurchaseSuggestionListener reacts to
+        // commerce.product_low_stock, dispatched by Seviye Commerce - which
+        // may not have booted yet within this same ModuleRegistry::bootAll()
+        // pass (boot order follows plugin registration order, not
+        // dependency order). Same reasoning as NotificationsModule's
+        // identically-deferred LowStockNotificationListener registration.
+        add_action('init', static function () use ($container): void {
+            $lowStockSuggestionListener = new LowStockPurchaseSuggestionListener(
+                $container->get(PurchaseSuggestionRepositoryInterface::class)
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.product_low_stock',
+                [$lowStockSuggestionListener, 'onLowStock']
+            );
+        });
 
         if (!Environment::isWooCommerceActive()) {
             return;
@@ -104,6 +173,21 @@ final class DepoModule implements ModuleInterface
         $container->get(RestApiRegistrar::class)->register(
             static fn (): StockMovementsRestController => new StockMovementsRestController(
                 $container->get(StockMovementRepositoryInterface::class)
+            )
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): StockCountsRestController => new StockCountsRestController(
+                $container->get(StockCountRepositoryInterface::class),
+                $container->get(StockMovementRepositoryInterface::class)
+            )
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): PurchaseSuggestionsRestController => new PurchaseSuggestionsRestController(
+                $container->get(PurchaseSuggestionRepositoryInterface::class),
+                $container->get(PurchaseOrderRepositoryInterface::class),
+                $container->get(SupplierRepositoryInterface::class)
             )
         );
     }

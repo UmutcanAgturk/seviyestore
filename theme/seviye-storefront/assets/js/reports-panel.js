@@ -152,4 +152,92 @@
     }
 
     loadReport();
+
+    // ---- Depo Raporları (faz 3) - yalnızca scp_view_reports'a görünür (bkz. zone.php) ----
+
+    var warehouseForm = root.querySelector('[data-scp-warehouse-report-form]');
+
+    if (warehouseForm) {
+        var warehouseTable = root.querySelector('[data-scp-warehouse-report-table]');
+        var warehouseTableBody = root.querySelector('[data-scp-warehouse-report-body]');
+        var warehouseCsvButton = root.querySelector('[data-scp-warehouse-report-csv]');
+        var warehouseXlsxButton = root.querySelector('[data-scp-warehouse-report-xlsx]');
+
+        var warehouseCurrentParams = function () {
+            var formData = new FormData(warehouseForm);
+            var params = new URLSearchParams();
+
+            ['supplier_id', 'from', 'to'].forEach(function (name) {
+                var value = formData.get(name);
+
+                if (value) {
+                    params.set(name, value);
+                }
+            });
+
+            return params;
+        };
+
+        var renderWarehouseRows = function (rows) {
+            warehouseTableBody.innerHTML = '';
+            warehouseTable.hidden = rows.length === 0;
+
+            rows.forEach(function (row) {
+                var tr = document.createElement('tr');
+
+                [
+                    row.supplier_name,
+                    String(row.order_count),
+                    formatMoney(row.total_cost),
+                    String(row.completed_order_count),
+                    row.on_time_rate === null ? '—' : row.on_time_rate + '%'
+                ].forEach(function (text) {
+                    var cell = document.createElement('td');
+                    cell.textContent = text;
+                    tr.appendChild(cell);
+                });
+
+                warehouseTableBody.appendChild(tr);
+            });
+
+            setStatus(rows.length === 0 ? scpPanelText.noReportData : '');
+        };
+
+        var loadWarehouseReport = function () {
+            var params = warehouseCurrentParams();
+            params.set('format', 'json');
+
+            apiFetch('reports/warehouse?' + params.toString()).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    return;
+                }
+
+                renderWarehouseRows(result.data);
+            });
+        };
+
+        var downloadWarehouseReport = function (format) {
+            var params = warehouseCurrentParams();
+            params.set('format', format);
+            params.set('_wpnonce', scpPanel.nonce);
+
+            window.location.href = scpPanel.restUrl + 'reports/warehouse?' + params.toString();
+        };
+
+        warehouseForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            loadWarehouseReport();
+        });
+
+        warehouseCsvButton.addEventListener('click', function () {
+            downloadWarehouseReport('csv');
+        });
+
+        warehouseXlsxButton.addEventListener('click', function () {
+            downloadWarehouseReport('xlsx');
+        });
+
+        loadWarehouseReport();
+    }
 })();

@@ -168,6 +168,23 @@ function scp_enqueue_panel_assets(): void
         'poStatus_partially_received' => __('Kısmen Teslim Alındı', 'seviye-storefront'),
         'poStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
         'poStatus_cancelled' => __('İptal Edildi', 'seviye-storefront'),
+        'stockCountStatus_open' => __('Açık', 'seviye-storefront'),
+        'stockCountStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
+        'confirmCompleteStockCount' => __(
+            'Bu sayımı tamamlamak istediğinize emin misiniz? Farklar stoğa uygulanacak.',
+            'seviye-storefront'
+        ),
+        'stockCountCompleted' => __('Sayım tamamlandı, farklar stoğa uygulandı.', 'seviye-storefront'),
+        'noStockCounts' => __('Henüz bir stok sayımı başlatılmadı.', 'seviye-storefront'),
+        'suggestionStatus_pending' => __('Bekliyor', 'seviye-storefront'),
+        'suggestionStatus_dismissed' => __('Reddedildi', 'seviye-storefront'),
+        'suggestionStatus_converted' => __('Siparişe Çevrildi', 'seviye-storefront'),
+        'confirmDismissSuggestion' => __('Bu öneriyi reddetmek istediğinize emin misiniz?', 'seviye-storefront'),
+        'suggestionDismissed' => __('Öneri reddedildi.', 'seviye-storefront'),
+        'suggestionConverted' => __('Öneri satın alma siparişine çevrildi.', 'seviye-storefront'),
+        'convertToOrder' => __('Siparişe Çevir', 'seviye-storefront'),
+        'dismiss' => __('Reddet', 'seviye-storefront'),
+        'noPurchaseSuggestions' => __('Bekleyen bir satın alma önerisi yok.', 'seviye-storefront'),
         'productSaved' => __('Ürün kaydedildi.', 'seviye-storefront'),
         'productDeleted' => __('Ürün silindi.', 'seviye-storefront'),
         'confirmDeleteProduct' => __(

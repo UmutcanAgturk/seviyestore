@@ -2338,10 +2338,82 @@ Satın Alma Siparişleri liste + oluşturma formu (dinamik kalem satırları)
 sent/partially_received durumdaki siparişler için kalem başına "şimdi
 teslim al" miktarı giren bir Mal Kabul formu).
 
-**Kapsam dışı bırakılanlar (Faz 2/3, plan dokümanında belirtildi).** Stok
-sayımı (cycle count - `scp_stock_counts`/`scp_stock_count_items`), düşük
-stok uyarısının (bölüm 38) otomatik satın alma önerisine bağlanması, ve
-Reports'a "Depo Raporları" eklentisi bu turun kapsamında değil.
+**Faz 2/3 (stok sayımı, satın alma önerisi, Depo Raporları) artık
+uygulandı** - bkz. bölüm 40.
+
+### 40. Seviye Depo Faz 2/3: stok sayımı, düşük stok → satın alma önerisi, Depo Raporları
+
+Bölüm 39'un "Kapsam dışı bırakılanlar" listesinin tamamının uygulanmasını
+belgeliyor - plan dokümanının Faz 2 ("Denetim") ve Faz 3 ("Raporlama")
+bölümleri.
+
+**Stok sayımı (cycle count).** İki yeni tablo: `scp_stock_counts` (başlık -
+`status` open/completed, `started_by`/`completed_by`; ayrı bir
+`started_at`/`completed_at` sütunu YOK - `created_at` açılışı,
+`status=completed` olduğunda `updated_at` kapanışı temsil ediyor,
+`scp_purchase_orders`'ın "durum geçişine özel zaman damgası yok" ilkesiyle
+aynı) ve `scp_stock_count_items` (`expected_quantity` - açılış anında
+donan anlık görüntü, `counted_quantity` - sayılana kadar NULL).
+`StockCountsRestController::store()` WC'nin `manage_stock` açık her
+ürününü/varyasyonunu tarayıp o anki stok miktarını topluyor - bu tarama
+WC'ye bağımlı olduğundan repository'de değil Http katmanında yapılıyor
+(`PurchaseOrdersRestController::receive()`'ın `wc_update_product_stock()`'u
+doğrudan çağırmasıyla aynı ilke). `complete()` fark ≠ 0 olan her kalem için
+İKİ şey yapıyor: `wc_update_product_stock()` ile gerçek stoğu düzeltiyor VE
+`StockMovementRepositoryInterface`'e `type=count_adjustment` satırı
+yazıyor (`StockMovementType::COUNT_ADJUSTMENT`, Faz 1'de zaten
+tanımlanmıştı) - fark = 0 olan kalemler için hiçbir yazma olmuyor. Yeni
+`scp_manage_stock_counts` yetkisi, Faz 1'deki üç rolün (Genel
+Merkez/Bölge Müdürü/Depo) hepsine veriliyor.
+
+**Düşük stok → satın alma önerisi.** Yeni `scp_purchase_suggestions`
+tablosu (`status` pending/dismissed/converted,
+`converted_purchase_order_id` - yalnızca CONVERTED olduğunda dolu, FK
+`scp_purchase_orders`'a). `LowStockPurchaseSuggestionListener`,
+Commerce'in `commerce.product_low_stock` event'ini dinliyor (Notifications'ın
+`LowStockNotificationListener`'ıyla AYNI event'in ikinci bir dinleyicisi -
+yeni bir bildirim kanalı değil), `hasPending()` ile dedup ediyor (aynı
+ürün için zaten bekleyen bir öneri varsa ikincisi açılmaz - WC bu hook'u
+her satışta yeniden ateşleyebilir). `suggestedQuantity` sabit bir
+varsayılan (20) - kesin bir sipariş değil, Depo görevlisi panelde
+siparişe çevirirken serbestçe değiştirebiliyor.
+`PurchaseSuggestionsRestController::convert()`, `PurchaseOrderRepositoryInterface::create()`
+üzerinden tek kalemli bir DRAFT satın alma siparişi açıyor - kod tekrarı
+yok. Yeni `scp_manage_purchase_suggestions` yetkisi, aynı üç role
+veriliyor. Listener kaydı `init`'e ertelendi (Commerce henüz boot
+olmamış olabilir - `NotificationsModule`'ün aynı gerekçesiyle).
+
+**Depo Raporları (Reports eklentisi genişlemesi).** Depo, ilk kez bir
+Contract yayınlıyor: `Contracts\WarehouseReportQueryInterface`
+(+`PurchaseOrderReportRecord`/`PurchaseOrderReportFilter`) ve
+`Contracts\SupplierLookupInterface` (+`SupplierSummary`) -
+`Seviye\Commerce\Contracts\OrderLineItemQueryInterface`/`WpdbOrderLineItemQuery`
+ile birebir aynı "ayrı, minimal adapter" ilkesi
+(`WpdbWarehouseReportQuery`/`WpdbSupplierLookup`, Domain sınıflarını asla
+sızdırmıyor). `PurchaseOrderReportRecord.totalCost` tek bir SQL sorgusunda
+(`scp_purchase_order_items` üzerinde `GROUP BY` alt sorgusu + `LEFT JOIN`)
+önceden toplanıyor - N+1 sorgu yok. Reports artık `seviye-depo`'yu
+"Requires Plugins" bağımlılığı olarak listeliyor (seviye-commerce'le aynı
+düzeyde). Yeni `WarehouseReportBuilder` (saf, Commerce'in
+`SalesReportBuilder`'ıyla aynı split) tedarikçi bazında gruplayıp iki şey
+hesaplıyor: toplam satın alma tutarı ve "zamanında teslim oranı" -
+yalnızca hem COMPLETED hem `expected_date`'i olan siparişler paydaya
+giriyor (`expected_date`'i hiç verilmemiş bir sipariş "geç" sayılmaz,
+sadece hesaba katılmaz). `GET seviye/v1/reports/warehouse`, yalnızca
+`scp_view_reports`'a açık (Şube Müdürü'nün `scp_view_own_reports`'u
+GEÇERSİZ - Depo'nun kendisi şube kavramından tamamen bağımsız olduğu
+için raporlanacak hiçbir şube boyutu yok, bölüm 39'un "tek bir depo
+vardır" kararıyla aynı gerekçe). `CsvExporter`/`XlsxExporter`'a
+`exportWarehouse()` eklendi (yeni bir sınıf değil - aynı sınıfın ikinci
+bir satır şekli için ikinci bir metodu, `XlsxExporter`'ın zip-iskelet
+kodu `buildWorkbook()` altında ortaklaştırıldı).
+
+**Tema paneli.** Depo panelinde iki yeni alt bölüm: "Stok Sayımı" (sayım
+başlat → kalem bazlı miktar girişi, her girişte otomatik `PUT` → "Tamamla"
+düğmesi) ve "Satın Alma Önerileri" (liste + Reddet/Siparişe Çevir).
+Raporlar panelinde yeni bir "Depo Raporları" alt bölümü (yalnızca
+`scp_view_reports` - Raporlar panelinin ana bölümündeki HQ-vs-own-branch
+ayrımından bağımsız, kendi `current_user_can()` kontrolü).
 
 ## Test stratejisi
 

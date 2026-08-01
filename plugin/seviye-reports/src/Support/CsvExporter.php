@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Reports\Support;
 
 use Seviye\Reports\Domain\SalesReportRow;
+use Seviye\Reports\Domain\WarehouseReportRow;
 
 /**
  * Plain RFC 4180 CSV, no external dependency - `fputcsv()` against an
@@ -35,6 +36,36 @@ final class CsvExporter
                 (string) $row->orderCount,
                 number_format($row->totalPrice, 2, '.', ''),
                 number_format($row->totalVat, 2, '.', ''),
+            ], ',', '"', '');
+        }
+
+        rewind($stream);
+        $csv = stream_get_contents($stream);
+        fclose($stream);
+
+        return $csv === false ? '' : $csv;
+    }
+
+    /**
+     * @param list<WarehouseReportRow> $rows
+     */
+    public function exportWarehouse(array $rows): string
+    {
+        $stream = fopen('php://temp', 'w+');
+
+        fwrite($stream, "\xEF\xBB\xBF");
+
+        fputcsv($stream, [
+            'Tedarikçi', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
+        ], ',', '"', '');
+
+        foreach ($rows as $row) {
+            fputcsv($stream, [
+                $row->supplierName,
+                (string) $row->orderCount,
+                number_format($row->totalCost, 2, '.', ''),
+                (string) $row->completedOrderCount,
+                $row->onTimeRate === null ? '—' : number_format($row->onTimeRate, 1, '.', ''),
             ], ',', '"', '');
         }
 

@@ -69,6 +69,12 @@
   color: #b91c1c;
 }
 
+.scp-hint {
+  font-size: 0.85rem;
+  color: var(--scp-text-muted);
+  margin: 0 0 16px;
+}
+
 .scp-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--scp-border);

@@ -513,5 +513,297 @@
         });
     });
 
+    // ---- Stok Sayımı (faz 2) ----
+
+    var stockCountTableBody = root.querySelector('[data-scp-stock-counts-body]');
+    var stockCountDetail = root.querySelector('[data-scp-stock-count-detail]');
+    var stockCountDetailTitle = root.querySelector('[data-scp-stock-count-detail-title]');
+    var stockCountItemsBody = root.querySelector('[data-scp-stock-count-items]');
+    var stockCountInputHeader = root.querySelector('[data-scp-stock-count-input-header]');
+    var stockCountCompleteButton = root.querySelector('[data-scp-stock-count-complete]');
+    var currentStockCountId = null;
+
+    function stockCountStatusLabel(status) {
+        return scpPanelText['stockCountStatus_' + status] || status;
+    }
+
+    function loadStockCounts() {
+        apiFetch('depo/stock-counts').then(function (result) {
+            if (!result.ok) {
+                setStatus(scpPanelText.loadError, true);
+                return;
+            }
+
+            renderStockCounts(result.data);
+        });
+    }
+
+    function renderStockCounts(counts) {
+        stockCountTableBody.innerHTML = '';
+
+        counts.forEach(function (count) {
+            var row = document.createElement('tr');
+
+            [String(count.id), stockCountStatusLabel(count.status), count.started_at, String(count.items.length)].forEach(
+                function (text) {
+                    var cell = document.createElement('td');
+                    cell.textContent = text;
+                    row.appendChild(cell);
+                }
+            );
+
+            var actionsCell = document.createElement('td');
+            var detailButton = document.createElement('button');
+            detailButton.type = 'button';
+            detailButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+            detailButton.textContent = scpPanelText.details;
+            detailButton.addEventListener('click', function () {
+                openStockCountDetail(count.id);
+            });
+            actionsCell.appendChild(detailButton);
+            row.appendChild(actionsCell);
+
+            stockCountTableBody.appendChild(row);
+        });
+    }
+
+    root.querySelector('[data-scp-new-stock-count]').addEventListener('click', function () {
+        apiFetch('depo/stock-counts', { method: 'POST' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.saved);
+            loadStockCounts();
+            renderStockCountDetail(result.data);
+        });
+    });
+
+    function openStockCountDetail(id) {
+        apiFetch('depo/stock-counts/' + id).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                return;
+            }
+
+            renderStockCountDetail(result.data);
+        });
+    }
+
+    function renderStockCountDetail(stockCount) {
+        currentStockCountId = stockCount.id;
+        stockCountDetail.hidden = false;
+
+        var isOpen = stockCount.status === 'open';
+        stockCountDetailTitle.textContent = '#' + stockCount.id + ' — ' + stockCountStatusLabel(stockCount.status);
+        stockCountCompleteButton.hidden = !isOpen;
+        stockCountInputHeader.hidden = !isOpen;
+
+        stockCountItemsBody.innerHTML = '';
+
+        stockCount.items.forEach(function (item) {
+            var row = document.createElement('tr');
+
+            [item.product_id, item.expected_quantity].forEach(function (value) {
+                var cell = document.createElement('td');
+                cell.textContent = String(value);
+                row.appendChild(cell);
+            });
+
+            var countedCell = document.createElement('td');
+
+            if (isOpen) {
+                var input = document.createElement('input');
+                input.type = 'number';
+                input.min = '0';
+                input.value = item.counted_quantity === null ? '' : String(item.counted_quantity);
+                input.addEventListener('change', function () {
+                    if (input.value === '') {
+                        return;
+                    }
+
+                    apiFetch('depo/stock-counts/' + stockCount.id + '/items/' + item.id, {
+                        method: 'PUT',
+                        body: JSON.stringify({ counted_quantity: parseInt(input.value, 10) })
+                    }).then(function (result) {
+                        if (!result.ok) {
+                            setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                            return;
+                        }
+
+                        varianceCell.textContent = String(result.data.variance);
+                        setStatus(scpPanelText.saved);
+                    });
+                });
+                countedCell.appendChild(input);
+            } else {
+                countedCell.textContent = item.counted_quantity === null ? '—' : String(item.counted_quantity);
+            }
+
+            row.appendChild(countedCell);
+
+            var varianceCell = document.createElement('td');
+            varianceCell.textContent = item.variance === null ? '—' : String(item.variance);
+            row.appendChild(varianceCell);
+
+            stockCountItemsBody.appendChild(row);
+        });
+    }
+
+    root.querySelector('[data-scp-close-stock-count-detail]').addEventListener('click', function () {
+        stockCountDetail.hidden = true;
+        currentStockCountId = null;
+    });
+
+    stockCountCompleteButton.addEventListener('click', function () {
+        if (!currentStockCountId || !window.confirm(scpPanelText.confirmCompleteStockCount)) {
+            return;
+        }
+
+        apiFetch('depo/stock-counts/' + currentStockCountId + '/complete', { method: 'POST' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.stockCountCompleted);
+            renderStockCountDetail(result.data);
+            loadStockCounts();
+        });
+    });
+
+    // ---- Satın Alma Önerileri (faz 2) ----
+
+    var suggestionTableBody = root.querySelector('[data-scp-purchase-suggestions-body]');
+    var convertSuggestionForm = root.querySelector('[data-scp-convert-suggestion-form]');
+
+    function suggestionStatusLabel(status) {
+        return scpPanelText['suggestionStatus_' + status] || status;
+    }
+
+    function loadPurchaseSuggestions() {
+        apiFetch('depo/purchase-suggestions').then(function (result) {
+            if (!result.ok) {
+                setStatus(scpPanelText.loadError, true);
+                return;
+            }
+
+            renderPurchaseSuggestions(result.data);
+        });
+    }
+
+    function renderPurchaseSuggestions(suggestions) {
+        suggestionTableBody.innerHTML = '';
+
+        suggestions.forEach(function (suggestion) {
+            var row = document.createElement('tr');
+
+            [
+                String(suggestion.product_id),
+                String(suggestion.suggested_quantity),
+                suggestion.reason || '',
+                suggestionStatusLabel(suggestion.status)
+            ].forEach(function (text) {
+                var cell = document.createElement('td');
+                cell.textContent = text;
+                row.appendChild(cell);
+            });
+
+            var actionsCell = document.createElement('td');
+
+            if (suggestion.status === 'pending') {
+                var convertButton = document.createElement('button');
+                convertButton.type = 'button';
+                convertButton.className = 'scp-btn scp-btn--small';
+                convertButton.textContent = scpPanelText.convertToOrder;
+                convertButton.addEventListener('click', function () {
+                    openConvertSuggestionForm(suggestion);
+                });
+                actionsCell.appendChild(convertButton);
+
+                var dismissButton = document.createElement('button');
+                dismissButton.type = 'button';
+                dismissButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                dismissButton.textContent = scpPanelText.dismiss;
+                dismissButton.addEventListener('click', function () {
+                    if (!window.confirm(scpPanelText.confirmDismissSuggestion)) {
+                        return;
+                    }
+
+                    apiFetch('depo/purchase-suggestions/' + suggestion.id + '/dismiss', { method: 'POST' }).then(
+                        function (result) {
+                            if (!result.ok) {
+                                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                                return;
+                            }
+
+                            setStatus(scpPanelText.suggestionDismissed);
+                            loadPurchaseSuggestions();
+                        }
+                    );
+                });
+                actionsCell.appendChild(dismissButton);
+            }
+
+            row.appendChild(actionsCell);
+            suggestionTableBody.appendChild(row);
+        });
+    }
+
+    function openConvertSuggestionForm(suggestion) {
+        convertSuggestionForm.hidden = false;
+        convertSuggestionForm.suggestion_id.value = String(suggestion.id);
+        convertSuggestionForm.quantity.value = String(suggestion.suggested_quantity);
+
+        var select = convertSuggestionForm.querySelector('[name="supplier_id"]');
+        select.innerHTML = '';
+
+        Object.keys(supplierCache)
+            .map(function (key) {
+                return supplierCache[key];
+            })
+            .filter(function (supplier) {
+                return supplier.status === 'active';
+            })
+            .forEach(function (supplier) {
+                var option = document.createElement('option');
+                option.value = String(supplier.id);
+                option.textContent = supplier.name;
+                select.appendChild(option);
+            });
+    }
+
+    root.querySelector('[data-scp-cancel-convert-suggestion]').addEventListener('click', function () {
+        convertSuggestionForm.hidden = true;
+    });
+
+    convertSuggestionForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var suggestionId = convertSuggestionForm.suggestion_id.value;
+        var payload = {
+            supplier_id: parseInt(convertSuggestionForm.supplier_id.value, 10),
+            quantity: convertSuggestionForm.quantity.value ? parseInt(convertSuggestionForm.quantity.value, 10) : null
+        };
+
+        apiFetch('depo/purchase-suggestions/' + suggestionId + '/convert', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.suggestionConverted);
+            convertSuggestionForm.hidden = true;
+            loadPurchaseSuggestions();
+            loadPurchaseOrders();
+        });
+    });
+
     loadSuppliers().then(loadPurchaseOrders);
+    loadStockCounts();
+    loadPurchaseSuggestions();
 })();

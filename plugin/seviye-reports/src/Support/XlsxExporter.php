@@ -6,6 +6,7 @@ namespace Seviye\Reports\Support;
 
 use RuntimeException;
 use Seviye\Reports\Domain\SalesReportRow;
+use Seviye\Reports\Domain\WarehouseReportRow;
 use ZipArchive;
 
 /**
@@ -31,6 +32,19 @@ final class XlsxExporter
      */
     public function export(array $rows): string
     {
+        return $this->buildWorkbook($this->sheetXml($rows));
+    }
+
+    /**
+     * @param list<WarehouseReportRow> $rows
+     */
+    public function exportWarehouse(array $rows): string
+    {
+        return $this->buildWorkbook($this->warehouseSheetXml($rows));
+    }
+
+    private function buildWorkbook(string $sheetXml): string
+    {
         $path = tempnam(sys_get_temp_dir(), 'scp_xlsx_');
 
         if ($path === false) {
@@ -44,7 +58,7 @@ final class XlsxExporter
         $zip->addFromString('_rels/.rels', $this->rootRelsXml());
         $zip->addFromString('xl/workbook.xml', $this->workbookXml());
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->workbookRelsXml());
-        $zip->addFromString('xl/worksheets/sheet1.xml', $this->sheetXml($rows));
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
 
         $zip->close();
 
@@ -112,6 +126,34 @@ final class XlsxExporter
                 $row->orderCount,
                 $row->totalPrice,
                 $row->totalVat,
+            ]);
+            $rowNumber++;
+        }
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<sheetData>' . implode('', $lines) . '</sheetData>'
+            . '</worksheet>';
+    }
+
+    /**
+     * @param list<WarehouseReportRow> $rows
+     */
+    private function warehouseSheetXml(array $rows): string
+    {
+        $lines = [$this->row(1, [
+            'Tedarikçi', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
+        ])];
+
+        $rowNumber = 2;
+
+        foreach ($rows as $row) {
+            $lines[] = $this->row($rowNumber, [
+                $row->supplierName,
+                $row->orderCount,
+                $row->totalCost,
+                $row->completedOrderCount,
+                $row->onTimeRate ?? '—',
             ]);
             $rowNumber++;
         }

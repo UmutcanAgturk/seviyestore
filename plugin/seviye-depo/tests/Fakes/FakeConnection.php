@@ -14,6 +14,9 @@ final class FakeConnection implements ConnectionInterface
     /** @var list<string> */
     public array $queries = [];
 
+    /** @var list<string> */
+    public array $queriedSql = [];
+
     /** @var list<array<string, mixed>> */
     public array $resultsToReturn = [];
 
@@ -59,6 +62,8 @@ final class FakeConnection implements ConnectionInterface
 
     public function getResults(string $sql): array
     {
+        $this->queriedSql[] = $sql;
+
         return $this->resultsToReturn;
     }
 
