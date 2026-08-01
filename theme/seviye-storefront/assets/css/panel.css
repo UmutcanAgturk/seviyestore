@@ -429,6 +429,43 @@ button.scp-badge:hover {
   color: var(--scp-accent-dark);
 }
 
+/* "Genel Bakış" (overview dashboard) KPI tiles. */
+.scp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.scp-stat-tile {
+  padding: 16px;
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-stat-tile__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+}
+
+.scp-stat-tile__value {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--scp-primary);
+}
+
+.scp-stat-tile__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}
+
 .scp-summary-list {
   display: grid;
   grid-template-columns: max-content 1fr;

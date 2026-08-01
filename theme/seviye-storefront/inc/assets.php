@@ -104,6 +104,8 @@ function scp_enqueue_panel_assets(): void
         'passwordChanged' => __('Şifreniz güncellendi.', 'seviye-storefront'),
         'passwordTooWeak' => __('Yeni şifre en az 8 karakter olmalı.', 'seviye-storefront'),
         'addressSaved' => __('Adres bilgileri kaydedildi.', 'seviye-storefront'),
+        'overviewOrdersLabel' => __('sipariş', 'seviye-storefront'),
+        'broadcastSentSuffix' => __('alıcıya gönderildi.', 'seviye-storefront'),
         'apiKeyActive' => __('Aktif', 'seviye-storefront'),
         'apiKeyRevoked' => __('İptal Edildi', 'seviye-storefront'),
         'apiKeyRevokeAction' => __('İptal Et', 'seviye-storefront'),
@@ -321,6 +323,19 @@ function scp_enqueue_panel_assets(): void
     $canViewReports = current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports');
 
     if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
+        $handle = 'scp-overview-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/overview-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/overview-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
         $handle = 'scp-reports-panel';
         wp_enqueue_script(
             $handle,
@@ -331,6 +346,23 @@ function scp_enqueue_panel_assets(): void
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_reports'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    $canSendBroadcast = current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_branch_broadcast');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $canSendBroadcast) {
+        $handle = 'scp-broadcast-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/broadcast-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/broadcast-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canViewAllBranches' => current_user_can('scp_send_broadcast'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

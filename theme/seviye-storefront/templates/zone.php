@@ -103,6 +103,10 @@ if (!defined('ABSPATH')) {
  */
 $scp_sections = [];
 
+if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) {
+    $scp_sections['#scp-overview-panel'] = __('Genel Bakış', 'seviye-storefront');
+}
+
 if (current_user_can('scp_manage_students')) {
     $scp_sections['#scp-students-panel'] = __('Öğrenciler', 'seviye-storefront');
 }
@@ -129,6 +133,10 @@ if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_haked
 
 if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) {
     $scp_sections['#scp-reports-panel'] = __('Raporlar', 'seviye-storefront');
+}
+
+if (current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_branch_broadcast')) {
+    $scp_sections['#scp-broadcast-panel'] = __('Toplu Duyuru', 'seviye-storefront');
 }
 
 $scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
@@ -178,6 +186,64 @@ get_header();
                 <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
             <?php endforeach; ?>
         </nav>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) : ?>
+        <section class="scp-card" id="scp-overview-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Genel Bakış', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-overview-status></p>
+
+            <div class="scp-stat-grid" data-scp-overview-stats hidden>
+                <div class="scp-stat-tile">
+                    <span class="scp-stat-tile__label"><?php esc_html_e('Bugün', 'seviye-storefront'); ?></span>
+                    <span class="scp-stat-tile__value" data-scp-overview-today-total></span>
+                    <span class="scp-stat-tile__meta" data-scp-overview-today-count></span>
+                </div>
+                <div class="scp-stat-tile">
+                    <span class="scp-stat-tile__label"><?php esc_html_e('Son 7 Gün', 'seviye-storefront'); ?></span>
+                    <span class="scp-stat-tile__value" data-scp-overview-week-total></span>
+                    <span class="scp-stat-tile__meta" data-scp-overview-week-count></span>
+                </div>
+                <div class="scp-stat-tile">
+                    <span class="scp-stat-tile__label"><?php esc_html_e('Son 30 Gün', 'seviye-storefront'); ?></span>
+                    <span class="scp-stat-tile__value" data-scp-overview-month-total></span>
+                    <span class="scp-stat-tile__meta" data-scp-overview-month-count></span>
+                </div>
+            </div>
+
+            <h3><?php esc_html_e('En Çok Satan Ürünler (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+            <div class="scp-table-wrapper">
+                <table class="scp-table" data-scp-overview-products-table hidden>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Ürün', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Adet', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-overview-products-body></tbody>
+                </table>
+            </div>
+
+            <div data-scp-overview-branch-section hidden>
+                <h3><?php esc_html_e('Şube Bazlı Kırılım (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+                <div class="scp-table-wrapper">
+                    <table class="scp-table" data-scp-overview-branches-table hidden>
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Sipariş', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody data-scp-overview-branches-body></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     <?php endif; ?>
 
     <?php if (current_user_can('scp_manage_students')) : ?>
@@ -756,6 +822,48 @@ get_header();
                     <tbody data-scp-reports-body></tbody>
                 </table>
             </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_branch_broadcast')) : ?>
+        <section class="scp-card" id="scp-broadcast-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Toplu Duyuru', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-broadcast-status></p>
+
+            <form class="scp-form" data-scp-broadcast-form>
+                <label data-scp-broadcast-branch-field hidden>
+                    <span><?php esc_html_e('Alıcı Şube', 'seviye-storefront'); ?></span>
+                    <select name="branch_id"></select>
+                </label>
+                <label>
+                    <span><?php esc_html_e('Başlık', 'seviye-storefront'); ?></span>
+                    <input type="text" name="subject" required>
+                </label>
+                <label>
+                    <span><?php esc_html_e('Mesaj', 'seviye-storefront'); ?></span>
+                    <textarea name="body" rows="5" required></textarea>
+                </label>
+                <fieldset class="scp-form__row">
+                    <label class="scp-checkbox">
+                        <input type="checkbox" name="channel_email" checked>
+                        <span><?php esc_html_e('E-posta', 'seviye-storefront'); ?></span>
+                    </label>
+                    <label class="scp-checkbox">
+                        <input type="checkbox" name="channel_panel" checked>
+                        <span><?php esc_html_e('Panel Bildirimi', 'seviye-storefront'); ?></span>
+                    </label>
+                    <label class="scp-checkbox">
+                        <input type="checkbox" name="channel_sms">
+                        <span><?php esc_html_e('SMS', 'seviye-storefront'); ?></span>
+                    </label>
+                </fieldset>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Gönder', 'seviye-storefront'); ?></button>
+                </div>
+            </form>
         </section>
     <?php endif; ?>
 

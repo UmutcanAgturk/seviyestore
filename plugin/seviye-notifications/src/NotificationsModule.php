@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Seviye\Notifications;
 
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
@@ -21,6 +22,7 @@ use Seviye\Notifications\Database\Migrations\CreateNotificationsTable;
 use Seviye\Notifications\Dispatch\NotificationDispatcher;
 use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
+use Seviye\Notifications\Http\BroadcastRestController;
 use Seviye\Notifications\Http\EmailSettingsRestController;
 use Seviye\Notifications\Http\NotificationsRestController;
 use Seviye\Notifications\Http\NotificationsSettingsRestController;
@@ -32,6 +34,7 @@ use Seviye\Notifications\Repository\WpdbNotificationRepository;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\PasswordResetNotificationListener;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
+use Seviye\Students\Contracts\BranchParentLookupInterface;
 
 /**
  * Depends on Core (everything) and Parents (only for
@@ -125,6 +128,22 @@ final class NotificationsModule implements ModuleInterface
         $container->get(RbacManager::class)->grantCapability(
             Role::GENEL_MERKEZ,
             NotificationCapability::MANAGE_NOTIFICATION_SETTINGS->value
+        );
+
+        // "Toplu duyuru sistemi" - Genel Merkez/Bölge Müdürü may broadcast
+        // to any branch (or every one); Şube Müdürü only their own - see
+        // Http\BroadcastRestController.
+        $rbac = $container->get(RbacManager::class);
+        $rbac->grantCapability(Role::GENEL_MERKEZ, NotificationCapability::SEND_BROADCAST->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, NotificationCapability::SEND_BROADCAST->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, NotificationCapability::SEND_OWN_BRANCH_BROADCAST->value);
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): BroadcastRestController => new BroadcastRestController(
+                $container->get(BranchParentLookupInterface::class),
+                $container->get(BranchMembershipInterface::class),
+                $container->get(NotificationDispatcherInterface::class)
+            )
         );
 
         $container->get(RestApiRegistrar::class)->register(

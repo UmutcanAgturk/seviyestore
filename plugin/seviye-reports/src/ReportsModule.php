@@ -12,11 +12,14 @@ use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
+use Seviye\Core\Support\Environment;
+use Seviye\Reports\Http\OverviewRestController;
 use Seviye\Reports\Http\ReportsRestController;
 use Seviye\Reports\Rbac\ReportCapability;
 use Seviye\Reports\Support\CsvExporter;
 use Seviye\Reports\Support\SalesReportBuilder;
 use Seviye\Reports\Support\XlsxExporter;
+use Seviye\Students\Contracts\StudentLookupInterface;
 
 /**
  * Reports owns no scp_* table and no migration - it is a pure read layer
@@ -52,6 +55,23 @@ final class ReportsModule implements ModuleInterface
                 $container->get(SalesReportBuilder::class),
                 $container->get(CsvExporter::class),
                 $container->get(XlsxExporter::class)
+            )
+        );
+
+        if (!Environment::isWooCommerceActive()) {
+            return;
+        }
+
+        // "Genel Merkez için özet/anasayfa panosu" - unlike ReportsRestController
+        // above (which reads the derived OrderLineItemQueryInterface table),
+        // its route handler calls wc_get_orders() directly, so it is only
+        // registered once WC is confirmed active - same gating Commerce's
+        // own WC-touching controllers use.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): OverviewRestController => new OverviewRestController(
+                $container->get(StudentLookupInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
             )
         );
     }

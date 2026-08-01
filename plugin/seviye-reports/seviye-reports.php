@@ -7,7 +7,7 @@
  * Version: 0.1.0
  * Requires at least: 6.5
  * Requires PHP: 8.2
- * Requires Plugins: woocommerce, seviye-core, seviye-branches, seviye-commerce
+ * Requires Plugins: woocommerce, seviye-core, seviye-branches, seviye-students, seviye-commerce
  * Author: Seviye Egitim Kurumlari
  * License: Proprietary
  * Text Domain: seviye-reports

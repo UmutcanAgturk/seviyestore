@@ -2109,6 +2109,54 @@ taşıyıcısında kalıyor.
   Değiştir" formu kazandı - `assets/js/account-security.js` bu formu
   `PUT /security/password`'a bağlıyor.
 
+### 37. Genel Bakış (anasayfa panosu) ve Toplu Duyuru
+
+İki ayrı yeni özellik:
+
+**Genel Bakış.** "Genel Merkez için özet/anasayfa panosu." Yeni
+`Seviye\Reports\Http\OverviewRestController` (`GET /reports/overview`),
+`/admin` ve `/sube`'nin EN ÜSTÜNDE (quicknav'da da ilk sırada) render
+ediliyor - bugün/son 7 gün/son 30 günün sipariş sayısı + cirosu, en çok
+satan 5 ürün, ve (yalnızca HQ) şube bazlı kırılım. Kapsam
+`ReportsRestController` ile birebir aynı (`VIEW_REPORTS`: her şube,
+`VIEW_OWN_REPORTS`: yalnızca kendi şube).
+
+Bilinçli bir tasarım kararı: bu controller `ReportsRestController::sales()`
+gibi `OrderLineItemQueryInterface`/`scp_order_line_items` üzerinden DEĞİL,
+`AdminOrdersRestController`'ın bölüm 36'da benimsediği aynı yolla -
+`wc_get_orders()`'ı doğrudan okuyup her kalemin şubesini
+`StudentLookupInterface` ile çözerek - çalışıyor. Bir KPI panosunun,
+satır eksik bırakabilen ikincil bir önbellek tablosundan beslenip Genel
+Merkez'e güvenilmez rakamlar göstermesi kabul edilemezdi. (Not: mevcut
+`ReportsRestController`'ın CSV/Excel satış raporu ve Finance'in hakediş
+tetikleme akışı HÂLÂ o tabloyu kullanıyor - bu, ayrı ve daha büyük bir
+düzeltme konusu, bu turun kapsamı dışında.) "completed" tanımı (ödemesi
+kesinleşmiş, iade edilebilir değil) `ReportsRestController::sales()` ile
+aynı.
+
+**Toplu Duyuru.** "Toplu duyuru sistemi." Genel Merkez/Bölge Müdürü
+(yeni `NotificationCapability::SEND_BROADCAST`) herhangi bir şubeye veya
+TÜM velilere; Şube Müdürü (`SEND_OWN_BRANCH_BROADCAST`) yalnızca kendi
+şubesinin velilerine duyuru gönderebiliyor - istekteki `branch_id` ne
+olursa olsun Şube Müdürü'nün kapsamı sunucu tarafında kendi şubesine
+sabitleniyor (platformun her yerinde geçerli "sunucu kapsamı çözer"
+kuralı).
+
+Alıcılar Students'ın yeni yayınlanmış `Contracts\BranchParentLookupInterface`'i
+üzerinden çözülüyor - `ParentBranchLookupInterface`'in (veli -> hangi
+şubeler) TERSİ (şube -> hangi veliler), `scp_student_parents` ⨝
+`scp_students`'ı `branch_id`'ye göre gruplayan tek bir JOIN sorgusu. Bu,
+Seviye Notifications'ın ilk kez Students VE Branches'e (composer.json'a,
+`Requires Plugins` başlığına eklendi) doğrudan bağımlı olduğu an - önceden
+yalnızca Core ve Parents'a (telefon numarası için) bağımlıydı.
+
+Her alıcı, seçilen HER kanal için `NotificationDispatcherInterface::dispatch()`
+ile ayrı ayrı çağrılıyor - yeni bir gönderim mekanizması DEĞİL, mevcut
+kaydet→alıcı çöz→gönder→işaretle akışı üzerinde bir fan-out (varsayılan
+kanallar: e-posta + panel; SMS isteğe bağlı, NetGSM yapılandırılmamışsa
+zaten sessizce başarısız kaydediliyor - platformun her yerinde geçerli
+"dürüst başarısızlık" kuralı).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
