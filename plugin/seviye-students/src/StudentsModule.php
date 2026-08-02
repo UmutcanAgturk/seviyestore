@@ -31,6 +31,7 @@ use Seviye\Students\Repository\WpdbStudentGuardianCheck;
 use Seviye\Students\Repository\WpdbStudentLookup;
 use Seviye\Students\Repository\WpdbStudentParentRepository;
 use Seviye\Students\Repository\WpdbStudentRepository;
+use Seviye\Students\Support\StudentImportParser;
 
 /**
  * First module to depend on another module's Contracts (Branches'), not
@@ -103,12 +104,18 @@ final class StudentsModule implements ModuleInterface
         $rbac->grantCapability(Role::SUBE_MUDURU, StudentCapability::MANAGE_STUDENTS->value);
         $rbac->grantCapability(Role::VELI, StudentCapability::VIEW_OWN_CHILDREN->value);
 
+        $container->singleton(
+            StudentImportParser::class,
+            static fn (): StudentImportParser => new StudentImportParser()
+        );
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): StudentsRestController => new StudentsRestController(
                 $container->get(StudentRepositoryInterface::class),
                 $container->get(StudentParentRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
-                $container->get(BranchLookupInterface::class)
+                $container->get(BranchLookupInterface::class),
+                $container->get(StudentImportParser::class)
             )
         );
     }

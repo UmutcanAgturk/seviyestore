@@ -17,6 +17,7 @@ use Seviye\Students\Domain\StudentStatus;
 use Seviye\Students\Rbac\StudentCapability;
 use Seviye\Students\Repository\StudentParentRepositoryInterface;
 use Seviye\Students\Repository\StudentRepositoryInterface;
+use Seviye\Students\Support\StudentImportParser;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -32,7 +33,8 @@ final class StudentsRestController extends AbstractRestController
         private readonly StudentRepositoryInterface $students,
         private readonly StudentParentRepositoryInterface $studentParents,
         private readonly BranchMembershipInterface $branchMemberships,
-        private readonly BranchLookupInterface $branchLookup
+        private readonly BranchLookupInterface $branchLookup,
+        private readonly StudentImportParser $importParser
     ) {
     }
 
@@ -49,6 +51,16 @@ final class StudentsRestController extends AbstractRestController
                 'callback' => [$this, 'store'],
                 'permission_callback' => $this->requireCapability(StudentCapability::MANAGE_STUDENTS->value),
                 'args' => $this->writableArgs(),
+            ],
+        ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/students/import', [
+            'methods' => 'POST',
+            'callback' => [$this, 'import'],
+            'permission_callback' => $this->requireCapability(StudentCapability::MANAGE_STUDENTS->value),
+            'args' => [
+                'csv' => ['required' => true, 'type' => 'string'],
+                'branch_id' => ['required' => false, 'type' => 'integer'],
             ],
         ]);
 
@@ -193,6 +205,68 @@ final class StudentsRestController extends AbstractRestController
         }
 
         return new WP_REST_Response($response, 201);
+    }
+
+    /**
+     * "Toplu öğrenci kaydı" - okul yılı başında elle tek tek form doldurmak
+     * yerine bir CSV dosyasıyla çok sayıda öğrenciyi tek istekte açar.
+     * store()'un aksine veli bilgisi işlemiyor (bkz. maybeCreateAndLinkParent()) -
+     * bir CSV satırında hem öğrenci hem veli bilgisi karıştırmak biçimi
+     * karmaşıklaştırırdı; veli bağlama ayrı, tekil bir işlem olarak kalıyor
+     * (bkz. linkParent()). Hedef şube TÜM dosya için TEK - store()'daki
+     * resolveBranchIdForWrite() ile aynı kural (Şube Müdürü her zaman kendi
+     * şubesine yazar, HQ branch_id vermek zorunda) - bir dosyada birden
+     * fazla şubeye dağılmış satır desteklenmiyor, gerekirse şube başına
+     * ayrı bir dosya yüklenir.
+     *
+     * Kısmi başarı normaldir: bir satırdaki hata diğer satırların
+     * içe aktarılmasını engellemez - her satır kendi başarı/hatasıyla
+     * ayrı ayrı raporlanır (bkz. serialize edilmiş yanıtın `errors` alanı).
+     */
+    public function import(WP_REST_Request $request): WP_REST_Response
+    {
+        $branchId = $this->resolveBranchIdForWrite($request);
+
+        if ($branchId === null || !$this->branchLookup->exists($branchId)) {
+            return new WP_REST_Response(['message' => __('Geçersiz şube.', 'seviye-students')], 422);
+        }
+
+        $rows = $this->importParser->parse((string) $request->get_param('csv'));
+
+        if ($rows === []) {
+            return new WP_REST_Response(['message' => __('CSV içeriği boş veya okunamadı.', 'seviye-students')], 422);
+        }
+
+        $imported = [];
+        $errors = [];
+
+        foreach ($rows as $row) {
+            if ($row->error !== null) {
+                $errors[] = ['line' => $row->lineNumber, 'message' => $row->error];
+                continue;
+            }
+
+            try {
+                $student = $this->students->create(
+                    $branchId,
+                    $row->firstName,
+                    $row->lastName,
+                    EducationYear::fromString($row->educationYear),
+                    $row->className,
+                    $this->validateTcNo($row->tcNo)
+                );
+                $imported[] = $this->serialize($student);
+            } catch (InvalidArgumentException $exception) {
+                $errors[] = ['line' => $row->lineNumber, 'message' => $exception->getMessage()];
+            }
+        }
+
+        return new WP_REST_Response([
+            'imported_count' => count($imported),
+            'error_count' => count($errors),
+            'imported' => $imported,
+            'errors' => $errors,
+        ]);
     }
 
     /**
@@ -523,15 +597,26 @@ final class StudentsRestController extends AbstractRestController
      */
     private function resolveStudentTcNo(WP_REST_Request $request): ?string
     {
-        $raw = trim((string) $request->get_param('tc_no'));
+        return $this->validateTcNo(trim((string) $request->get_param('tc_no')));
+    }
+
+    /**
+     * Shared by resolveStudentTcNo() (single create/update via the form)
+     * and import() (one call per CSV row) - both need the exact same
+     * validation, so it lives once here rather than being duplicated.
+     */
+    private function validateTcNo(?string $raw): ?string
+    {
+        $raw = trim((string) $raw);
 
         if ($raw === '') {
             return null;
         }
 
         if (!preg_match('/^\d{11}$/', $raw)) {
+            $message = __('Geçersiz T.C. Kimlik No biçimi (11 hane olmalı).', 'seviye-students');
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception message, not HTML output.
-            throw new InvalidArgumentException(__('Geçersiz T.C. Kimlik No biçimi (11 hane olmalı).', 'seviye-students'));
+            throw new InvalidArgumentException($message);
         }
 
         return $raw;

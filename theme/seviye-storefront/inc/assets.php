@@ -139,6 +139,11 @@ function scp_enqueue_panel_assets(): void
             'seviye-storefront'
         ),
         'studentDeleted' => __('Öğrenci silindi.', 'seviye-storefront'),
+        'importing' => __('İçe aktarılıyor…', 'seviye-storefront'),
+        /* translators: 1: imported count, 2: error row count - tokens replaced client-side (students-panel.js) */
+        'importSummary' => __('%1$d öğrenci içe aktarıldı, %2$d satırda hata oluştu.', 'seviye-storefront'),
+        /* translators: 1: CSV line number, 2: error message - tokens replaced client-side, see students-panel.js */
+        'importErrorLine' => __('Satır %1$d: %2$s', 'seviye-storefront'),
         'spendingLimitNone' => __('Bu öğrenci için harcama limiti tanımlı değil.', 'seviye-storefront'),
         'spendingLimitSaved' => __('Harcama limiti kaydedildi.', 'seviye-storefront'),
         'spendingLimitRemoved' => __('Harcama limiti kaldırıldı.', 'seviye-storefront'),

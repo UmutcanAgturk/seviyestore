@@ -2421,6 +2421,31 @@ Raporlar panelinde yeni bir "Depo Raporları" alt bölümü (yalnızca
 `scp_view_reports` - Raporlar panelinin ana bölümündeki HQ-vs-own-branch
 ayrımından bağımsız, kendi `current_user_can()` kontrolü).
 
+### 41. Students: toplu öğrenci kaydı (CSV içe aktarma)
+
+Okul yılı başında tek tek form doldurmak yerine bir CSV dosyasıyla çok
+sayıda öğrenci tek istekte açılabiliyor. `Support\StudentImportParser`
+(saf, WP'ye bağımsız - "Support classes stay pure, Http classes touch the
+platform" ilkesi, bkz. `SalesReportBuilder`'ın docblock'u) yalnızca
+YAPISAL doğrulama yapıyor (başlık satırı eşleşmesi, zorunlu alan boşluğu);
+iş kuralı doğrulaması (geçersiz eğitim yılı/T.C. No biçimi) satır
+`StudentRepositoryInterface::create()`'e verildiğinde, `store()`'un zaten
+kullandığı `EducationYear::fromString()`/`InvalidArgumentException`
+yoluyla gerçekleşiyor - `validateTcNo()` bu yüzden `resolveStudentTcNo()`
+(request'ten okuyan) ile `import()` (CSV satırından okuyan) arasında
+ortaklaştırıldı. `POST /students/import`, `store()`'daki
+`resolveBranchIdForWrite()`'ın AYNISINI kullanıyor: dosyanın TÜMÜ tek bir
+şubeye yazılıyor (Şube Müdürü her zaman kendi şubesine, HQ `branch_id`
+vermek zorunda) - bir dosyada birden fazla şubeye dağılmış satır
+desteklenmiyor. Veli bilgisi CSV'de YOK - `store()`'un aksine, bir satırda
+hem öğrenci hem veli alanlarını karıştırmak biçimi karmaşıklaştırırdı;
+veli bağlama panelden ayrı, tekil bir işlem olarak kalıyor. Kısmi başarı
+normal: bir satırdaki hata diğerlerini engellemiyor, her satır kendi
+başarı/hatasıyla ayrı raporlanıyor. Tema panelinde CSV dosyasını
+`FileReader` ile istemci tarafında okuyup metni JSON gövdede gönderen bir
+form + örnek şablon indirme bağlantısı (client-side üretilen bir Blob,
+ayrı bir REST uç noktası gerekmiyor).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

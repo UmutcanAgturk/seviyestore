@@ -282,6 +282,41 @@ get_header();
                 </table>
             </div>
 
+            <div class="scp-card scp-card--nested">
+                <div class="scp-card__header">
+                    <h3><?php esc_html_e('Toplu İçe Aktarma (CSV)', 'seviye-storefront'); ?></h3>
+                </div>
+
+                <p class="scp-form__hint">
+                    <?php esc_html_e(
+                        'CSV dosyasının ilk satırı başlık olmalı: first_name, last_name, education_year, class_name, tc_no (isteğe bağlı). Tüm satırlar aşağıda seçilen tek bir şubeye eklenir.',
+                        'seviye-storefront'
+                    ); ?>
+                    <a href="#" data-scp-download-import-template>
+                        <?php esc_html_e('Örnek şablonu indir', 'seviye-storefront'); ?>
+                    </a>
+                </p>
+
+                <form class="scp-form scp-form--inline" data-scp-import-form>
+                    <label data-scp-import-branch-field hidden>
+                        <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
+                        <select name="branch_id"></select>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('CSV Dosyası', 'seviye-storefront'); ?></span>
+                        <input type="file" accept=".csv,text/csv" name="csv_file" required>
+                    </label>
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn"><?php esc_html_e('İçe Aktar', 'seviye-storefront'); ?></button>
+                    </div>
+                </form>
+
+                <div data-scp-import-result hidden>
+                    <p data-scp-import-summary></p>
+                    <ul class="scp-list" data-scp-import-errors></ul>
+                </div>
+            </div>
+
             <form class="scp-form" data-scp-student-form hidden>
                 <input type="hidden" name="id">
 

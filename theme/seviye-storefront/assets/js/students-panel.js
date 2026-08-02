@@ -33,6 +33,14 @@
     var spendingLimitStatus = root.querySelector('[data-scp-spending-limit-status]');
     var spendingLimitPeriodSelect = root.querySelector('[data-scp-spending-limit-period]');
     var spendingLimitAmountInput = root.querySelector('[data-scp-spending-limit-amount]');
+    var importForm = root.querySelector('[data-scp-import-form]');
+    var importBranchField = root.querySelector('[data-scp-import-branch-field]');
+    var importBranchSelect = importBranchField.querySelector('select');
+    var importFileInput = importForm.querySelector('[name="csv_file"]');
+    var importResult = root.querySelector('[data-scp-import-result]');
+    var importSummary = root.querySelector('[data-scp-import-summary]');
+    var importErrorsList = root.querySelector('[data-scp-import-errors]');
+    var importTemplateLink = root.querySelector('[data-scp-download-import-template]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -57,18 +65,21 @@
         }
 
         branchField.hidden = false;
+        importBranchField.hidden = false;
 
         apiFetch('branches').then(function (result) {
             if (!result.ok) {
                 return;
             }
 
-            branchSelect.innerHTML = '';
-            result.data.forEach(function (branch) {
-                var option = document.createElement('option');
-                option.value = String(branch.id);
-                option.textContent = branch.name;
-                branchSelect.appendChild(option);
+            [branchSelect, importBranchSelect].forEach(function (select) {
+                select.innerHTML = '';
+                result.data.forEach(function (branch) {
+                    var option = document.createElement('option');
+                    option.value = String(branch.id);
+                    option.textContent = branch.name;
+                    select.appendChild(option);
+                });
             });
         });
     }
@@ -496,6 +507,75 @@
                 finish('');
             }
         });
+    });
+
+    // ---- Toplu İçe Aktarma (CSV) ----
+
+    importTemplateLink.addEventListener('click', function (event) {
+        event.preventDefault();
+
+        var csv = '﻿first_name,last_name,education_year,class_name,tc_no\n'
+            + 'Ayşe,Yılmaz,2025-2026,5-A,\n';
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'ogrenci-ice-aktarma-sablonu.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    });
+
+    function renderImportResult(data) {
+        importResult.hidden = false;
+        importSummary.textContent = scpPanelText.importSummary
+            .replace('%1$d', String(data.imported_count))
+            .replace('%2$d', String(data.error_count));
+
+        importErrorsList.innerHTML = '';
+        (data.errors || []).forEach(function (error) {
+            var item = document.createElement('li');
+            item.textContent = scpPanelText.importErrorLine
+                .replace('%1$d', String(error.line))
+                .replace('%2$s', error.message);
+            importErrorsList.appendChild(item);
+        });
+    }
+
+    importForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var file = importFileInput.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        importResult.hidden = true;
+        setStatus(scpPanelText.importing);
+
+        var reader = new FileReader();
+        reader.onload = function () {
+            var payload = { csv: String(reader.result) };
+
+            if (scpPanel.canManageAllBranches) {
+                payload.branch_id = parseInt(importBranchSelect.value, 10);
+            }
+
+            apiFetch('students/import', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    return;
+                }
+
+                setStatus('');
+                renderImportResult(result.data);
+                importForm.reset();
+                loadStudents();
+            });
+        };
+        reader.readAsText(file, 'UTF-8');
     });
 
     loadBranchesIfNeeded();
