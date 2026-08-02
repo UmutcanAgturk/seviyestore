@@ -2540,6 +2540,29 @@ erişimi olan bir ortamda (yerel makine ya da bu workflow elle tetiklenerek)
 bir kez doğrulandıktan sonra otomatik tetikleyicilere taşınabilir - bkz.
 `tests/README.md`.
 
+### 45. Güvenlik denetimi: Raporlar CSV/XLSX dışa aktarımında formül enjeksiyonu düzeltmesi
+
+`/security-review` ile yapılan bir denetimde, Raporlar eklentisinin
+`CsvExporter`/`XlsxExporter`'ının (bölüm/ürün/tedarikçi adı gibi) metin
+hücrelerini hiç dönüştürmeden yazdığı, bunun da klasik bir CSV/formül
+enjeksiyonu (CWE-1236) açığına yol açtığı tespit edildi: bir Şube Müdürü
+(`ProductsRestController::store()` üzerinden, `MANAGE_PRODUCTS`
+yetkisiyle) ürün adını `=HYPERLINK(...)` gibi bir formülle oluşturabiliyor;
+bu ürün adı hiçbir zaman sanitize edilmeden Satış Raporu'na taşınıyor ve
+daha yüksek yetkili bir Genel Merkez/Bölge Müdürü kullanıcısı raporu
+CSV/XLSX olarak indirip Excel/LibreOffice/Sheets'te açtığında hücre bir
+formül olarak çalıştırılabiliyor (ör. veri sızdırma amaçlı `HYPERLINK`).
+WordPress'in kendi `sanitize_text_field()`/başlık kaydetme yolu `=`/`+`/
+`-`/`@` gibi karakterleri temizlemediğinden bu koruma dışarıdan gelmiyordu.
+
+Düzeltme: her iki exporter'a da OWASP'ın standart CSV-enjeksiyonu
+önlemini uygulayan bir `neutralizeFormula()` yardımcı metodu eklendi -
+bir hücre değeri `=`, `+`, `-`, `@`, tab veya CR ile başlıyorsa başına tek
+tırnak (`'`) ekleniyor, böylece hücre metin olarak okunmaya zorlanıyor
+(CSV tarafında `fputcsv`'ye geçmeden önce, XLSX tarafında
+`htmlspecialchars` ile XML-kaçışından önce). `CsvExporterTest`/
+`XlsxExporterTest`'e birer regresyon testi eklendi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -182,11 +182,32 @@ final class XlsxExporter
             $cells .= sprintf(
                 '<c r="%s" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>',
                 $reference,
-                htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+                htmlspecialchars(self::neutralizeFormula((string) $value), ENT_XML1 | ENT_QUOTES, 'UTF-8')
             );
         }
 
         return sprintf('<row r="%d">%s</row>', $rowNumber, $cells);
+    }
+
+    /**
+     * Branch/product/supplier names come from user-editable catalog data
+     * (e.g. a Şube Müdürü-created product name, see ProductsRestController)
+     * and flow into a file a higher-trust HQ user opens in Excel/LibreOffice/
+     * Sheets. Those applications treat a cell starting with =, +, -, or @ as
+     * a formula regardless of correct XML escaping, so a crafted name could
+     * run a formula (e.g. HYPERLINK-based data exfiltration) in the
+     * report-opener's spreadsheet app. Prefixing a single quote is the
+     * standard OWASP CSV-injection mitigation - it forces the cell to be
+     * read as literal text. See CsvExporter::neutralizeFormula() for the
+     * CSV-side equivalent.
+     */
+    private static function neutralizeFormula(string $value): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        return in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true) ? "'" . $value : $value;
     }
 
     private function columnLetter(int $index): string

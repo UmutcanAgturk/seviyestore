@@ -65,4 +65,22 @@ final class CsvExporterTest extends TestCase
 
         self::assertStringContainsString('"Kadıköy, Merkez"', $csv);
     }
+
+    /**
+     * A product/branch name is user-editable catalog data (e.g. set by a
+     * Şube Müdürü creating a product) that a higher-trust HQ user later
+     * opens in Excel/LibreOffice/Sheets - those apps treat a leading
+     * =/+/-/@ as a formula regardless of correct CSV quoting, so the
+     * exporter must neutralize it (CWE-1236, standard OWASP mitigation).
+     */
+    public function testProductNamesStartingWithAFormulaCharacterAreNeutralized(): void
+    {
+        $rows = [
+            new SalesReportRow(7, 'Kadıköy', 55, '=HYPERLINK("http://evil.example")', 1, 10.0, 1.0),
+        ];
+
+        $lines = $this->parseCsv((new CsvExporter())->export($rows));
+
+        self::assertSame("'=HYPERLINK(\"http://evil.example\")", $lines[1][1]);
+    }
 }

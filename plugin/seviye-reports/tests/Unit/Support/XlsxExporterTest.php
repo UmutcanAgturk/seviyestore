@@ -62,6 +62,19 @@ final class XlsxExporterTest extends TestCase
     }
 
     /**
+     * See CsvExporterTest::testProductNamesStartingWithAFormulaCharacterAreNeutralized -
+     * same CWE-1236 concern applies to the XLSX inline strings.
+     */
+    public function testProductNamesStartingWithAFormulaCharacterAreNeutralized(): void
+    {
+        $rows = [new SalesReportRow(7, 'Kadıköy', 55, '=HYPERLINK("http://evil.example")', 1, 1.0, 0.0)];
+
+        $sheetXml = $this->sheetXmlFor($rows);
+
+        self::assertStringContainsString('&apos;=HYPERLINK', $sheetXml);
+    }
+
+    /**
      * @param list<SalesReportRow> $rows
      */
     private function sheetXmlFor(array $rows): string

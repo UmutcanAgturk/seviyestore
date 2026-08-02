@@ -31,8 +31,8 @@ final class CsvExporter
 
         foreach ($rows as $row) {
             fputcsv($stream, [
-                $row->branchName,
-                $row->productName,
+                self::neutralizeFormula($row->branchName),
+                self::neutralizeFormula($row->productName),
                 (string) $row->orderCount,
                 number_format($row->totalPrice, 2, '.', ''),
                 number_format($row->totalVat, 2, '.', ''),
@@ -61,7 +61,7 @@ final class CsvExporter
 
         foreach ($rows as $row) {
             fputcsv($stream, [
-                $row->supplierName,
+                self::neutralizeFormula($row->supplierName),
                 (string) $row->orderCount,
                 number_format($row->totalCost, 2, '.', ''),
                 (string) $row->completedOrderCount,
@@ -74,5 +74,25 @@ final class CsvExporter
         fclose($stream);
 
         return $csv === false ? '' : $csv;
+    }
+
+    /**
+     * Branch/product/supplier names come from user-editable catalog data
+     * (e.g. a Şube Müdürü-created product name, see ProductsRestController)
+     * and flow into a file a higher-trust HQ user opens in Excel/LibreOffice/
+     * Sheets. Those applications treat a cell starting with =, +, -, or @ as
+     * a formula regardless of correct CSV quoting, so a crafted name could
+     * run a formula (e.g. HYPERLINK-based data exfiltration) in the
+     * report-opener's spreadsheet app. Prefixing a single quote is the
+     * standard OWASP CSV-injection mitigation - it forces the cell to be
+     * read as literal text.
+     */
+    private static function neutralizeFormula(string $value): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        return in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true) ? "'" . $value : $value;
     }
 }
