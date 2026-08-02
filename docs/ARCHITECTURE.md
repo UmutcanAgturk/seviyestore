@@ -2374,9 +2374,15 @@ Commerce'in `commerce.product_low_stock` event'ini dinliyor (Notifications'ın
 `LowStockNotificationListener`'ıyla AYNI event'in ikinci bir dinleyicisi -
 yeni bir bildirim kanalı değil), `hasPending()` ile dedup ediyor (aynı
 ürün için zaten bekleyen bir öneri varsa ikincisi açılmaz - WC bu hook'u
-her satışta yeniden ateşleyebilir). `suggestedQuantity` sabit bir
-varsayılan (20) - kesin bir sipariş değil, Depo görevlisi panelde
-siparişe çevirirken serbestçe değiştirebiliyor.
+her satışta yeniden ateşleyebilir). `suggestedQuantity`, ürünün kendi
+düşük stok eşiğine (`low_stock_amount` - event'e Commerce'in
+`LowStockNotificationHooks::onLowStock()` tarafından eklendi,
+`wc_get_low_stock_amount()` üzerinden site varsayılanına da düşebiliyor)
+göre hesaplanıyor: eşiğin kabaca iki katına stoklanacak miktar
+(`threshold * 2 - stockQuantity`, en az eşik kadar, en az 1) - kesin bir
+sipariş değil, yalnızca bir başlangıç noktası, Depo görevlisi panelde
+siparişe çevirirken serbestçe değiştirebiliyor. Event'te bu alan yoksa
+(eski payload/WC < 5.4) sabit bir varsayılana (20) düşülüyor.
 `PurchaseSuggestionsRestController::convert()`, `PurchaseOrderRepositoryInterface::create()`
 üzerinden tek kalemli bir DRAFT satın alma siparişi açıyor - kod tekrarı
 yok. Yeni `scp_manage_purchase_suggestions` yetkisi, aynı üç role

@@ -20,9 +20,11 @@ use WC_Product;
  * it. This does not reimplement threshold-crossing detection - WC core
  * already does that reliably - it only turns the moment into a
  * platform-native EventBus event so Seviye Notifications can route it
- * through email/panel like every other notification on this platform.
- * WooCommerce's own built-in low-stock admin email (if configured) keeps
- * running independently; this is a separate, additional channel.
+ * through email/panel like every other notification on this platform, AND
+ * so Seviye Depo can turn it into a purchase suggestion (see
+ * Seviye\Depo\Support\LowStockPurchaseSuggestionListener). WooCommerce's
+ * own built-in low-stock admin email (if configured) keeps running
+ * independently; this is a separate, additional channel.
  */
 final class LowStockNotificationHooks
 {
@@ -45,6 +47,15 @@ final class LowStockNotificationHooks
             'variation_id' => $parentId > 0 ? $product->get_id() : null,
             'product_name' => $product->get_name(),
             'stock_quantity' => $product->get_stock_quantity(),
+            // Per-product _low_stock_amount if set, otherwise WC's own
+            // site-wide default (wc_get_low_stock_amount() already resolves
+            // that fallback) - added for Seviye Depo's
+            // LowStockPurchaseSuggestionListener, which sizes its suggested
+            // reorder quantity off this threshold. Additive field: existing
+            // consumers of this event (e.g. Notifications) ignore it.
+            'low_stock_amount' => function_exists('wc_get_low_stock_amount')
+                ? (int) wc_get_low_stock_amount($product)
+                : null,
         ]));
     }
 }
