@@ -171,4 +171,5 @@ if (!defined('ABSPATH')) {
     <?php endif; ?>
 
     <?php include SCP_THEME_DIR . '/templates/partials/account-security.php'; ?>
+    <?php include SCP_THEME_DIR . '/templates/partials/privacy-requests.php'; ?>
 </div>

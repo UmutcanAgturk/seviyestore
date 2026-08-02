@@ -7,7 +7,8 @@
         "php": ">=8.2",
         "seviye/core": "*",
         "seviye/branches": "*",
-        "seviye/students": "*"
+        "seviye/students": "*",
+        "seviye/parents": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5"
@@ -34,6 +35,10 @@
         {
             "type": "path",
             "url": "../seviye-students"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-parents"
         }
     ],
     "scripts": {

@@ -2651,6 +2651,64 @@ nokta, tek çizgi, bir bağımlılığı hak etmiyor. Eksen/gridline yok
 (kasıtlı - bu analitik değil, kompakt bir trend göstergesi); her noktanın
 tarih/ciro/sipariş sayısı kendi native SVG `<title>` hover tooltip'inde.
 
+### 49. KVKK: veri ihracı/silme talebi
+
+Platform T.C. Kimlik No gibi hassas veri tutuyor ama bir "veri ihracı/silme
+talebi" mekanizması hiç yoktu. Security eklentisine yeni bir `Privacy\*`
+namespace'i eklendi (`scp_privacy_requests` tablosu, `PrivacyRequest`/
+`PrivacyRequestType`/`PrivacyRequestStatus`, `WpdbPrivacyRequestGateway`) ve
+`seviye/v1/privacy/requests/*` uç noktaları:
+
+- **EXPORT** (`POST /privacy/requests/export`) anında tamamlanır, her giriş
+  yapmış kullanıcı için self-service (2FA gibi capability'siz - "erişim
+  hakkı" başkasının onayını gerektirmemeli). Yanıt bir JSON dosya indirme
+  (`Content-Disposition: attachment`) - WP hesap alanları, `scp_user_identities`
+  T.C. No + 2FA durumu, (varsa) veli telefonu, (varsa) bağlı öğrencilerin
+  temel bilgileri. Sipariş/hakediş geçmişi KASITLI OLARAK dahil değil - o
+  veri Commerce'in, platform bunu bir gizlilik talebinden bağımsız olarak
+  (mali kayıt saklama yükümlülüğü) tutmak zorunda, ve onu dahil etmek
+  Security'nin Commerce'e yeni bir bağımlılığını gerektirirdi - bu
+  özelliğin kapsamını haklı çıkarmayacak kadar büyük bir değişiklik.
+- **DELETION** (`POST /privacy/requests/deletion`) yalnızca PENDING bir
+  talep oluşturur - Genel Merkez (`MANAGE_PRIVACY_REQUESTS`) onaylamadan
+  hiçbir şey değişmez, çünkü onayın geri alınamaz bir yan etkisi var
+  (`scp_user_identities` bağlantısı kaldırılır → hesap artık T.C. No ile
+  giriş yapamaz - platformun TEK giriş yöntemi). Anonimleştirme kapsamı da
+  aynı ilkeyle dar tutuldu: yalnızca WP hesabı (display_name/e-posta) ve
+  `scp_user_identities`/2FA satırları temizleniyor; WooCommerce müşteri/
+  fatura meta'sına ve öğrenci (child) kayıtlarına hiç dokunulmuyor - onlar
+  okulun kendi operasyonel/kayıt tutma verisi, bir velinin self-service
+  silme talebinin bunları silmeye yasal dayanağı yok.
+
+Security ilk kez Parents'a bağımlı oldu (composer.json + "Requires
+Plugins" - `ParentContactLookupInterface::phoneFor()` için) ve Students'ın
+yeni `ParentChildrenLookupInterface::childrenOf()` Contract'ını kullanıyor
+(bu talebin ihtiyacı için eklenen tek gerçek eksik parça - `StudentGuardianCheckInterface`
+yalnızca "X, Y'nin velisi mi" soruyordu, "X'in tüm çocukları" değil).
+
+### 50. Pricing: toplu fiyat kuralı CSV içe aktarma
+
+`Students\Support\StudentImportParser`'ın aynısı desenle
+(`Pricing\Support\PriceRuleImportParser`, saf) `product_id, scope, target_id,
+price` sütunlu bir CSV'yi satır satır ayrıştırıyor. `PricingRestController::store()`
+kural oluşturma mantığının TAMAMI (kapsam çözümleme, RBAC kapsam kontrolü,
+aktif-kural-tekrarı kontrolü, taban fiyat floor kontrolü) `createRule()`
+adında paylaşılan bir metoda çıkarıldı - hem `store()` hem yeni `import()`
+bunu çağırıyor, böylece bir CSV satırı tek bir manuel POST'un tabi olduğu
+hiçbir kuralı asla atlayamaz. Yanıt şekli `StudentsRestController::import()`'la
+birebir aynı (`imported_count`/`error_count`/`imported`/`errors`).
+
+### 51. Reports: şube/ürün performans karşılaştırma grafiği
+
+Yeni bir uç nokta YOK - `reports-panel.js` zaten `/reports/sales`'ten
+çektiği aynı satırları (branch_id/name, product_id/name, total_price)
+istemci tarafında yeniden gruplayıp bir karşılaştırma grafiği çiziyor
+("Şubelere Göre"/"Ürünlere Göre" değiştirilebilir). Bir SVG grafik yerine
+düz CSS genişlik-yüzdesi çubukları (flexbox) - uzun şube/ürün adlarıyla
+yatay bir çubuk listesi, hazır SVG yazmaktan daha basit, aynı "gereksiz
+bağımlılık/karmaşıklıktan kaçın" ilkesinin (bkz. bölüm 48) bir başka
+uygulaması.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

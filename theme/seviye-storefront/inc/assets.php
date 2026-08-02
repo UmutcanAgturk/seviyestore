@@ -251,6 +251,25 @@ function scp_enqueue_panel_assets(): void
             'Oturum bilgisi güncel değil. Lütfen sayfayı yenileyip tekrar deneyin.',
             'seviye-storefront'
         ),
+        'privacyExported' => __('Verileriniz indirildi.', 'seviye-storefront'),
+        'privacyDeletionRequested' => __('Silme talebiniz gönderildi.', 'seviye-storefront'),
+        'confirmPrivacyDeletion' => __(
+            'Hesap kimlik bilgilerinizin silinmesini talep etmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'confirmPrivacyApprove' => __(
+            'Bu talebi onaylayıp kullanıcının kimlik bilgilerini anonimleştirmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'privacyResolutionNotePrompt' => __('Sonuç notu (opsiyonel):', 'seviye-storefront'),
+        'privacyApproveAction' => __('Onayla ve Anonimleştir', 'seviye-storefront'),
+        'privacyRejectAction' => __('Reddet', 'seviye-storefront'),
+        'noPrivacyRequests' => __('Bekleyen bir KVKK talebi yok.', 'seviye-storefront'),
+        'privacyTypeExport' => __('Veri İhracı', 'seviye-storefront'),
+        'privacyTypeDeletion' => __('Silme Talebi', 'seviye-storefront'),
+        'privacyStatus_pending' => __('Bekliyor', 'seviye-storefront'),
+        'privacyStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
+        'privacyStatus_rejected' => __('Reddedildi', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
@@ -469,6 +488,25 @@ function scp_enqueue_panel_assets(): void
         true
     );
     wp_localize_script($handle, 'scpPanel', $localized);
+    wp_localize_script($handle, 'scpPanelText', $text);
+
+    // "KVKK: veri ihracı/silme talebi" - self-service, same "never
+    // capability-gated" reasoning as account-security.js above; the admin
+    // review queue this same script also binds (only rendered in zone.php
+    // when scp_manage_privacy_requests is granted) needs the capability
+    // flag regardless of zone/page, so it is localized here too rather
+    // than only alongside the admin-only queue markup.
+    $handle = 'scp-privacy-requests-panel';
+    wp_enqueue_script(
+        $handle,
+        SCP_THEME_URL . '/assets/js/privacy-requests-panel.js',
+        ['scp-api-fetch'],
+        scp_asset_version('/assets/js/privacy-requests-panel.js'),
+        true
+    );
+    wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+        'canManagePrivacyRequests' => current_user_can('scp_manage_privacy_requests'),
+    ]));
     wp_localize_script($handle, 'scpPanelText', $text);
 
     if ($zone === 'admin' && current_user_can('scp_manage_security_settings')) {

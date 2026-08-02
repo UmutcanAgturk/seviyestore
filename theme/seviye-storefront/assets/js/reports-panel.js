@@ -29,6 +29,11 @@
     var tableBody = root.querySelector('[data-scp-reports-body]');
     var csvButton = root.querySelector('[data-scp-report-csv]');
     var xlsxButton = root.querySelector('[data-scp-report-xlsx]');
+    var comparisonChart = root.querySelector('[data-scp-comparison-chart]');
+    var comparisonChartHost = root.querySelector('[data-scp-comparison-chart-host]');
+    var comparisonModeButtons = root.querySelectorAll('[data-scp-comparison-mode]');
+    var comparisonMode = 'branch';
+    var lastReportRows = [];
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -106,7 +111,100 @@
         });
 
         setStatus(rows.length === 0 ? scpPanelText.noReportData : '');
+
+        lastReportRows = rows;
+        renderComparisonChart();
     }
+
+    /**
+     * "Şube/ürün performans karşılaştırma grafiği" - re-aggregates the SAME
+     * rows the table above already holds (branch_id/name, product_id/name,
+     * total_price per branch+product pair) rather than a new endpoint -
+     * everything a comparison needs is already in `lastReportRows`. Plain
+     * CSS width-percentage bars rather than SVG - a horizontal bar list is
+     * simpler as flexbox than as hand-rolled SVG, and it reads better with
+     * long şube/ürün names than a vertical bar chart would (see
+     * overview-panel.js's SVG line chart for the "no library" reasoning
+     * this still follows).
+     */
+    function aggregateReportRows(rows, idKey, nameKey) {
+        var totals = {};
+        var order = [];
+
+        rows.forEach(function (row) {
+            var id = row[idKey];
+
+            if (!(id in totals)) {
+                totals[id] = { name: row[nameKey], total: 0 };
+                order.push(id);
+            }
+
+            totals[id].total += row.total_price;
+        });
+
+        return order
+            .map(function (id) {
+                return totals[id];
+            })
+            .sort(function (a, b) {
+                return b.total - a.total;
+            })
+            .slice(0, 10);
+    }
+
+    function renderComparisonChart() {
+        if (lastReportRows.length === 0) {
+            comparisonChart.hidden = true;
+            return;
+        }
+
+        var items = comparisonMode === 'branch'
+            ? aggregateReportRows(lastReportRows, 'branch_id', 'branch_name')
+            : aggregateReportRows(lastReportRows, 'product_id', 'product_name');
+
+        comparisonChart.hidden = false;
+        comparisonChartHost.innerHTML = '';
+
+        var max = items.reduce(function (acc, item) {
+            return Math.max(acc, item.total);
+        }, 0);
+
+        items.forEach(function (item) {
+            var row = document.createElement('div');
+            row.className = 'scp-comparison-chart__row';
+
+            var label = document.createElement('span');
+            label.className = 'scp-comparison-chart__label';
+            label.textContent = item.name;
+            row.appendChild(label);
+
+            var track = document.createElement('div');
+            track.className = 'scp-comparison-chart__track';
+
+            var bar = document.createElement('div');
+            bar.className = 'scp-comparison-chart__bar';
+            bar.style.width = (max > 0 ? (item.total / max * 100) : 0) + '%';
+            track.appendChild(bar);
+            row.appendChild(track);
+
+            var value = document.createElement('span');
+            value.className = 'scp-comparison-chart__value';
+            value.textContent = formatMoney(item.total);
+            row.appendChild(value);
+
+            comparisonChartHost.appendChild(row);
+        });
+    }
+
+    comparisonModeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            comparisonMode = button.getAttribute('data-scp-comparison-mode');
+            comparisonModeButtons.forEach(function (btn) {
+                btn.classList.toggle('scp-btn--active', btn === button);
+            });
+            renderComparisonChart();
+        });
+    });
 
     function loadReport() {
         var params = currentParams();

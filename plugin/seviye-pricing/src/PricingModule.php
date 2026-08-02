@@ -20,6 +20,7 @@ use Seviye\Pricing\Rbac\PricingCapability;
 use Seviye\Pricing\Repository\PriceRuleRepositoryInterface;
 use Seviye\Pricing\Repository\WpdbPriceRuleRepository;
 use Seviye\Pricing\Support\PriceResolver;
+use Seviye\Pricing\Support\PriceRuleImportParser;
 use Seviye\Students\Contracts\StudentLookupInterface;
 
 /**
@@ -72,12 +73,18 @@ final class PricingModule implements ModuleInterface
         $rbac->grantCapability(Role::GENEL_MERKEZ, PricingCapability::MANAGE_BASE_PRICING->value);
         $rbac->grantCapability(Role::SISTEM, PricingCapability::MANAGE_BASE_PRICING->value);
 
+        $container->singleton(
+            PriceRuleImportParser::class,
+            static fn (): PriceRuleImportParser => new PriceRuleImportParser()
+        );
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): PricingRestController => new PricingRestController(
                 $container->get(PriceRuleRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class),
-                $container->get(StudentLookupInterface::class)
+                $container->get(StudentLookupInterface::class),
+                $container->get(PriceRuleImportParser::class)
             )
         );
     }

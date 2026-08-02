@@ -148,6 +148,11 @@ if (current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_bra
 }
 
 $scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
+$scp_sections['#scp-privacy-requests-panel'] = __('Verilerim (KVKK)', 'seviye-storefront');
+
+if (scp_current_zone() === 'admin' && current_user_can('scp_manage_privacy_requests')) {
+    $scp_sections['#scp-privacy-requests-queue-panel'] = __('KVKK Talepleri', 'seviye-storefront');
+}
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) {
     $scp_sections['#scp-ip-allowlist-panel'] = __('IP Kısıtlaması', 'seviye-storefront');
@@ -833,6 +838,35 @@ get_header();
 
             <p class="scp-status" data-scp-pricing-status></p>
 
+            <div class="scp-card__header">
+                <h3><?php esc_html_e('Toplu İçe Aktarma (CSV)', 'seviye-storefront'); ?></h3>
+            </div>
+
+            <p class="scp-form__hint">
+                <?php esc_html_e(
+                    'CSV dosyasının ilk satırı başlık olmalı: product_id, scope (general, branch veya student), price, target_id (branch/student kapsamında zorunlu, şube yetkilileri için otomatik kendi şubeleri kullanılır).',
+                    'seviye-storefront'
+                ); ?>
+                <a href="#" data-scp-download-price-import-template>
+                    <?php esc_html_e('Örnek şablonu indir', 'seviye-storefront'); ?>
+                </a>
+            </p>
+
+            <form class="scp-form scp-form--inline" data-scp-price-import-form>
+                <label>
+                    <span><?php esc_html_e('CSV Dosyası', 'seviye-storefront'); ?></span>
+                    <input type="file" accept=".csv,text/csv" name="csv_file" required>
+                </label>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('İçe Aktar', 'seviye-storefront'); ?></button>
+                </div>
+            </form>
+
+            <div data-scp-price-import-result hidden>
+                <p data-scp-price-import-summary></p>
+                <ul class="scp-list" data-scp-price-import-errors></ul>
+            </div>
+
             <div data-scp-price-rules-results hidden>
                 <div class="scp-card__header">
                     <span></span>
@@ -1326,6 +1360,25 @@ get_header();
                 </table>
             </div>
 
+            <div class="scp-comparison-chart" data-scp-comparison-chart hidden>
+                <div class="scp-card__header">
+                    <h3><?php esc_html_e('Karşılaştırma', 'seviye-storefront'); ?></h3>
+                    <div class="scp-comparison-chart__toggle">
+                        <button
+                            type="button"
+                            class="scp-btn scp-btn--small scp-btn--active"
+                            data-scp-comparison-mode="branch"
+                        ><?php esc_html_e('Şubelere Göre', 'seviye-storefront'); ?></button>
+                        <button
+                            type="button"
+                            class="scp-btn scp-btn--small"
+                            data-scp-comparison-mode="product"
+                        ><?php esc_html_e('Ürünlere Göre', 'seviye-storefront'); ?></button>
+                    </div>
+                </div>
+                <div data-scp-comparison-chart-host></div>
+            </div>
+
             <?php if (current_user_can('scp_view_reports')) : ?>
                 <div class="scp-card scp-card--nested">
                     <div class="scp-card__header">
@@ -1419,6 +1472,32 @@ get_header();
     <?php endif; ?>
 
     <?php include SCP_THEME_DIR . '/templates/partials/account-security.php'; ?>
+    <?php include SCP_THEME_DIR . '/templates/partials/privacy-requests.php'; ?>
+
+    <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_privacy_requests')) : ?>
+        <section class="scp-card" id="scp-privacy-requests-queue-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('KVKK Talepleri', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-privacy-queue-status></p>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table" data-scp-privacy-queue-table hidden>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Kullanıcı', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('E-posta', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Talep Tarihi', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Not', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('İşlem', 'seviye-storefront'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-privacy-queue-body></tbody>
+                </table>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <?php if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) : ?>
         <section class="scp-card" id="scp-ip-allowlist-panel">

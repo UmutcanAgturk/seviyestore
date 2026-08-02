@@ -35,6 +35,12 @@
     var targetInput = targetField.querySelector('input');
     var statusField = root.querySelector('[data-scp-price-status-field]');
     var deleteButton = root.querySelector('[data-scp-delete-price-rule]');
+    var importForm = root.querySelector('[data-scp-price-import-form]');
+    var importFileInput = importForm.querySelector('[name="csv_file"]');
+    var importResult = root.querySelector('[data-scp-price-import-result]');
+    var importSummary = root.querySelector('[data-scp-price-import-summary]');
+    var importErrorsList = root.querySelector('[data-scp-price-import-errors]');
+    var importTemplateLink = root.querySelector('[data-scp-download-price-import-template]');
 
     var currentProductId = null;
 
@@ -238,5 +244,70 @@
             form.hidden = true;
             loadPriceRules();
         });
+    });
+
+    // ---- Toplu İçe Aktarma (CSV) ----
+
+    importTemplateLink.addEventListener('click', function (event) {
+        event.preventDefault();
+
+        var csv = '﻿product_id,scope,target_id,price\n'
+            + '123,general,,99.90\n';
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'fiyat-kurali-ice-aktarma-sablonu.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    });
+
+    function renderPriceImportResult(data) {
+        importResult.hidden = false;
+        importSummary.textContent = scpPanelText.importSummary
+            .replace('%1$d', String(data.imported_count))
+            .replace('%2$d', String(data.error_count));
+
+        importErrorsList.innerHTML = '';
+        (data.errors || []).forEach(function (error) {
+            var item = document.createElement('li');
+            item.textContent = scpPanelText.importErrorLine
+                .replace('%1$d', String(error.line))
+                .replace('%2$s', error.message);
+            importErrorsList.appendChild(item);
+        });
+    }
+
+    importForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var file = importFileInput.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        importResult.hidden = true;
+        setStatus(scpPanelText.importing);
+
+        var reader = new FileReader();
+        reader.onload = function () {
+            apiFetch('pricing/rules/import', {
+                method: 'POST',
+                body: JSON.stringify({ csv: String(reader.result) })
+            }).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    return;
+                }
+
+                setStatus('');
+                renderPriceImportResult(result.data);
+                importForm.reset();
+            });
+        };
+        reader.readAsText(file, 'UTF-8');
     });
 })();

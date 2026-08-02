@@ -16,6 +16,7 @@ use Seviye\Pricing\Domain\PriceScope;
 use Seviye\Pricing\Domain\PriceScopeType;
 use Seviye\Pricing\Rbac\PricingCapability;
 use Seviye\Pricing\Repository\PriceRuleRepositoryInterface;
+use Seviye\Pricing\Support\PriceRuleImportParser;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -34,7 +35,8 @@ final class PricingRestController extends AbstractRestController
         private readonly PriceRuleRepositoryInterface $rules,
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly BranchLookupInterface $branches,
-        private readonly StudentLookupInterface $students
+        private readonly StudentLookupInterface $students,
+        private readonly PriceRuleImportParser $importParser
     ) {
     }
 
@@ -52,6 +54,13 @@ final class PricingRestController extends AbstractRestController
                 'permission_callback' => $this->requireCapability(PricingCapability::MANAGE_PRICING->value),
                 'args' => $this->writableArgs(),
             ],
+        ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/pricing/rules/import', [
+            'methods' => 'POST',
+            'callback' => [$this, 'import'],
+            'permission_callback' => $this->requireCapability(PricingCapability::MANAGE_PRICING->value),
+            'args' => ['csv' => ['required' => true, 'type' => 'string']],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/pricing/rules/(?P<id>\d+)', [
@@ -102,45 +111,116 @@ final class PricingRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('Geçersiz ürün veya fiyat kapsamı.', 'seviye-pricing')], 422);
         }
 
-        $scope = $this->resolveScopeForWrite($scopeType, $request);
+        $result = $this->createRule(
+            $productId,
+            $scopeType,
+            (int) $request->get_param('target_id'),
+            (float) $request->get_param('price')
+        );
+
+        if (isset($result['rule'])) {
+            return new WP_REST_Response($this->serialize($result['rule']), 201);
+        }
+
+        return new WP_REST_Response(['message' => $result['message']], $result['status']);
+    }
+
+    /**
+     * "Toplu fiyat kuralı içe aktarma" - reuses createRule(), the exact same
+     * validation/creation path store() uses per row (scope resolution,
+     * RBAC scope check, duplicate-active-rule check, taban fiyat floor),
+     * so a CSV row can never bypass any rule a single manual POST would
+     * enforce. Response shape mirrors
+     * Seviye\Students\Http\StudentsRestController::import() exactly.
+     */
+    public function import(WP_REST_Request $request): WP_REST_Response
+    {
+        $rows = $this->importParser->parse((string) $request->get_param('csv'));
+
+        if ($rows === []) {
+            return new WP_REST_Response(['message' => __('CSV içeriği boş veya okunamadı.', 'seviye-pricing')], 422);
+        }
+
+        $imported = [];
+        $errors = [];
+
+        foreach ($rows as $row) {
+            if ($row->error !== null) {
+                $errors[] = ['line' => $row->lineNumber, 'message' => $row->error];
+                continue;
+            }
+
+            $productId = (int) $row->productId;
+            $scopeType = PriceScopeType::from($row->scope);
+            $targetId = $row->targetId !== null ? (int) $row->targetId : 0;
+            $price = (float) str_replace(',', '.', $row->price);
+
+            if ($productId <= 0) {
+                $errors[] = ['line' => $row->lineNumber, 'message' => __('Geçersiz ürün kimliği.', 'seviye-pricing')];
+                continue;
+            }
+
+            $result = $this->createRule($productId, $scopeType, $targetId, $price);
+
+            if (isset($result['rule'])) {
+                $imported[] = $this->serialize($result['rule']);
+            } else {
+                $errors[] = ['line' => $row->lineNumber, 'message' => $result['message']];
+            }
+        }
+
+        return new WP_REST_Response([
+            'imported_count' => count($imported),
+            'error_count' => count($errors),
+            'imported' => $imported,
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
+     * Shared by store() and import() - the ONE place a price rule is
+     * actually created, so a CSV row is held to exactly the same rules a
+     * manual POST is (scope resolution/RBAC/duplicate/taban fiyat floor).
+     *
+     * @return array{rule: PriceRule}|array{message: string, status: int}
+     */
+    private function createRule(int $productId, PriceScopeType $scopeType, int $targetId, float $rawPrice): array
+    {
+        $scope = $this->resolveScopeForWrite($scopeType, $targetId);
 
         if ($scope === null) {
-            $message = __('Geçersiz şube veya öğrenci kimliği.', 'seviye-pricing');
-
-            return new WP_REST_Response(['message' => $message], 422);
+            return ['message' => __('Geçersiz şube veya öğrenci kimliği.', 'seviye-pricing'), 'status' => 422];
         }
 
         if (!$this->canWriteScope($scope)) {
             $message = __('Bu kapsamda fiyat kuralı oluşturma yetkiniz yok.', 'seviye-pricing');
 
-            return new WP_REST_Response(['message' => $message], 403);
+            return ['message' => $message, 'status' => 403];
         }
 
         if (!$this->scopeTargetIsValid($scope)) {
-            return new WP_REST_Response(['message' => __('Geçersiz şube veya öğrenci.', 'seviye-pricing')], 422);
+            return ['message' => __('Geçersiz şube veya öğrenci.', 'seviye-pricing'), 'status' => 422];
         }
 
         if ($this->rules->activeRuleExists($productId, $scope)) {
             $message = __('Bu ürün için bu kapsamda zaten aktif bir fiyat kuralı var.', 'seviye-pricing');
 
-            return new WP_REST_Response(['message' => $message], 409);
+            return ['message' => $message, 'status' => 409];
         }
 
         try {
-            $price = Money::fromFloat((float) $request->get_param('price'));
+            $price = Money::fromFloat($rawPrice);
         } catch (InvalidArgumentException $exception) {
-            return new WP_REST_Response(['message' => $exception->getMessage()], 422);
+            return ['message' => $exception->getMessage(), 'status' => 422];
         }
 
         $floorViolation = $this->violatesBasePriceFloor($productId, $scope, $price);
 
         if ($floorViolation !== null) {
-            return new WP_REST_Response(['message' => $floorViolation], 422);
+            return ['message' => $floorViolation, 'status' => 422];
         }
 
-        $rule = $this->rules->create($productId, $scope, $price);
-
-        return new WP_REST_Response($this->serialize($rule), 201);
+        return ['rule' => $this->rules->create($productId, $scope, $price)];
     }
 
     public function update(WP_REST_Request $request): WP_REST_Response
@@ -214,7 +294,7 @@ final class PricingRestController extends AbstractRestController
      * target_id for BRANCH/STUDENT scopes. Returns null on a missing or
      * non-positive target_id where one is required.
      */
-    private function resolveScopeForWrite(PriceScopeType $scopeType, WP_REST_Request $request): ?PriceScope
+    private function resolveScopeForWrite(PriceScopeType $scopeType, int $targetId): ?PriceScope
     {
         $ownBranchId = $this->currentUserBranchId();
 
@@ -225,8 +305,8 @@ final class PricingRestController extends AbstractRestController
         try {
             return match ($scopeType) {
                 PriceScopeType::GENERAL => PriceScope::general(),
-                PriceScopeType::BRANCH => PriceScope::forBranch((int) $request->get_param('target_id')),
-                PriceScopeType::STUDENT => PriceScope::forStudent((int) $request->get_param('target_id')),
+                PriceScopeType::BRANCH => PriceScope::forBranch($targetId),
+                PriceScopeType::STUDENT => PriceScope::forStudent($targetId),
             };
         } catch (InvalidArgumentException) {
             return null;

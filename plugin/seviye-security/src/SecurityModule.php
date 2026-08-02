@@ -16,10 +16,12 @@ use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Core\Security\RateLimiter;
 use Seviye\Core\Settings\SettingsRepositoryInterface;
+use Seviye\Parents\Contracts\ParentContactLookupInterface;
 use Seviye\Security\Auth\AuthService;
 use Seviye\Security\Auth\CredentialGatewayInterface;
 use Seviye\Security\Auth\WpCredentialGateway;
 use Seviye\Security\Database\Migrations\CreatePasswordTokensTable;
+use Seviye\Security\Database\Migrations\CreatePrivacyRequestsTable;
 use Seviye\Security\Database\Migrations\CreateTwoFactorSecretsTable;
 use Seviye\Security\Database\Migrations\CreateUserIdentitiesTable;
 use Seviye\Security\Http\AccountRestController;
@@ -29,10 +31,15 @@ use Seviye\Security\Http\Admin\UserAuthorizationAdminPage;
 use Seviye\Security\Http\Admin\UserListPage;
 use Seviye\Security\Http\AuthRestController;
 use Seviye\Security\Http\IdentityRestController;
+use Seviye\Security\Http\PrivacyRequestsRestController;
 use Seviye\Security\Http\SecuritySettingsRestController;
 use Seviye\Security\Http\TwoFactorRestController;
 use Seviye\Security\Identity\IdentityGatewayInterface;
 use Seviye\Security\Identity\WpdbIdentityGateway;
+use Seviye\Security\Privacy\PrivacyExportBuilder;
+use Seviye\Security\Privacy\PrivacyRequestGatewayInterface;
+use Seviye\Security\Privacy\WpdbPrivacyRequestGateway;
+use Seviye\Security\Rbac\PrivacyCapability;
 use Seviye\Security\Rbac\SecurityCapability;
 use Seviye\Security\Token\ClockInterface;
 use Seviye\Security\Token\PasswordTokenGatewayInterface;
@@ -44,6 +51,7 @@ use Seviye\Security\TwoFactor\PendingTwoFactorLoginService;
 use Seviye\Security\TwoFactor\TwoFactorGatewayInterface;
 use Seviye\Security\TwoFactor\TwoFactorService;
 use Seviye\Security\TwoFactor\WpdbTwoFactorGateway;
+use Seviye\Students\Contracts\ParentChildrenLookupInterface;
 
 /**
  * Binds Security's services into Core's shared container and registers its
@@ -127,9 +135,22 @@ final class SecurityModule implements ModuleInterface
             )
         );
 
+        $container->singleton(
+            PrivacyRequestGatewayInterface::class,
+            static fn (ServiceContainer $c): WpdbPrivacyRequestGateway => new WpdbPrivacyRequestGateway(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            PrivacyExportBuilder::class,
+            static fn (): PrivacyExportBuilder => new PrivacyExportBuilder()
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateUserIdentitiesTable());
         $container->get(MigrationRunner::class)->register(new CreatePasswordTokensTable());
         $container->get(MigrationRunner::class)->register(new CreateTwoFactorSecretsTable());
+        $container->get(MigrationRunner::class)->register(new CreatePrivacyRequestsTable());
 
         $container->get(RestApiRegistrar::class)->register(static fn (): AuthRestController => new AuthRestController(
             $container->get(AuthService::class),
@@ -180,6 +201,30 @@ final class SecurityModule implements ModuleInterface
             static fn (): IdentityRestController => new IdentityRestController(
                 $container->get(IdentityGatewayInterface::class)
             )
+        );
+
+        // "KVKK: veri ihracı/silme talebi" - the closure below resolves
+        // Seviye\Parents\Contracts\ParentContactLookupInterface and
+        // Seviye\Students\Contracts\ParentChildrenLookupInterface, both new
+        // dependencies (see composer.json) - safe to resolve directly here
+        // (no add_action('init', ...) deferral needed) because
+        // RestApiRegistrar only invokes this factory inside rest_api_init,
+        // by which point every module has already booted regardless of
+        // plugin registration order - see RestApiRegistrar's own docblock.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): PrivacyRequestsRestController => new PrivacyRequestsRestController(
+                $container->get(PrivacyRequestGatewayInterface::class),
+                $container->get(IdentityGatewayInterface::class),
+                $container->get(TwoFactorGatewayInterface::class),
+                $container->get(ParentContactLookupInterface::class),
+                $container->get(ParentChildrenLookupInterface::class),
+                $container->get(PrivacyExportBuilder::class)
+            )
+        );
+
+        $container->get(RbacManager::class)->grantCapability(
+            Role::GENEL_MERKEZ,
+            PrivacyCapability::MANAGE_PRIVACY_REQUESTS->value
         );
 
         $identities = $container->get(IdentityGatewayInterface::class);

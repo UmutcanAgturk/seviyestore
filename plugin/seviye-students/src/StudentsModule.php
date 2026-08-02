@@ -14,6 +14,7 @@ use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Students\Contracts\BranchParentLookupInterface;
+use Seviye\Students\Contracts\ParentChildrenLookupInterface;
 use Seviye\Students\Contracts\ParentBranchLookupInterface;
 use Seviye\Students\Contracts\StudentDirectoryInterface;
 use Seviye\Students\Contracts\StudentGuardianCheckInterface;
@@ -26,6 +27,7 @@ use Seviye\Students\Repository\StudentParentRepositoryInterface;
 use Seviye\Students\Repository\StudentRepositoryInterface;
 use Seviye\Students\Repository\WpdbBranchParentLookup;
 use Seviye\Students\Repository\WpdbParentBranchLookup;
+use Seviye\Students\Repository\WpdbParentChildrenLookup;
 use Seviye\Students\Repository\WpdbStudentDirectory;
 use Seviye\Students\Repository\WpdbStudentGuardianCheck;
 use Seviye\Students\Repository\WpdbStudentLookup;
@@ -91,6 +93,13 @@ final class StudentsModule implements ModuleInterface
         $container->singleton(
             BranchParentLookupInterface::class,
             static fn (ServiceContainer $c): WpdbBranchParentLookup => new WpdbBranchParentLookup(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
+            ParentChildrenLookupInterface::class,
+            static fn (ServiceContainer $c): WpdbParentChildrenLookup => new WpdbParentChildrenLookup(
                 $c->get(ConnectionInterface::class)
             )
         );
