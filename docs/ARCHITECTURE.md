@@ -2482,6 +2482,36 @@ temizliyor - saklanan veri deaktivasyonda KORUNUYOR ama sarkan bir cron
 olayı öyle değil, temizlenmezse artık var olmayan bir container'ı
 çağırmaya devam ederdi.
 
+### 43. Tema: responsive/mobil gözden geçirme + PWA manifest
+
+Gözden geçirme, platformun ÇOĞUNUN zaten makul ölçüde responsive
+olduğunu ortaya çıkardı: `.scp-table-wrapper`'ın `overflow-x: auto`'su,
+`.scp-form__row`/`.scp-form--inline`'ın `flex-wrap`'i, WooCommerce
+mağaza/ürün/ödeme sayfalarının kendi `@media (max-width: 782px)`
+blokları, ve `viewport` meta etiketi (`header.php` + `templates/login.php`)
+zaten yerindeydi. Asıl boşluk panel.css'in hiç mobil breakpoint'i
+OLMAMASIYDI - yeni `@media (max-width: 640px)` bloğu üç somut sorunu
+çözüyor: `.scp-card__header` (başlık + eylem düğmesi satırı) artık
+sarıyor, `.scp-form--inline` dar ekranlarda tam sütuna dönüşüyor (satır
+içi sarma yerine), ve `.scp-form__actions` düğmeleri esneyip dokunma
+hedefini büyütüyor. `.scp-table-wrapper`'a `-webkit-overflow-scrolling: touch`
+eklendi (iOS'ta momentum scroll).
+
+**PWA manifest.** Statik bir JSON dosyası DEĞİL - tema hiç statik ikon
+taşımıyor, platformun logosu admin tarafından yüklenen bir WP attachment
+(`inc/branding.php`, "Görünüm" paneli). `inc/pwa.php`,
+`inc/zones.php`'nin rewrite-rule-tabanlı sanal endpoint örüntüsünü
+birebir izliyor: `/manifest.webmanifest` → `template_redirect`
+(ÖNCELİK 1 - `inc/access-gate.php`'in öncelik 5'teki login-yönlendirme
+kapısından ÖNCE çalışmalı, aksi halde oturum açmamış bir tarayıcının
+arka plan manifest isteği login ekranına yönlendirilirdi).
+`scp_manifest_icons()`, yüklenmiş logo varsa `wp_get_attachment_image_src()`
+ile GERÇEK piksel boyutlarını okuyup manifest'in `sizes` alanına yazıyor
+(uydurma bir değer değil); logo yoksa boş bir icons dizisi - geçersiz
+değil, tarayıcı genel bir ikona düşüyor. iOS Safari manifest'in icons
+dizisini hiç okumadığından, ayrıca bir `<link rel="apple-touch-icon">`
+de basılıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

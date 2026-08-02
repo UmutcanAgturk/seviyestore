@@ -14,20 +14,31 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Null when no logo has been uploaded yet - callers fall back to the
- * letter-badge mark (see header.php/templates/login.php) themselves.
+ * 0 when no logo has been uploaded yet. Split out of scp_logo_url() so
+ * inc/pwa.php can reuse the same lookup (it needs the attachment id itself,
+ * to read real pixel dimensions via wp_get_attachment_image_src() - a
+ * manifest icon's declared "sizes" must match the actual image).
  */
-function scp_logo_url(string $size = 'medium'): ?string
+function scp_logo_attachment_id(): int
 {
     if (!class_exists(\Seviye\Core\Plugin::class)) {
-        return null;
+        return 0;
     }
 
     $settings = \Seviye\Core\Plugin::instance()->container()->get(
         \Seviye\Core\Settings\SettingsRepositoryInterface::class
     );
 
-    $attachmentId = (int) $settings->get(\Seviye\Core\Http\BrandingRestController::LOGO_ATTACHMENT_ID_KEY);
+    return (int) $settings->get(\Seviye\Core\Http\BrandingRestController::LOGO_ATTACHMENT_ID_KEY);
+}
+
+/**
+ * Null when no logo has been uploaded yet - callers fall back to the
+ * letter-badge mark (see header.php/templates/login.php) themselves.
+ */
+function scp_logo_url(string $size = 'medium'): ?string
+{
+    $attachmentId = scp_logo_attachment_id();
 
     if ($attachmentId <= 0) {
         return null;
