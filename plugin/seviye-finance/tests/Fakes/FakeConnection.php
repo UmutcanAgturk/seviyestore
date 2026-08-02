@@ -17,6 +17,18 @@ final class FakeConnection implements ConnectionInterface
     /** @var list<array<string, mixed>> */
     public array $resultsToReturn = [];
 
+    /**
+     * Optional per-call override queue: each getResults() call shifts one
+     * entry off this queue (in order) before falling back to the shared
+     * resultsToReturn fixture - lets a test give two sequential
+     * getResults() calls within the same method (e.g. WpdbHakedisTotals::sum()
+     * called twice) two DIFFERENT result sets, which resultsToReturn alone
+     * cannot express since it is one fixture shared by every call.
+     *
+     * @var list<list<array<string, mixed>>>
+     */
+    public array $resultsQueue = [];
+
     public int $nextInsertId = 1;
 
     public function table(string $suffix): string
@@ -55,6 +67,10 @@ final class FakeConnection implements ConnectionInterface
 
     public function getResults(string $sql): array
     {
+        if ($this->resultsQueue !== []) {
+            return array_shift($this->resultsQueue);
+        }
+
         return $this->resultsToReturn;
     }
 

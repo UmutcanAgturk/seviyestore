@@ -2446,6 +2446,42 @@ başarı/hatasıyla ayrı raporlanıyor. Tema panelinde CSV dosyasını
 form + örnek şablon indirme bağlantısı (client-side üretilen bir Blob,
 ayrı bir REST uç noktası gerekmiyor).
 
+### 42. Notifications: haftalık özet e-postası (WP Cron)
+
+Platformun ilk WP Cron işi - bir EventBus tepkisi değil, çünkü "bir hafta
+geçti"yi dışarıdan ateşleyen bir olay yok, tetikleyici zamanın kendisi.
+`Http\WeeklyDigestHooks`, `cron_schedules` filtresine WP çekirdeğinin
+sunmadığı bir `scp_weekly` aralığı ekliyor (`WEEK_IN_SECONDS`), sonra
+`wp_schedule_event()` ile kendini haftalık tetikliyor.
+
+Bu, Finance ve Depo'nun ilk kez PLATFORM GENELİ (branch_id'siz) bir
+Contract yayınlamasını gerektirdi: `Finance\Contracts\HakedisTotalsInterface::totalOutstandingBalance()`
+(`WpdbHakedisTotals` - `HakedisRestController`'ın kullandığı per-branch
+`balanceForBranch()`/`settledForBranch()`'in AKSİNE, WHERE branch_id
+olmadan tüm platformun toplamı) ve
+`Depo\Contracts\PurchaseSuggestionSummaryInterface::pendingCount()`
+(`WpdbPurchaseSuggestionSummary`) - ikisi de kendi modüllerinin dolu
+Domain nesnelerini değil, tek bir sayıyı sızdıran minimal adapter'lar,
+`WpdbSupplierLookup`'la aynı ilke. Haftalık satış rakamı ise bir Contract
+gerektirmiyor - WC bir Seviye modülü olmadığından `wc_get_orders()`
+doğrudan çağrılıyor (`OverviewRestController`/`AdminOrdersRestController`'ın
+aynı hakkı kullanması gibi).
+
+Notifications artık `seviye-finance` VE `seviye-depo`'yu "Requires
+Plugins" bağımlılığı olarak listeliyor - `Activator`, `Parents` kontrolüyle
+aynı şekilde ikisinin de aktif olduğunu doğruluyor. Sayılar
+`Support\WeeklyDigestBuilder`'a (saf, WP'siz) veriliyor - her `__()`
+çağrısı kendi literal string'ini taşıyor, `PasswordResetNotificationListener`'ın
+dokümante ettiği kural gereği (bir `$text` parametresi alan paylaşılan bir
+`translate()` sarmalayıcısı YAZILMADI, WordPress'in i18n araçları
+`__()`'in argümanını literal olarak taradığı için). Alıcılar
+`LowStockNotificationListener`'ın `hqUserIds()`'ıyla aynı: her Genel
+Merkez/Bölge Müdürü kullanıcısı, hem e-posta hem panel kanalına.
+`Deactivator`, `wp_clear_scheduled_hook()` ile zamanlanmış cron'u
+temizliyor - saklanan veri deaktivasyonda KORUNUYOR ama sarkan bir cron
+olayı öyle değil, temizlenmezse artık var olmayan bir container'ı
+çağırmaya devam ederdi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

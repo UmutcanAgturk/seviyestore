@@ -14,6 +14,8 @@ use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Core\Settings\SettingsRepositoryInterface;
+use Seviye\Depo\Contracts\PurchaseSuggestionSummaryInterface;
+use Seviye\Finance\Contracts\HakedisTotalsInterface;
 use Seviye\Notifications\Channel\EmailChannel;
 use Seviye\Notifications\Channel\GmailSmtpConfigurator;
 use Seviye\Notifications\Channel\NetgsmSmsChannel;
@@ -26,6 +28,7 @@ use Seviye\Notifications\Http\BroadcastRestController;
 use Seviye\Notifications\Http\EmailSettingsRestController;
 use Seviye\Notifications\Http\NotificationsRestController;
 use Seviye\Notifications\Http\NotificationsSettingsRestController;
+use Seviye\Notifications\Http\WeeklyDigestHooks;
 use Seviye\Notifications\Rbac\NotificationCapability;
 use Seviye\Notifications\Recipient\RecipientResolverInterface;
 use Seviye\Notifications\Recipient\WpRecipientResolver;
@@ -34,19 +37,25 @@ use Seviye\Notifications\Repository\WpdbNotificationRepository;
 use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\PasswordResetNotificationListener;
+use Seviye\Notifications\Support\WeeklyDigestBuilder;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
 use Seviye\Students\Contracts\BranchParentLookupInterface;
 
 /**
- * Depends on Core (everything) and Parents (only for
- * Contracts\ParentContactLookupInterface, the platform's sole phone-number
- * source, needed for the SMS channel) - like Finance's HakedisEventListener,
- * this module's EventBus listeners react purely to documented event
- * names/payloads dispatched by other modules, never their Contracts or
- * internal classes. It works correctly whether or not any other Seviye
- * module happens to be active; a channel simply fails to deliver (recorded
- * as such, never silently dropped) if its recipient data or gateway
- * credentials aren't available yet.
+ * Depends on Core (everything), Parents (Contracts\ParentContactLookupInterface,
+ * the platform's sole phone-number source, needed for the SMS channel),
+ * Finance (Contracts\HakedisTotalsInterface) and Depo
+ * (Contracts\PurchaseSuggestionSummaryInterface) - the latter two only for
+ * WeeklyDigestHooks. Every EventBus listener here still reacts purely to
+ * documented event names/payloads dispatched by other modules, never their
+ * Contracts or internal classes, and works correctly whether or not any
+ * other Seviye module happens to be active; a channel simply fails to
+ * deliver (recorded as such, never silently dropped) if its recipient data
+ * or gateway credentials aren't available yet. WeeklyDigestHooks is the one
+ * exception that genuinely needs two other modules' Contracts to compute
+ * its numbers - if Finance or Depo is inactive, its container binding is
+ * simply unavailable and the digest fails to register (see "Requires
+ * Plugins" in seviye-notifications.php, which now hard-requires both).
  */
 final class NotificationsModule implements ModuleInterface
 {
@@ -128,6 +137,20 @@ final class NotificationsModule implements ModuleInterface
                 'commerce.product_low_stock',
                 [$lowStockListener, 'onLowStock']
             );
+
+            // "Haftalık/aylık özet e-postaları" - not an EventBus reaction
+            // (nothing external fires a "week passed" event), a WP Cron job
+            // instead - see WeeklyDigestHooks's own docblock. Deferred to
+            // `init` for the same reason as the listeners above: it reads
+            // Finance's HakedisTotalsInterface and Depo's
+            // PurchaseSuggestionSummaryInterface, neither of which is
+            // guaranteed bound yet inside this module's own boot().
+            (new WeeklyDigestHooks(
+                $container->get(HakedisTotalsInterface::class),
+                $container->get(PurchaseSuggestionSummaryInterface::class),
+                $container->get(NotificationDispatcherInterface::class),
+                new WeeklyDigestBuilder()
+            ))->register();
         });
 
         // "Google maili özelinde göndereceğiz" - routes wp_mail() (hence

@@ -8,7 +8,9 @@
         "seviye/core": "*",
         "seviye/branches": "*",
         "seviye/students": "*",
-        "seviye/parents": "*"
+        "seviye/parents": "*",
+        "seviye/finance": "*",
+        "seviye/depo": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5"
@@ -39,6 +41,14 @@
         {
             "type": "path",
             "url": "../seviye-parents"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-finance"
+        },
+        {
+            "type": "path",
+            "url": "../seviye-depo"
         }
     ],
     "scripts": {

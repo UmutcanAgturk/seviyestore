@@ -13,6 +13,7 @@ use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
 use Seviye\Core\Support\Environment;
+use Seviye\Depo\Contracts\PurchaseSuggestionSummaryInterface;
 use Seviye\Depo\Contracts\SupplierLookupInterface;
 use Seviye\Depo\Contracts\WarehouseReportQueryInterface;
 use Seviye\Depo\Database\Migrations\CreatePurchaseOrderItemsTable;
@@ -35,6 +36,7 @@ use Seviye\Depo\Repository\StockMovementRepositoryInterface;
 use Seviye\Depo\Repository\SupplierRepositoryInterface;
 use Seviye\Depo\Repository\WpdbPurchaseOrderRepository;
 use Seviye\Depo\Repository\WpdbPurchaseSuggestionRepository;
+use Seviye\Depo\Repository\WpdbPurchaseSuggestionSummary;
 use Seviye\Depo\Repository\WpdbStockCountRepository;
 use Seviye\Depo\Repository\WpdbStockMovementRepository;
 use Seviye\Depo\Repository\WpdbSupplierLookup;
@@ -111,6 +113,16 @@ final class DepoModule implements ModuleInterface
         $container->singleton(
             SupplierLookupInterface::class,
             static fn (ServiceContainer $c): WpdbSupplierLookup => new WpdbSupplierLookup(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        // Published Contract - Notifications'ın haftalık özet e-postası
+        // bu arayüz üzerinden okur (bkz. Finance'ın HakedisTotalsInterface'i
+        // ile aynı ilke).
+        $container->singleton(
+            PurchaseSuggestionSummaryInterface::class,
+            static fn (ServiceContainer $c): WpdbPurchaseSuggestionSummary => new WpdbPurchaseSuggestionSummary(
                 $c->get(ConnectionInterface::class)
             )
         );

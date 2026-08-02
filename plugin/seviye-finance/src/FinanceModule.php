@@ -14,6 +14,7 @@ use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
+use Seviye\Finance\Contracts\HakedisTotalsInterface;
 use Seviye\Finance\Database\Migrations\CreateHakedisEntriesTable;
 use Seviye\Finance\Database\Migrations\CreateHakedisSettlementsTable;
 use Seviye\Finance\Http\HakedisRestController;
@@ -21,6 +22,7 @@ use Seviye\Finance\Rbac\HakedisCapability;
 use Seviye\Finance\Repository\HakedisRepositoryInterface;
 use Seviye\Finance\Repository\SettlementRepositoryInterface;
 use Seviye\Finance\Repository\WpdbHakedisRepository;
+use Seviye\Finance\Repository\WpdbHakedisTotals;
 use Seviye\Finance\Repository\WpdbSettlementRepository;
 use Seviye\Finance\Support\HakedisEventListener;
 
@@ -57,6 +59,16 @@ final class FinanceModule implements ModuleInterface
         $container->singleton(
             SettlementRepositoryInterface::class,
             static fn (ServiceContainer $c): WpdbSettlementRepository => new WpdbSettlementRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        // Published Contract (bkz. Contracts\HakedisTotalsInterface'in
+        // docblock'u) - Notifications'ın haftalık özet e-postası bu
+        // arayüz üzerinden okur.
+        $container->singleton(
+            HakedisTotalsInterface::class,
+            static fn (ServiceContainer $c): WpdbHakedisTotals => new WpdbHakedisTotals(
                 $c->get(ConnectionInterface::class)
             )
         );

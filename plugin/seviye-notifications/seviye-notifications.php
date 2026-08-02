@@ -7,7 +7,7 @@
  * Version: 0.1.0
  * Requires at least: 6.5
  * Requires PHP: 8.2
- * Requires Plugins: seviye-core, seviye-branches, seviye-students, seviye-parents
+ * Requires Plugins: seviye-core, seviye-branches, seviye-students, seviye-parents, seviye-finance, seviye-depo
  * Author: Seviye Egitim Kurumlari
  * License: Proprietary
  * Text Domain: seviye-notifications

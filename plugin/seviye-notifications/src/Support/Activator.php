@@ -6,6 +6,8 @@ namespace Seviye\Notifications\Support;
 
 use Seviye\Core\Database\MigrationRunner;
 use Seviye\Core\Plugin;
+use Seviye\Depo\DepoModule;
+use Seviye\Finance\FinanceModule;
 use Seviye\Notifications\NotificationsModule;
 use Seviye\Parents\ParentsModule;
 
@@ -26,6 +28,23 @@ final class Activator
         if (!class_exists(ParentsModule::class)) {
             self::abort(__(
                 'Seviye Notifications requires Seviye Parents to be installed and active.',
+                'seviye-notifications'
+            ));
+        }
+
+        // Real Contracts dependencies too - WeeklyDigestHooks reads
+        // Finance's Contracts\HakedisTotalsInterface and Depo's
+        // Contracts\PurchaseSuggestionSummaryInterface.
+        if (!class_exists(FinanceModule::class)) {
+            self::abort(__(
+                'Seviye Notifications requires Seviye Finance to be installed and active.',
+                'seviye-notifications'
+            ));
+        }
+
+        if (!class_exists(DepoModule::class)) {
+            self::abort(__(
+                'Seviye Notifications requires Seviye Depo to be installed and active.',
                 'seviye-notifications'
             ));
         }
