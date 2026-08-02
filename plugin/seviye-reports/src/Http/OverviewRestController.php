@@ -10,6 +10,7 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Reports\Rbac\ReportCapability;
+use Seviye\Reports\Support\DailyTrendBuilder;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WC_Order;
 use WC_Order_Item_Product;
@@ -46,7 +47,8 @@ final class OverviewRestController extends AbstractRestController
     public function __construct(
         private readonly StudentLookupInterface $students,
         private readonly BranchLookupInterface $branches,
-        private readonly BranchMembershipInterface $branchMemberships
+        private readonly BranchMembershipInterface $branchMemberships,
+        private readonly DailyTrendBuilder $dailyTrendBuilder
     ) {
     }
 
@@ -81,6 +83,7 @@ final class OverviewRestController extends AbstractRestController
 
         $today = (new DateTimeImmutable('today'))->format('Y-m-d');
         $weekStart = (new DateTimeImmutable('-6 days'))->format('Y-m-d');
+        $monthStart = (new DateTimeImmutable('-' . (self::WINDOW_DAYS - 1) . ' days'))->format('Y-m-d');
 
         return new WP_REST_Response([
             'today' => $this->periodSummary($records, $today, $today),
@@ -88,6 +91,7 @@ final class OverviewRestController extends AbstractRestController
             'month' => $this->periodSummary($records, null, null),
             'top_products' => $this->topProducts($records),
             'branch_breakdown' => $isHq ? $this->branchBreakdown($records) : [],
+            'daily_trend' => $this->dailyTrendBuilder->build($records, $monthStart, $today),
         ]);
     }
 

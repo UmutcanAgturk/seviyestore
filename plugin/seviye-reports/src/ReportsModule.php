@@ -20,6 +20,7 @@ use Seviye\Reports\Http\ReportsRestController;
 use Seviye\Reports\Http\WarehouseReportsRestController;
 use Seviye\Reports\Rbac\ReportCapability;
 use Seviye\Reports\Support\CsvExporter;
+use Seviye\Reports\Support\DailyTrendBuilder;
 use Seviye\Reports\Support\SalesReportBuilder;
 use Seviye\Reports\Support\WarehouseReportBuilder;
 use Seviye\Reports\Support\XlsxExporter;
@@ -50,6 +51,7 @@ final class ReportsModule implements ModuleInterface
         );
         $container->singleton(CsvExporter::class, static fn (): CsvExporter => new CsvExporter());
         $container->singleton(XlsxExporter::class, static fn (): XlsxExporter => new XlsxExporter());
+        $container->singleton(DailyTrendBuilder::class, static fn (): DailyTrendBuilder => new DailyTrendBuilder());
 
         $rbac = $container->get(RbacManager::class);
         $rbac->grantCapability(Role::GENEL_MERKEZ, ReportCapability::VIEW_REPORTS->value);
@@ -96,7 +98,8 @@ final class ReportsModule implements ModuleInterface
             static fn (): OverviewRestController => new OverviewRestController(
                 $container->get(StudentLookupInterface::class),
                 $container->get(BranchLookupInterface::class),
-                $container->get(BranchMembershipInterface::class)
+                $container->get(BranchMembershipInterface::class),
+                $container->get(DailyTrendBuilder::class)
             )
         );
     }

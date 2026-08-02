@@ -63,6 +63,7 @@ final class OrderPresenter
             'subtotal' => (float) $order->get_subtotal(),
             'total_tax' => (float) $order->get_total_tax(),
             'total' => (float) $order->get_total(),
+            'refunded_total' => (float) $order->get_total_refunded(),
             'items' => array_values($items),
         ];
 

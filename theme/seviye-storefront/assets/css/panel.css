@@ -473,6 +473,52 @@ button.scp-badge:hover {
   color: var(--scp-text-muted);
 }
 
+.scp-trend-chart {
+  margin: 20px 0;
+}
+
+.scp-trend-chart h3 {
+  margin-bottom: 8px;
+}
+
+.scp-trend-chart__svg-host {
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  padding: 8px;
+}
+
+.scp-trend-chart__svg {
+  display: block;
+  width: 100%;
+  height: 160px;
+}
+
+.scp-trend-chart__area {
+  fill: var(--scp-primary-bg);
+  stroke: none;
+}
+
+.scp-trend-chart__line {
+  fill: none;
+  stroke: var(--scp-primary-light);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.scp-trend-chart__point {
+  fill: var(--scp-primary);
+}
+
+.scp-trend-chart__range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}
+
 .scp-summary-list {
   display: grid;
   grid-template-columns: max-content 1fr;

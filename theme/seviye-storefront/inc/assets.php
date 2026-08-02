@@ -106,6 +106,7 @@ function scp_enqueue_panel_assets(): void
         'passwordTooWeak' => __('Yeni şifre en az 8 karakter olmalı.', 'seviye-storefront'),
         'addressSaved' => __('Adres bilgileri kaydedildi.', 'seviye-storefront'),
         'overviewOrdersLabel' => __('sipariş', 'seviye-storefront'),
+        'trendChartLabel' => __('Son 30 günün günlük ciro trend grafiği', 'seviye-storefront'),
         'broadcastSentSuffix' => __('alıcıya gönderildi.', 'seviye-storefront'),
         'variantStock' => __('Varyantlı', 'seviye-storefront'),
         'apiKeyActive' => __('Aktif', 'seviye-storefront'),
@@ -217,6 +218,13 @@ function scp_enqueue_panel_assets(): void
         'orderItemTotalLabel' => __('Ara Toplam', 'seviye-storefront'),
         'orderCustomerLabel' => __('Veli', 'seviye-storefront'),
         'orderCustomerEmailLabel' => __('Veli E-posta', 'seviye-storefront'),
+        'orderRefundedTotalLabel' => __('İade Edilen', 'seviye-storefront'),
+        'cancelOrderAction' => __('İptal Et', 'seviye-storefront'),
+        'refundOrderAction' => __('İade Et', 'seviye-storefront'),
+        'confirmCancelOrder' => __('Bu siparişi iptal etmek istediğinize emin misiniz?', 'seviye-storefront'),
+        'orderCancelled' => __('Sipariş iptal edildi.', 'seviye-storefront'),
+        'refundAmountPrompt' => __('İade tutarı (TRY):', 'seviye-storefront'),
+        'orderRefunded' => __('İade kaydedildi.', 'seviye-storefront'),
         'noActivityLogData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
         'activityStudentCreated' => __('Öğrenci oluşturuldu', 'seviye-storefront'),
         'activityStudentUpdated' => __('Öğrenci güncellendi', 'seviye-storefront'),
@@ -305,8 +313,12 @@ function scp_enqueue_panel_assets(): void
             scp_asset_version('/assets/js/admin-orders-panel.js'),
             true
         );
+        $canCancelOrders = current_user_can('scp_cancel_orders') || current_user_can('scp_cancel_own_branch_orders');
+
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_orders'),
+            'canCancelOrders' => $canCancelOrders,
+            'canRefundOrders' => current_user_can('scp_refund_orders'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

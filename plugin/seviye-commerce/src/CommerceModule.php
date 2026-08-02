@@ -141,6 +141,18 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::VIEW_ORDERS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::VIEW_OWN_BRANCH_ORDERS->value);
 
+        // "İade/iptal akışı" - iptal (henüz ödenmemiş bir siparişi para
+        // hareketi olmadan durdurma) VIEW_ORDERS ile aynı üç rolde; iade
+        // (gerçek para iadesi) Finance'in HakedisCapability::RECORD_SETTLEMENT'ıyla
+        // aynı ilkeyle yalnızca Genel Merkez/Bölge Müdürü/Muhasebe'de - bkz.
+        // Rbac\OrderCapability'nin REFUND_ORDERS docblock'u.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::CANCEL_ORDERS->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::CANCEL_ORDERS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::CANCEL_OWN_BRANCH_ORDERS->value);
+        $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::REFUND_ORDERS->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::REFUND_ORDERS->value);
+        $rbac->grantCapability(Role::MUHASEBE, OrderCapability::REFUND_ORDERS->value);
+
         // "Kupon/kampanya kodu sistemi" - platform/campaign-level, HQ-only
         // (no Şube Müdürü tier, unlike Products/Orders) - see CouponCapability.
         $rbac->grantCapability(Role::GENEL_MERKEZ, CouponCapability::MANAGE_COUPONS->value);

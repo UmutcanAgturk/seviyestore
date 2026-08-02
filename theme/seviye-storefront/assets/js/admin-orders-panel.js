@@ -9,8 +9,15 @@
  * seviye/v1/commerce/orders endpoint.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, nonce, canViewAllBranches }
+ *   scpPanel     { restUrl, nonce, canViewAllBranches, canCancelOrders, canRefundOrders }
  *   scpPanelText { ...translated UI strings }
+ *
+ * "İade/iptal akışı": cancel/refund buttons call
+ * AdminOrdersRestController::cancel()/refund() - which status a given order
+ * is eligible for mirrors that controller's own CANCELLABLE_STATUSES/
+ * `completed`-only rule exactly (see CANCELLABLE_STATUSES below); the
+ * server re-checks both the capability AND the status regardless of what
+ * this file shows/hides, so a stale client can never bypass either rule.
  */
 (function () {
     'use strict';
@@ -20,6 +27,8 @@
     if (!root || typeof scpPanel === 'undefined') {
         return;
     }
+
+    var CANCELLABLE_STATUSES = ['pending', 'processing', 'on-hold', 'failed'];
 
     var statusEl = root.querySelector('[data-scp-admin-orders-status]');
     var form = root.querySelector('[data-scp-admin-orders-form]');
@@ -136,6 +145,83 @@
         return wrapper;
     }
 
+    function cancelOrder(order) {
+        if (!window.confirm(scpPanelText.confirmCancelOrder)) {
+            return;
+        }
+
+        apiFetch('commerce/orders/' + order.id + '/cancel', { method: 'POST' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.orderCancelled);
+            loadOrders();
+        });
+    }
+
+    function refundOrder(order) {
+        var remaining = order.total - order.refunded_total;
+        var input = window.prompt(scpPanelText.refundAmountPrompt, remaining.toFixed(2));
+
+        if (input === null) {
+            return;
+        }
+
+        var body = {};
+        var trimmed = input.trim();
+
+        if (trimmed !== '') {
+            body.amount = Number(trimmed.replace(',', '.'));
+        }
+
+        apiFetch('commerce/orders/' + order.id + '/refund', {
+            method: 'POST',
+            body: JSON.stringify(body)
+        }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.orderRefunded);
+            loadOrders();
+        });
+    }
+
+    function renderOrderActions(order) {
+        var actions = document.createElement('div');
+        actions.className = 'scp-form__actions';
+        var hasAction = false;
+
+        if (scpPanel.canCancelOrders && CANCELLABLE_STATUSES.indexOf(order.status) !== -1) {
+            var cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'scp-btn scp-btn--danger scp-btn--small';
+            cancelButton.textContent = scpPanelText.cancelOrderAction;
+            cancelButton.addEventListener('click', function () {
+                cancelOrder(order);
+            });
+            actions.appendChild(cancelButton);
+            hasAction = true;
+        }
+
+        if (scpPanel.canRefundOrders && order.status === 'completed' && order.total - order.refunded_total > 0) {
+            var refundButton = document.createElement('button');
+            refundButton.type = 'button';
+            refundButton.className = 'scp-btn scp-btn--danger scp-btn--small';
+            refundButton.textContent = scpPanelText.refundOrderAction;
+            refundButton.addEventListener('click', function () {
+                refundOrder(order);
+            });
+            actions.appendChild(refundButton);
+            hasAction = true;
+        }
+
+        return hasAction ? actions : null;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -163,9 +249,20 @@
         metaRow(meta, scpPanelText.orderSubtotalLabel, formatMoney(order.subtotal));
         metaRow(meta, scpPanelText.orderTaxLabel, formatMoney(order.total_tax));
         metaRow(meta, scpPanelText.orderTotalLabel, formatMoney(order.total));
+
+        if (order.refunded_total > 0) {
+            metaRow(meta, scpPanelText.orderRefundedTotalLabel, formatMoney(order.refunded_total));
+        }
+
         card.appendChild(meta);
 
         card.appendChild(renderItemsTable(order.items));
+
+        var actions = renderOrderActions(order);
+
+        if (actions) {
+            card.appendChild(actions);
+        }
 
         return card;
     }

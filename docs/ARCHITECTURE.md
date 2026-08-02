@@ -2563,6 +2563,94 @@ tırnak (`'`) ekleniyor, böylece hücre metin olarak okunmaya zorlanıyor
 `htmlspecialchars` ile XML-kaçışından önce). `CsvExporterTest`/
 `XlsxExporterTest`'e birer regresyon testi eklendi.
 
+### 46. Tema: gerçek offline destek - service worker (`/service-worker.js`)
+
+`inc/pwa.php`'deki manifest'in aynısı rewrite-rule-tabanlı sanal uç nokta
+deseniyle, artık `/service-worker.js`'i de dinamik olarak üretiyor -
+`scp_render_service_worker()`, `scp_render_manifest()`'in birebir eşi
+(aynı priority-1 `template_redirect` gerekçesi: bir service worker isteği
+tarayıcının arka plan isteğidir, `access-gate.php`'nin login yönlendirmesi
+tarafından asla yakalanmamalı).
+
+Bu bir panel uygulaması - neredeyse her ekran REST-destekli canlı veri
+(sipariş, hakediş bakiyesi, stok) gösteriyor, dolayısıyla "gerçek offline
+destek" burada yalnızca iki şey anlamına gelebilir: (1) statik tema
+CSS/JS'i stale-while-revalidate ile önbellekten anında yüklenir, arka
+planda güncellenir; (2) ağ tamamen koptuğunda bir sayfa navigasyonu
+tarayıcının çirkin varsayılan hata sayfası yerine okunabilir bir "şu anda
+çevrimdışısınız" ekranı gösterir (`scp_service_worker_offline_html()`,
+gömülü tek bir HTML string). `/wp-json/` REST yanıtları KASITLI olarak
+hiç önbelleğe alınmıyor/yakalanmıyor - sipariş/hakediş/stok gibi verilerin
+"çevrimdışıyken" sessizce eski bir REST yanıtından gösterilmesi, o
+ekranların zaten sahip olduğu normal yükleme-hatası durumundan daha
+kötü olurdu.
+
+`scp_service_worker_cache_version()`, `scp_asset_version()`'ın "dosya
+mtime'larından türet, elle bump edilen bir sabite asla güvenme" ilkesini
+service worker'ın kendi `CACHE_NAME`'i için de uyguluyor - herhangi bir
+tema CSS/JS'i değiştiğinde worker'ın `activate` olayı eski önbelleği
+otomatik siliyor.
+
+### 47. Commerce: iade/iptal akışı
+
+Sipariş yönetiminde iade/iptal hiç yoktu - Şube Müdürü/Genel Merkez'in
+panelden bir siparişi durdurabilmesi ya da parayı geri kaydedebilmesi
+gerekiyordu. İki ayrı, kasıtlı olarak farklı yetki seviyesinde uç nokta
+eklendi (`AdminOrdersRestController::cancel()`/`refund()`,
+`seviye/v1/commerce/orders/{id}/cancel|refund`):
+
+- **İptal** (`CANCEL_ORDERS`/`CANCEL_OWN_BRANCH_ORDERS` - Genel Merkez/
+  Bölge Müdürü/Şube Müdürü, `VIEW_ORDERS`/`VIEW_OWN_BRANCH_ORDERS`'la aynı
+  iki katman): yalnızca henüz `completed`'e ulaşmamış (hakediş hiç
+  tetiklenmemiş) bir sipariş için - `$order->update_status('cancelled', ...)`,
+  para hareketi yok.
+- **İade** (`REFUND_ORDERS` - yalnızca Genel Merkez/Bölge Müdürü/Muhasebe,
+  Finance'in `RECORD_SETTLEMENT`'ıyla aynı "para hareketi HQ-only" ilkesi,
+  branch-scoped bir katmanı KASITLI olarak yok): yalnızca `completed` bir
+  sipariş için, `wc_create_refund()` ile tam veya kısmi tutar
+  (`refund_payment => false` - bu platformun tek ödeme yöntemleri banka
+  havalesi/nakit, gerçek bir gateway'e iade çağrısı yapılacak bir şey yok;
+  `restock_items => false` - fiziksel iade Depo'nun kendi ayrı akışı,
+  bookkeeping iadesinin otomatik bir yan etkisi değil).
+
+Hakediş tersine çevirme YENİ bir mekanizma gerektirmedi -
+`OrderPersistenceHooks::syncOrderStatus()` zaten `completed → refunded`/
+`cancelled` geçişini dinliyordu (bkz. bölüm "Kural": HAKEDIS_REVERSAL_STATUSES).
+Tek gerçek boşluk: KISMİ bir iade WooCommerce'in sipariş durumunu
+`completed`'den hiç düşürmüyor (WC'nin kendi davranışı), dolayısıyla
+`syncOrderStatus()`'un tepki vereceği bir geçiş hiç olmuyor - kısmi iade
+hakedişi orantılı olarak asla ayarlamıyor, bu gerçek bir sınır olarak
+`refund()`'ün docblock'unda açıkça belgelendi (sessizce yanlış yapmak
+yerine).
+
+Müşteri bildirimi için iki yeni olay: `commerce.order_cancelled`
+(`syncOrderStatus()`'tan, tam iptal/iade ile aynı yerden) ve
+`commerce.order_refunded` (WooCommerce'in KENDİ `woocommerce_order_refunded`
+hook'undan - `woocommerce_order_status_changed`'in aksine hem tam HEM
+kısmi iadede tetikleniyor, kısmi iade bildiriminin hiç ateşlenmemesini
+önleyen asıl seçim buydu). `Seviye\Notifications\Support\OrderStatusNotificationListener`,
+`OrderPlacedNotificationListener`'ın aynısı ilişkiyle (yalnızca olay
+adı/payload, Commerce'e hiç bağımlılık yok) ikisini de dinleyip veliye
+e-posta gönderiyor.
+
+### 48. Reports: Genel Bakış'a günlük ciro trend grafiği
+
+`OverviewRestController`'ın zaten çektiği son 30 günlük WC sipariş
+verisi, yeni bir `Support\DailyTrendBuilder` (saf, `SalesReportBuilder`'la
+aynı "Support pure/Http touches platform" ayrımı) ile günlük kovalara
+gruplanıp `daily_trend` alanı olarak `/reports/overview` yanıtına eklendi.
+`DailyTrendBuilder`, istenen aralıktaki HER günü sıfırla dolduruyor - sipariş
+olmayan bir gün grafikte sessizce atlanırsa, trend çizgisi yanıltıcı bir
+şekilde kesintisiz görünür.
+
+Tema tarafında (`overview-panel.js`), harici bir grafik kütüphanesi
+yerine elle yazılmış küçük bir SVG çizgi+alan grafiği - `XlsxExporter`'ın
+kendi zip yazıcısı için belgelediği "dar, iyi anlaşılmış bir ihtiyaç için
+ağır bir bağımlılıktan kaçın" gerekçesinin aynısı (bkz. bölüm 16): 30
+nokta, tek çizgi, bir bağımlılığı hak etmiyor. Eksen/gridline yok
+(kasıtlı - bu analitik değil, kompakt bir trend göstergesi); her noktanın
+tarih/ciro/sipariş sayısı kendi native SVG `<title>` hover tooltip'inde.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -36,6 +36,7 @@ use Seviye\Notifications\Repository\NotificationRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
 use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
+use Seviye\Notifications\Support\OrderStatusNotificationListener;
 use Seviye\Notifications\Support\PasswordResetNotificationListener;
 use Seviye\Notifications\Support\WeeklyDigestBuilder;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
@@ -124,6 +125,22 @@ final class NotificationsModule implements ModuleInterface
             $container->get(EventBusInterface::class)->listen(
                 'commerce.order_placed',
                 [$orderPlacedListener, 'onOrderPlaced']
+            );
+
+            // "İade/iptal akışı" - see OrderStatusNotificationListener and
+            // OrderPersistenceHooks::syncOrderStatus()/onOrderRefunded(),
+            // which fire these two events. Same deferred-to-`init` reasoning
+            // as the listener above.
+            $orderStatusListener = new OrderStatusNotificationListener(
+                $container->get(NotificationDispatcherInterface::class)
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.order_cancelled',
+                [$orderStatusListener, 'onOrderCancelled']
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.order_refunded',
+                [$orderStatusListener, 'onOrderRefunded']
             );
 
             // "Düşük stok uyarısı" - see LowStockNotificationListener and

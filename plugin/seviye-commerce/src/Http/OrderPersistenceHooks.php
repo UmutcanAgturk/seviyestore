@@ -13,6 +13,7 @@ use Seviye\Core\Events\EventBusInterface;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WC_Order;
 use WC_Order_Item_Product;
+use WC_Order_Refund;
 
 /**
  * Thin WooCommerce hook adapter - not unit tested, same as
@@ -34,6 +35,14 @@ use WC_Order_Item_Product;
  * (order number/total/items) so Seviye Notifications' listener never has to
  * touch WC_Order itself, the same "payload is self-contained" rule
  * hakedisPayload() already follows for Finance.
+ *
+ * "İade/iptal akışı": the same `orderPayload()` shape also backs
+ * `commerce.order_cancelled` (fired here, from the same status-changed hook
+ * that already reverses hakediş - see AdminOrdersRestController::cancel())
+ * and `commerce.order_refunded` (fired from WooCommerce's own
+ * `woocommerce_order_refunded` hook rather than the status-changed one,
+ * because a PARTIAL refund never changes the order's status off
+ * `completed` - see onOrderRefunded()'s own docblock).
  */
 final class OrderPersistenceHooks
 {
@@ -66,7 +75,8 @@ final class OrderPersistenceHooks
     public function register(): void
     {
         add_action('woocommerce_checkout_order_processed', [$this, 'persistOrderLineItems'], 10, 3);
-        add_action('woocommerce_order_status_changed', [$this, 'syncOrderStatus'], 10, 3);
+        add_action('woocommerce_order_status_changed', [$this, 'syncOrderStatus'], 10, 4);
+        add_action('woocommerce_order_refunded', [$this, 'onOrderRefunded'], 10, 2);
     }
 
     /**
@@ -115,14 +125,20 @@ final class OrderPersistenceHooks
         }
 
         if ($persistedAny) {
-            $this->eventBus->dispatch(new Event('commerce.order_placed', $this->orderPlacedPayload($order)));
+            $this->eventBus->dispatch(new Event('commerce.order_placed', $this->orderPayload($order)));
         }
     }
 
     /**
+     * Shared payload shape for every order-lifecycle notification event
+     * (`commerce.order_placed`/`commerce.order_cancelled`/`commerce.order_refunded`)
+     * - self-contained (order number/total/items), the same rule
+     * hakedisPayload() follows for Finance, so Seviye Notifications' listener
+     * never has to touch WC_Order itself.
+     *
      * @return array<string, mixed>
      */
-    private function orderPlacedPayload(WC_Order $order): array
+    private function orderPayload(WC_Order $order): array
     {
         return [
             'order_id' => $order->get_id(),
@@ -143,7 +159,7 @@ final class OrderPersistenceHooks
         ];
     }
 
-    public function syncOrderStatus(int $orderId, string $oldStatus, string $newStatus): void
+    public function syncOrderStatus(int $orderId, string $oldStatus, string $newStatus, WC_Order $order): void
     {
         $this->orderLineItems->updateStatusForOrder($orderId, $newStatus);
 
@@ -159,6 +175,34 @@ final class OrderPersistenceHooks
         if ($isReversal) {
             $this->fireHakedisEvents($orderId, 'commerce.order_line_item_reversed');
         }
+
+        if ($newStatus === 'cancelled') {
+            $this->eventBus->dispatch(new Event('commerce.order_cancelled', $this->orderPayload($order)));
+        }
+    }
+
+    /**
+     * WooCommerce's own refund lifecycle hook - fires for BOTH a full and a
+     * partial refund, unlike `woocommerce_order_status_changed` (which only
+     * fires for a FULL refund, since WooCommerce does not demote a
+     * partially-refunded order's status off `completed`). Using this hook
+     * instead of syncOrderStatus()'s is what makes a partial refund's
+     * customer notification fire at all.
+     */
+    public function onOrderRefunded(int $orderId, int $refundId): void
+    {
+        $order = wc_get_order($orderId);
+        $refund = wc_get_order($refundId);
+
+        if (!$order instanceof WC_Order || !$refund instanceof WC_Order_Refund) {
+            return;
+        }
+
+        $payload = $this->orderPayload($order);
+        $payload['refunded_amount'] = (float) $refund->get_amount();
+        $payload['reason'] = $refund->get_reason();
+
+        $this->eventBus->dispatch(new Event('commerce.order_refunded', $payload));
     }
 
     private function fireHakedisEvents(int $orderId, string $eventName): void

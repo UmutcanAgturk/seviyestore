@@ -222,6 +222,15 @@ get_header();
                 </div>
             </div>
 
+            <div class="scp-trend-chart" data-scp-overview-trend hidden>
+                <h3><?php esc_html_e('Günlük Ciro Trendi (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+                <div class="scp-trend-chart__svg-host" data-scp-overview-trend-chart></div>
+                <div class="scp-trend-chart__range">
+                    <span data-scp-overview-trend-from></span>
+                    <span data-scp-overview-trend-to></span>
+                </div>
+            </div>
+
             <h3><?php esc_html_e('En Çok Satan Ürünler (Son 30 Gün)', 'seviye-storefront'); ?></h3>
             <div class="scp-table-wrapper">
                 <table class="scp-table" data-scp-overview-products-table hidden>
