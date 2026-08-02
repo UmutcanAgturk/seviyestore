@@ -1,0 +1,33 @@
+{
+  "core": null,
+  "phpVersion": "8.2",
+  "plugins": [
+    "https://downloads.wordpress.org/plugin/woocommerce.zip",
+    "./plugin/seviye-core",
+    "./plugin/seviye-security",
+    "./plugin/seviye-branches",
+    "./plugin/seviye-students",
+    "./plugin/seviye-parents",
+    "./plugin/seviye-pricing",
+    "./plugin/seviye-commerce",
+    "./plugin/seviye-depo",
+    "./plugin/seviye-finance",
+    "./plugin/seviye-reports",
+    "./plugin/seviye-notifications",
+    "./plugin/seviye-api"
+  ],
+  "themes": [
+    "./theme/seviye-storefront"
+  ],
+  "config": {
+    "WP_DEBUG": true,
+    "WP_DEBUG_LOG": true
+  },
+  "env": {
+    "tests": {
+      "config": {
+        "WP_DEBUG": false
+      }
+    }
+  }
+}

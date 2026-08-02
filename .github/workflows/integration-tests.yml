@@ -1,0 +1,46 @@
+name: Integration Tests (wp-env)
+
+# Manual trigger only - see tests/README.md. This workflow has not yet been
+# verified against a real run (it was authored in a sandbox with no Docker
+# daemon and no access to wordpress.org), so it is deliberately kept off the
+# push/pull_request triggers ci.yml uses - it should not appear as a red
+# check on every PR until someone has confirmed it actually passes. Once
+# verified, add `push`/`pull_request` triggers here (or fold this job into
+# ci.yml directly).
+on:
+  workflow_dispatch:
+
+jobs:
+  wp-env-integration:
+    name: PHPUnit (wp-env, real WordPress + MySQL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+
+      - name: Install root dev dependencies (phpunit, yoast/phpunit-polyfills)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install each plugin's own dependencies
+        run: |
+          for d in plugin/*/; do
+            (cd "$d" && composer install --no-interaction --prefer-dist)
+          done
+
+      - name: Start wp-env
+        run: npx --yes @wordpress/env start
+
+      - name: Run integration tests
+        run: npx --yes @wordpress/env run tests-cli --env-cwd=. -- vendor/bin/phpunit -c phpunit-integration.xml.dist
+
+      - name: Stop wp-env
+        if: always()
+        run: npx --yes @wordpress/env stop

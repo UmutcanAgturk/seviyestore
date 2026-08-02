@@ -9,8 +9,10 @@
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpunit/phpunit": "^9.6",
         "squizlabs/php_codesniffer": "^3.9",
-        "wp-coding-standards/wpcs": "^3.1"
+        "wp-coding-standards/wpcs": "^3.1",
+        "yoast/phpunit-polyfills": "^2.0"
     },
     "config": {
         "allow-plugins": {
@@ -19,6 +21,7 @@
         "sort-packages": true
     },
     "scripts": {
-        "lint": "phpcs"
+        "lint": "phpcs",
+        "test:integration": "phpunit -c phpunit-integration.xml.dist"
     }
 }

@@ -2512,6 +2512,34 @@ değil, tarayıcı genel bir ikona düşüyor. iOS Safari manifest'in icons
 dizisini hiç okumadığından, ayrıca bir `<link rel="apple-touch-icon">`
 de basılıyor.
 
+### 44. wp-env entegrasyon test iskeleti
+
+Her plugin'in kendi `tests/Unit`'i WordPress'i TAMAMEN taklit ediyor (fake
+`ConnectionInterface`, WP fonksiyonu yok) - bu, "12 eklenti gerçekten
+birlikte boot oluyor mu", "migration gerçekten tablo oluşturuyor mu", "bir
+REST uç noktası uçtan uca gerçekten yanıt veriyor mu" sorularını YAPISAL
+olarak asla kapsayamaz. Bu bölüm o katmanın iskeletini kuruyor - kök
+`.wp-env.json` (WooCommerce + 12 eklenti + tema), `tests/integration/bootstrap.php`
+(WP'nin kendi çekirdek test paketini yükleyip her eklentiyi
+`plugin-installer.php`'nin belgelediği bağımlılık sırasıyla
+`muplugins_loaded`'a require ediyor), `phpunit-integration.xml.dist`, ve
+bir örnek test (`PluginActivationTest` - 12 eklentinin aktif olduğunu,
+Core container'ının çalıştığını, birkaç kritik `scp_*` tablosunun var
+olduğunu doğruluyor).
+
+**Bu iskelet bu oturumda ÇALIŞTIRILAMADI.** `wp-env` bir Docker container'ı
+gerektiriyor; bu sandbox'ta Docker daemon'u çalışmıyor VE `wordpress.org`'a
+proxy üzerinden erişim 403 ile engelli (composer/packagist erişimi ayrı,
+o çalışıyor - kök `composer.json`'a `phpunit`/`yoast/phpunit-polyfills`
+eklenip `composer update` gerçekten çalıştırıldı ve doğrulandı). Bu yüzden
+`.github/workflows/integration-tests.yml` bilinçli olarak yalnızca elle
+tetikleniyor (`workflow_dispatch`) - `ci.yml`'nin push/PR'da otomatik
+çalışan kontrollerinin AKSİNE, doğrulanmamış bir işi otomatik tetikleyip
+her push'ta kırmızı bir kontrol riski yaratmamak için. Docker + internet
+erişimi olan bir ortamda (yerel makine ya da bu workflow elle tetiklenerek)
+bir kez doğrulandıktan sonra otomatik tetikleyicilere taşınabilir - bkz.
+`tests/README.md`.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
@@ -2519,9 +2547,11 @@ de basılıyor.
   saf PHPUnit ile test edilir; WP fonksiyonlarına ihtiyaç duyan adapter'lar
   (`WpdbConnection`, `WpRoleGateway`, `TransientCache`) sahte (fake) port
   implementasyonlarıyla dolaylı olarak doğrulanır.
-- **Entegrasyon testleri** (gelecek faz): `wp-env` + `WP_UnitTestCase`
-  tabanlı, gerçek WordPress/MySQL üzerinde çalışan testler. Bu milestone'da
-  kapsam dışı bırakıldı; bkz. `tests/README.md`.
+- **Entegrasyon testleri** (`tests/integration`, bölüm 44): `wp-env` +
+  `WP_UnitTestCase` tabanlı, gerçek WordPress/MySQL üzerinde çalışan
+  testler - iskelet kuruldu, ama bu oturumda (Docker/wordpress.org erişimi
+  olmayan bir sandbox) HENÜZ ÇALIŞTIRILAMADI/doğrulanamadı; bkz.
+  `tests/README.md`.
 
 ## Değerlendirilen ama seçilmeyen alternatifler
 
