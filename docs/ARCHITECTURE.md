@@ -2873,6 +2873,54 @@ scripti'ni bu altyapıyı kullanacak şekilde yeniden yazmak, tarayıcıda
 doğrulanamayan bir regresyon riski olarak görüldü ve bilinçli olarak
 yapılmadı.
 
+### 59. Görsel sadeleştirme turu: tek vurgu rengi, gradyanların kaldırılması, daha az "süs"
+
+Bölüm 58'in bileşen turundan sonra kullanıcı isteği: "daha kullanıcı dostu
+ve daha da sadeleştirilmiş bir UI". Kapsam kullanıcıyla netleştirildi -
+sayfa yapısını/buton sayısını DEĞİŞTİRMEYEN, yalnızca görsel gürültüyü
+azaltan bir geçiş (bilgi yoğunluğunu azaltma - form adımlaştırma, ikincil
+eylemleri gizleme gibi yapısal değişiklikler bilinçli olarak kapsam DIŞI
+bırakıldı). Yalnızca `theme.css`/`panel.css`/`auth.css`/`woocommerce.css`
+dokunuldu - hiçbir PHP/JS dosyası değişmedi, bu yüzden riski özellikle
+düşük (markup/davranış aynı, yalnızca token değerleri ve birkaç kural).
+
+**Modül kimliği karoları tek vurgu rengine indirgendi**: bölüm 58'in 10
+farklı doygun renkli `.scp-module-tile--*` kuralı (mavi/mor/yeşil/turuncu/
+camgöbeği/kahve/bordo/indigo/turkuaz/gri) TAMAMEN kaldırıldı; artık tüm
+modül karoları `--scp-primary-bg` (soluk mavi zemin) üzerinde
+`--scp-primary` renkli tek bir ikon stiliyle render ediliyor. Modüller
+artık renkle değil ikon şekli + etiketle ayırt ediliyor - "bir modülü
+hatırlamak için hangi rengi aradığını bilmen gerekmiyor" ilkesi.
+`zone.php`'deki `scp-module-tile--{variant}` sınıf isimleri markup'ta
+kalmaya devam ediyor (zararsız, artık hiçbir CSS kuralı onları hedeflemiyor)
+- gereksiz bir PHP değişikliğinden kaçınmak için silinmedi.
+
+**Dekoratif gradyanlar düzleştirildi**: üst menünün altındaki iki renkli
+3px gradyan şerit (`.scp-site-header::after`) tamamen kaldırıldı (header
+zaten `border-bottom` + gölgeyle ayrışıyordu, şerit saf süstü); marka
+işareti ("S" kutusu, hem `header.php`'de hem giriş ekranında) diyagonal
+iki tonlu gradyandan düz `--scp-primary`'ye indirgendi; giriş ekranının
+arka planındaki iki radial gradyan kaldırılıp düz `--scp-bg`'ye
+indirgendi. Fonksiyonel gradyanlar (iskelet yükleme shimmer'ı gibi,
+bölüm 58) DOKUNULMADI - yalnızca saf dekoratif olanlar.
+
+**Hover "sıçrama" azaltıldı**: modül karoları ve mağaza sayfasındaki ürün
+kartlarının hover'daki `translateY` kaldırma efekti kaldırıldı (yalnızca
+kenarlık/gölge değişimi kaldı) - daha sakin, daha az "zıplayan" bir
+etkileşim hissi.
+
+**Elevation orantılandı**: bildirim paneli açılır menüsü daha önce
+`--scp-shadow-3` (modal/komut paleti seviyesindeki EN ağır gölge)
+kullanıyordu; bir açılır menü için orantısız ağırdı - kebab menüsüyle
+tutarlı olacak şekilde `--scp-shadow-2`'ye indirildi.
+
+**Doğrulama**: yalnızca CSS değişti; `node -e` ile süslü parantez dengesi
+(4 dosya, hepsi 0) doğrulandı. Görsel/işlevsel tarayıcı testi yine
+YAPILMADI (bölüm 58'deki aynı ortam kısıtı) - ama bu turun tüm
+değişiklikleri saf değer değişimleri (renk/gölge/transition kaldırma)
+olduğundan, sözdizimi/denge doğrulaması ötesinde bir işlevsel regresyon
+riski taşımıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

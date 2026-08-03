@@ -66,7 +66,7 @@
 }
 
 .scp-status--error {
-  color: #b91c1c;
+  color: var(--scp-danger);
 }
 
 .scp-hint {
@@ -1173,11 +1173,12 @@ button.scp-badge:hover {
   font-size: var(--scp-text-sm);
 }
 
-/* ---- Module identity - a colored icon tile per module, used on the
+/* ---- Module identity - a single-accent icon tile per module, used on the
    quicknav/dashboard entry points so each module reads as its own place
-   rather than an identical pill. Palette assigns a semantic color per
-   module family; icon glyph comes from the (already-loaded) inline SVG
-   sprite - see templates/partials/icon.php. ---- */
+   rather than an identical text pill. Deliberately ONE calm accent color
+   (not a per-module hue) - modules are told apart by icon shape/label, not
+   by a rainbow of saturated colors; icon glyph comes from the
+   (already-loaded) inline SVG sprite - see templates/partials/icon.php. ---- */
 
 .scp-module-tile {
   display: flex;
@@ -1189,12 +1190,11 @@ button.scp-badge:hover {
   border-radius: var(--scp-radius);
   text-decoration: none;
   color: var(--scp-text);
-  transition: box-shadow var(--scp-duration-base) var(--scp-ease), transform var(--scp-duration-base) var(--scp-ease);
+  transition: box-shadow var(--scp-duration-base) var(--scp-ease);
 }
 
 .scp-module-tile:hover {
-  box-shadow: var(--scp-shadow-2);
-  transform: translateY(-1px);
+  box-shadow: var(--scp-shadow-1);
 }
 
 .scp-module-tile__icon {
@@ -1205,7 +1205,8 @@ button.scp-badge:hover {
   height: 40px;
   flex-shrink: 0;
   border-radius: 10px;
-  color: #fff;
+  background: var(--scp-primary-bg);
+  color: var(--scp-primary);
 }
 
 .scp-module-tile__icon svg {
@@ -1217,17 +1218,6 @@ button.scp-badge:hover {
   font-weight: 600;
   font-size: var(--scp-text-base);
 }
-
-.scp-module-tile--students .scp-module-tile__icon { background: #2563eb; }
-.scp-module-tile--branches .scp-module-tile__icon { background: #7c3aed; }
-.scp-module-tile--products .scp-module-tile__icon { background: #0f9d63; }
-.scp-module-tile--orders .scp-module-tile__icon { background: #ea580c; }
-.scp-module-tile--pricing .scp-module-tile__icon { background: #0891b2; }
-.scp-module-tile--depo .scp-module-tile__icon { background: #a16207; }
-.scp-module-tile--hakedis .scp-module-tile__icon { background: #be123c; }
-.scp-module-tile--reports .scp-module-tile__icon { background: #4338ca; }
-.scp-module-tile--support .scp-module-tile__icon { background: #0d9488; }
-.scp-module-tile--settings .scp-module-tile__icon { background: #475569; }
 
 /* .scp-quicknav a's own pill styling (theme.css) is more specific than
    .scp-module-tile alone (two classes beat one), so the quicknav's own
