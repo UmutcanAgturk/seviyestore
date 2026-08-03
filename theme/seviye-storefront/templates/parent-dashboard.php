@@ -170,6 +170,10 @@ if (!defined('ABSPATH')) {
         </section>
     <?php endif; ?>
 
+    <?php if (current_user_can('scp_submit_support_ticket')) : ?>
+        <?php include SCP_THEME_DIR . '/templates/partials/support-tickets.php'; ?>
+    <?php endif; ?>
+
     <?php include SCP_THEME_DIR . '/templates/partials/account-security.php'; ?>
     <?php include SCP_THEME_DIR . '/templates/partials/privacy-requests.php'; ?>
 </div>

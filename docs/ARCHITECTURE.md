@@ -2709,6 +2709,170 @@ yatay bir çubuk listesi, hazır SVG yazmaktan daha basit, aynı "gereksiz
 bağımlılık/karmaşıklıktan kaçın" ilkesinin (bkz. bölüm 48) bir başka
 uygulaması.
 
+### 52. Tedarikçi portalı (Seviye Depo, tema)
+
+Tedarikçi kullanıcılarının kendi satın alma siparişlerini görüp "gönderildi"
+işaretleyebildiği bir portal — ama tedarikçiler için ayrı bir Rol EKLENMEDİ.
+`Suppliers` zaten `user_id` alanıyla bir WP kullanıcısına bağlanabiliyordu
+(bölüm 39); bu bağlantı doğrudan yetkilendirme temeli olarak kullanıldı.
+`DepoModule::boot()` bir `scp_depo_supplier_id_for_user` filtresi kaydediyor
+(`SupplierRepositoryInterface::findByUserId($userId)?->id ?? $default`);
+Depo dışındaki her yer (Security'nin `AuthRestController::landingPathFor()`'ı,
+temanın `inc/zones.php`/`inc/access-gate.php`'i) bu filtreyi
+`RoleRouter::landingPathFor()`'dan ÖNCE danışıyor — yani "tedarikçi" bir Rol
+değil, "bu kullanıcı bir tedarikçiye bağlı mı" sorusuna verilen ayrı bir
+cevap. Yeni REST uçları (`GET /depo/purchase-orders/mine`,
+`POST /depo/purchase-orders/{id}/mark-shipped`) da herhangi bir Capability
+değil, doğrudan bu bağlantının varlığını kontrol ediyor
+(`requireLinkedSupplier()`). Tema tarafında yeni bir `/tedarikci` zone'u,
+`templates/supplier-dashboard.php` ve `assets/js/supplier-panel.js`.
+
+### 53. Veli destek/talep (helpdesk) sistemi (yeni eklenti: Seviye Destek)
+
+Platformun 13. eklentisi. Veli'nin "şikayet/soru" ticket'ı açıp mesaj
+thread'i üzerinden yazışabildiği, ilgili şube personelinin (Şube Müdürü,
+Bölge Müdürü, Genel Merkez, Rehberlik) kuyruğu görüp yanıtlayabildiği ayrı
+bir sistem — KVKK veri talebi akışından (bölüm 49) tamamen bağımsız.
+`scp_support_tickets.branch_id` nullable ve bilinçli olarak FOREIGN KEY
+DEĞİL (Branches Contract sınırını aşan bir `scp_*`→`scp_*` referansı, aynı
+gerekçe daha önce `scp_scheduled_broadcasts`/diğerlerinde de kullanıldı);
+`scp_support_messages.ticket_id` ise gerçek bir
+`FOREIGN KEY ... ON DELETE CASCADE` — ikisi de aynı eklenti içinde. Ticket
+durum makinesi basit: personel yanıtı → `ANSWERED`, veli yanıtı → tekrar
+`OPEN`; kapatma yalnızca personel tarafından. RBAC: `SUBMIT_TICKET` (Veli),
+`MANAGE_TICKETS` (şube kapsamlı personel). Tema: velinin kendi ticket'larını
+gördüğü self-service kart (`templates/partials/support-tickets.php`,
+yalnızca `scp_submit_support_ticket` sahibiyse `parent-dashboard.php`'den
+include edilir) ve personel kuyruğu (`templates/zone.php`).
+
+### 54. Ürün inceleme/puanlama sistemi (Seviye Commerce)
+
+Özel bir puanlama tablosu/API'si KURULMADI — WooCommerce'in kendi native
+yorum/puanlama sistemi (comments tablosu üzerine kurulu) olduğu gibi
+kullanılıyor, yalnızca "yalnızca gerçekten satın alanlar yorum yapabilir"
+kısıtı eklendi. `CommerceModule`'ün var olan WC-gated `init` closure'ı
+içinde kayıtlı yeni `Http\ProductReviewGate`: `register()` önce
+`ensureReviewsEnabled()` ile `woocommerce_enable_reviews`/
+`woocommerce_enable_review_rating` ayarlarını zorla `yes` yapıyor, sonra
+`pre_comment_approved` filtresine bağlanıyor. Bu filtre WC'nin kendi
+"doğrulanmış satın alma" rozeti ayarından (`woocommerce_review_rating_
+verification_required`) FARKLI — o yalnızca bir rozet gösterir, gönderimi
+engellemez; `pre_comment_approved`'dan `WP_Error` döndürmek ise gönderimi
+tamamen reddeder. Personel (`scp_manage_products`) her zaman geçebilir;
+veli/müşteri için `wc_customer_bought_product()` ile gerçek satın alma
+kontrolü yapılıyor.
+
+### 55. Toplu sınıf/eğitim yılı geçişi (Seviye Students)
+
+Yeni bir "yıl sonu" iş akışı: bir şubedeki (veya tüm şubelerdeki) aktif
+öğrencileri bir eğitim yılından bir sonrakine topluca taşıma, isteğe bağlı
+sınıf adı eşlemesiyle (`"5-A=6-A"` gibi). `EducationYear::next()` (start+1 -
+start+2) eklendi. Yeni `POST /students/promote` ucu KENDİ güncelleme
+mantığını yazmıyor — `StudentsRestController`'ın var olan tekil `update()`
+metodunu her eşleşen öğrenci için tekrar tekrar çağırıyor (eşleşme: durumu
+`ACTIVE` ve `education_year`'ı verilen `from` ile birebir aynı olan
+öğrenciler), böylece tek bir öğrenci güncellemesinin tabi olduğu hiçbir
+kural (RBAC şube kapsamı dahil) toplu geçişte atlanmıyor — bölüm 50'nin CSV
+içe aktarma turunda kurulan "paylaşılan tekil işlem metodu" deseninin bir
+başka uygulaması. Tema: öğrenci panelinde şube + `from_education_year` +
+sınıf-eşleme metin alanından oluşan iç içe bir kart.
+
+### 56. Kısmi iade → hakediş orantılı ters kayıt (Seviye Commerce + Finance)
+
+Bölüm 47'nin iade/iptal akışı yalnızca TAM iadeyi hakediş defterine
+yansıtıyordu (`syncOrderStatus()`'un %100 iade → `REVERSED` yolu); kısmi bir
+iade hakediş bakiyesini hiç etkilemiyordu — bu tur o boşluğu kapatıyor.
+`OrderPersistenceHooks::onOrderRefunded()` artık
+`$order->get_remaining_refund_amount() > 0.0` olduğunda (yani iade TAM
+DEĞİLSE) `ratio = refund->get_amount() / order->get_total()` oranını
+hesaplayıp `commerce.order_line_item_partially_reversed` olayını
+tetikliyor; bu kontrol WooCommerce'in iç hook sırasının güvenilmez
+olabileceği varsayımıyla iadenin kendi tutarından değil, siparişin GÜNCEL
+gerçek durumundan türetiliyor — %100'e TAMAMLAYAN bir kısmi iadenin
+`syncOrderStatus()`'un kendi tam-iade yoluyla ÇİFT ters kayıt yaratması
+böyle engelleniyor. Finance tarafında yeni `HakedisEntryType::
+PARTIAL_REVERSAL` ve `scp_hakedis_entries.refund_id` — aynı sipariş
+kalemine birden çok kısmi ters kayıt satırı düşebildiğinden, mevcut
+tekil-kayıt idempotency güvencesini bozmamak için bölüm 39'da
+`scp_suppliers.user_id`'de kurulan "NULL yerine sentinel 0" deseni
+(`UNIQUE KEY (order_id, order_item_id, type, refund_id)`, depoda `0`,
+domain'de `null`) burada da uygulandı.
+
+### 57. Zamanlanmış toplu duyuru (Seviye Notifications)
+
+Bölüm 37'nin toplu duyuru sistemine "ileri bir tarihte gönder" seçeneği
+eklendi. Yeni `scp_scheduled_broadcasts` tablosu ve
+`WP Cron`'un TEK SEFERLİK deseni (`wp_schedule_single_event($timestamp,
+ScheduledBroadcastHooks::HOOK, [$id])` + iptal için
+`wp_clear_scheduled_hook()`) — bölüm 42'nin `WeeklyDigestHooks`'unun
+kullandığı TEKRARLI `wp_schedule_event` deseninden bilinçli olarak farklı.
+`ScheduledBroadcastHooks::send()` alıcıları OLUŞTURMA anında değil, ateşlenme
+anında yeniden çözüyor (bir şubeye o zamana kadar yeni eklenen veliler de
+duyuruyu alsın diye). Şube kapsamı çözümü, bölüm 53'ün destek talebi kapsam
+mantığıyla aynı ilkeyi izliyor: `null` branch_id = tüm şubeler (Genel
+Merkez-tipi capability), dolu branch_id = tek şubeye kilitli
+(şube-kapsamlı capability). `ScheduledBroadcastHooks`, Students'ın
+`BranchParentLookupInterface`'ini kullandığından, `ModuleRegistry::
+bootAll()`'un modülleri kayıt sırasına göre (bağımlılık sırasına göre değil)
+boot ettiği bilinen kısıtı yüzünden kaydı `add_action('init', ...)` içine
+ertelendi (bölüm 42'de `WeeklyDigestHooks` için kurulan aynı desen). Tema:
+duyuru formunda `datetime-local` alanı + zamanlanmış duyurular tablosu
+(durum: bekliyor/gönderildi/iptal, iptal düğmesi).
+
+### 58. Tasarım sistemi turu: token/bileşen kütüphanesi yenilenmesi
+
+Önceki turların çoğu tek bir özelliğin ekranını kapsıyordu; bu tur bunun
+yerine platformun TÜM önceden var olan panellerinin üzerine oturan tutarlı
+bir tasarım-token ve bileşen katmanı ekledi — 12 ayrı alt sistem yerine tek
+bir kapsamlı geçiş olarak ele alındı.
+
+**Token katmanı** (`theme.css`): derinlik (`--scp-shadow-0..3`), tipografi
+(`--scp-text-xs..2xl`), boşluk (`--scp-space-1..12`) ve hareket
+(`--scp-ease`, `--scp-duration-fast/base/slow`) ölçekleri; `prefers-
+reduced-motion: reduce` global olarak tüm animasyon/geçiş sürelerini
+`0.01ms`'e indiriyor. Karanlık mod (`prefers-color-scheme: dark`) elevation
+gölgeleri eklendi.
+
+**Paylaşılan JS yardımcı kütüphanesi** (`assets/js/scp-ui-kit.js`, yeni) —
+bu temanın bundler'ı olmadığından `scp-api-fetch.js`'in ağ çağrıları için
+oynadığı rolün bileşen tarafındaki karşılığı: `window.scpToast()`,
+`window.scpModal()` (Promise tabanlı `confirm()` yerine geçen action-sheet/
+modal), `window.scpKebabMenus()` (bağlam menüsü otomatik bağlama),
+`window.scpAnimateCounter()`, `window.scpSkeletonRows()`,
+`window.scpSuccessPulse()`, `window.scpQuicknavReorder()` (quicknav'ın
+sürükle-bırak sırası, yalnızca istemci tarafında `localStorage`'da
+saklanıyor — bölüm bağlantılarının GÖRÜNÜRLÜĞÜ hâlâ tamamen sunucu
+tarafında capability kontrolünden geliyor, bu yalnızca zaten erişilebilen
+bölümlerin sırasını değiştiriyor) ve bir Cmd+K komut paleti. Komut paleti
+kendi capability mantığını YAZMIYOR — `.scp-quicknav a` bağlantılarını
+(zaten sunucu tarafında doğru şekilde izin-filtrelenmiş) DOM'dan tarayarak
+listesini oluşturuyor, `zone.php`'nin `$scp_sections` mantığını JS'te
+tekrarlamak yerine.
+
+**Modül kimliği** (`.scp-module-tile`, `panel.css`): platformun ~10 temel
+modülüne (öğrenciler/şubeler/ürünler/siparişler/fiyatlandırma/depo/hakediş/
+raporlar/destek/ayarlar) özgü renkli ikon karoları. İkonlar yeni
+`templates/partials/icon.php`'deki `scp_module_icon_svg()`'den geliyor —
+harici bir ikon kütüphanesi yerine ~10 glif için elle yazılmış minimal
+outline SVG yolları (bölüm 48'in "dar bir ihtiyaç için ağır bir bağımlılıktan
+kaçın" ilkesiyle aynı gerekçe). `zone.php`'nin quicknav döngüsü artık
+`$scp_section_variants` eşlemesiyle bilinen bölümleri karo, kalanları düz
+bağlantı olarak render ediyor.
+
+**Doğrulama sınırı**: bu ortamda çalışan bir WordPress+tarayıcı kurulumu
+yok; bu turun doğrulaması `php -l`/`vendor/bin/phpcs` (tüm dokunulan PHP
+dosyaları, 0 hata), `node --check` (tüm dokunulan/yeni JS dosyaları) ve
+CSS için elle yazılmış bir süslü-parantez dengesi betiğiyle sınırlı —
+GÖRSEL/işlevsel tarayıcı testi YAPILMADI. Bu yüzden yeni altyapı (toast,
+modal, komut paleti, sürükle-bırak, animasyonlu sayaç) bilinçli olarak
+riskten kaçınan bir stratejiyle sadece birkaç gerçek, izole dokunma
+noktasına bağlandı (`header.php`, `notifications-bell.js`,
+`overview-panel.js`, `account-security.js`'in şifre değişikliği başarı
+akışı, `zone.php`'nin quicknav'ı) — daha önce test edilmiş her panel
+scripti'ni bu altyapıyı kullanacak şekilde yeniden yazmak, tarayıcıda
+doğrulanamayan bir regresyon riski olarak görüldü ve bilinçli olarak
+yapılmadı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

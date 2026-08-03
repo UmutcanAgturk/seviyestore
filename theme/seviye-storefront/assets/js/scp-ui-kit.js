@@ -1,0 +1,511 @@
+/**
+ * Shared design-system utilities, enqueued globally on every authenticated
+ * page (see inc/assets.php) ahead of every panel script, the same
+ * "one shared foundation" role scp-api-fetch.js already plays for network
+ * calls. Exposes a small set of global helpers rather than a module system
+ * (this theme has no bundler) - every panel script may call
+ * window.scpToast()/scpKebabMenus()/scpSuccessPulse() etc. directly.
+ *
+ * Self-initializing pieces (command palette, skip link, large-title
+ * scroll, kebab menu auto-wiring) run immediately on DOMContentLoaded;
+ * nothing here depends on any specific panel's markup existing.
+ */
+(function () {
+    'use strict';
+
+    // ---- Toast ----
+
+    function toastHost() {
+        var host = document.getElementById('scp-toast-host');
+
+        if (host) {
+            return host;
+        }
+
+        host = document.createElement('div');
+        host.id = 'scp-toast-host';
+        host.className = 'scp-toast-host';
+        host.setAttribute('aria-live', 'polite');
+        document.body.appendChild(host);
+
+        return host;
+    }
+
+    /**
+     * @param {string} message
+     * @param {'default'|'success'|'error'} [variant]
+     */
+    window.scpToast = function (message, variant) {
+        var host = toastHost();
+        var toast = document.createElement('div');
+        toast.className = 'scp-toast' + (variant ? ' scp-toast--' + variant : '');
+        toast.textContent = message;
+        host.appendChild(toast);
+
+        window.setTimeout(function () {
+            toast.classList.add('scp-toast--leaving');
+            toast.addEventListener('animationend', function () {
+                toast.remove();
+            });
+        }, 4000);
+    };
+
+    // ---- Animated counter (dashboard stat tiles count up from 0 instead
+    // of just appearing) ----
+
+    /**
+     * @param {HTMLElement} element
+     * @param {number} target
+     * @param {function(number): string} [formatter] defaults to the plain integer
+     */
+    window.scpAnimateCounter = function (element, target, formatter) {
+        if (!element) {
+            return;
+        }
+
+        var format = formatter || function (value) {
+            return String(Math.round(value));
+        };
+
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            element.textContent = format(target);
+            return;
+        }
+
+        var duration = 500;
+        var start = null;
+
+        function step(timestamp) {
+            if (start === null) {
+                start = timestamp;
+            }
+
+            var progress = Math.min(1, (timestamp - start) / duration);
+            // Ease-out cubic, the same decelerate feel --scp-ease approximates.
+            var eased = 1 - Math.pow(1 - progress, 3);
+            element.textContent = format(target * eased);
+
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        }
+
+        window.requestAnimationFrame(step);
+    };
+
+    // ---- Skeleton loading (placeholder rows shown while a panel's first
+    // fetch is in flight - see .scp-skeleton/.scp-skeleton-row in panel.css) ----
+
+    /**
+     * @param {HTMLElement} container
+     * @param {number} [count]
+     */
+    window.scpSkeletonRows = function (container, count) {
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        for (var i = 0; i < (count || 3); i++) {
+            var row = document.createElement('div');
+            row.className = 'scp-skeleton scp-skeleton-row';
+            row.style.width = (70 + (i % 3) * 10) + '%';
+            container.appendChild(row);
+        }
+    };
+
+    // ---- Success pulse (a small checkmark flash on a status element) ----
+
+    window.scpSuccessPulse = function (element) {
+        if (!element) {
+            return;
+        }
+
+        element.classList.add('scp-status--success-pulse');
+        window.setTimeout(function () {
+            element.classList.remove('scp-status--success-pulse');
+        }, 900);
+    };
+
+    // ---- Modal (a Promise-based confirm() replacement) ----
+
+    /**
+     * @param {{title: string, body?: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean}} options
+     * @return {Promise<boolean>}
+     */
+    window.scpModal = function (options) {
+        return new Promise(function (resolve) {
+            var overlay = document.createElement('div');
+            overlay.className = 'scp-modal-overlay';
+
+            var modal = document.createElement('div');
+            modal.className = 'scp-modal';
+            modal.setAttribute('role', 'alertdialog');
+            modal.setAttribute('aria-modal', 'true');
+
+            var title = document.createElement('h2');
+            title.textContent = options.title;
+            modal.appendChild(title);
+
+            if (options.body) {
+                var body = document.createElement('p');
+                body.textContent = options.body;
+                modal.appendChild(body);
+            }
+
+            var actions = document.createElement('div');
+            actions.className = 'scp-modal__actions';
+
+            var cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'scp-btn scp-btn--ghost';
+            cancelButton.textContent = options.cancelLabel || 'Vazgeç';
+
+            var confirmButton = document.createElement('button');
+            confirmButton.type = 'button';
+            confirmButton.className = 'scp-btn' + (options.danger ? ' scp-btn--danger' : '');
+            confirmButton.textContent = options.confirmLabel || 'Onayla';
+
+            function close(result) {
+                overlay.remove();
+                document.removeEventListener('keydown', onKeydown);
+                resolve(result);
+            }
+
+            function onKeydown(event) {
+                if (event.key === 'Escape') {
+                    close(false);
+                }
+            }
+
+            cancelButton.addEventListener('click', function () {
+                close(false);
+            });
+            confirmButton.addEventListener('click', function () {
+                close(true);
+            });
+            overlay.addEventListener('click', function (event) {
+                if (event.target === overlay) {
+                    close(false);
+                }
+            });
+            document.addEventListener('keydown', onKeydown);
+
+            actions.appendChild(cancelButton);
+            actions.appendChild(confirmButton);
+            modal.appendChild(actions);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            confirmButton.focus();
+        });
+    };
+
+    // ---- Kebab menu auto-wiring ----
+
+    function closeAllKebabMenus(except) {
+        document.querySelectorAll('[data-scp-kebab]').forEach(function (root) {
+            if (root === except) {
+                return;
+            }
+
+            var toggle = root.querySelector('.scp-kebab__toggle');
+            var menu = root.querySelector('.scp-kebab__menu');
+
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+
+            if (menu) {
+                menu.hidden = true;
+            }
+        });
+    }
+
+    function wireKebabMenu(root) {
+        if (root.dataset.scpKebabWired) {
+            return;
+        }
+
+        root.dataset.scpKebabWired = '1';
+
+        var toggle = root.querySelector('.scp-kebab__toggle');
+        var menu = root.querySelector('.scp-kebab__menu');
+
+        if (!toggle || !menu) {
+            return;
+        }
+
+        toggle.addEventListener('click', function (event) {
+            event.stopPropagation();
+            var isOpen = toggle.getAttribute('aria-expanded') === 'true';
+            closeAllKebabMenus(root);
+            toggle.setAttribute('aria-expanded', String(!isOpen));
+            menu.hidden = isOpen;
+        });
+
+        menu.addEventListener('click', function () {
+            closeAllKebabMenus();
+        });
+    }
+
+    /**
+     * Called by any panel script that renders `[data-scp-kebab]` markup
+     * dynamically (see .scp-kebab's own doc comment in panel.css) - safe
+     * to call repeatedly, already-wired menus are skipped.
+     */
+    window.scpKebabMenus = function () {
+        document.querySelectorAll('[data-scp-kebab]').forEach(wireKebabMenu);
+    };
+
+    document.addEventListener('click', function () {
+        closeAllKebabMenus();
+    });
+
+    // ---- Command palette (Cmd+K / Ctrl+K) ----
+
+    function collectCommands() {
+        var commands = [];
+
+        document.querySelectorAll('.scp-quicknav a').forEach(function (link) {
+            commands.push({ label: link.textContent.trim(), href: link.getAttribute('href') });
+        });
+
+        return commands;
+    }
+
+    function openCommandPalette() {
+        var commands = collectCommands();
+
+        if (commands.length === 0) {
+            return;
+        }
+
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-command-overlay';
+
+        var palette = document.createElement('div');
+        palette.className = 'scp-command-palette';
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'scp-command-palette__input';
+        input.placeholder = (window.scpPanelText && window.scpPanelText.commandPalettePlaceholder)
+            || 'Bir bölüme git…';
+
+        var list = document.createElement('ul');
+        list.className = 'scp-command-palette__list';
+
+        function render(query) {
+            list.innerHTML = '';
+            var normalized = query.trim().toLowerCase();
+            var matches = commands.filter(function (command) {
+                return command.label.toLowerCase().indexOf(normalized) !== -1;
+            });
+
+            if (matches.length === 0) {
+                var empty = document.createElement('li');
+                empty.className = 'scp-command-palette__empty';
+                empty.textContent = (window.scpPanelText && window.scpPanelText.commandPaletteEmpty)
+                    || 'Eşleşme yok.';
+                list.appendChild(empty);
+                return;
+            }
+
+            matches.forEach(function (command, index) {
+                var item = document.createElement('li');
+                var link = document.createElement('a');
+                link.className = 'scp-command-palette__item' + (index === 0 ? ' scp-command-palette__item--active' : '');
+                link.href = command.href;
+                link.textContent = command.label;
+                item.appendChild(link);
+                list.appendChild(item);
+            });
+        }
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+                return;
+            }
+
+            if (event.key === 'Enter') {
+                var active = list.querySelector('.scp-command-palette__item');
+
+                if (active) {
+                    window.location.href = active.getAttribute('href');
+                }
+            }
+        }
+
+        input.addEventListener('input', function () {
+            render(input.value);
+        });
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        palette.appendChild(input);
+        palette.appendChild(list);
+        overlay.appendChild(palette);
+        document.body.appendChild(overlay);
+
+        render('');
+        input.focus();
+    }
+
+    document.addEventListener('keydown', function (event) {
+        var isModifierK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+
+        if (!isModifierK) {
+            return;
+        }
+
+        event.preventDefault();
+        openCommandPalette();
+    });
+
+    document.addEventListener('click', function (event) {
+        var trigger = event.target.closest('[data-scp-command-trigger]');
+
+        if (trigger) {
+            openCommandPalette();
+        }
+    });
+
+    // ---- Quicknav drag-reorder (client-side only; section VISIBILITY is
+    // still entirely server-rendered from capability checks - see
+    // .scp-quicknav a[draggable] in panel.css) ----
+
+    function quicknavStorageKey() {
+        return 'scpQuicknavOrder:' + window.location.pathname;
+    }
+
+    function applyStoredQuicknavOrder(nav) {
+        var stored;
+
+        try {
+            stored = window.localStorage.getItem(quicknavStorageKey());
+        } catch (e) {
+            return;
+        }
+
+        if (!stored) {
+            return;
+        }
+
+        var order;
+
+        try {
+            order = JSON.parse(stored);
+        } catch (e) {
+            return;
+        }
+
+        var links = Array.prototype.slice.call(nav.querySelectorAll('a'));
+
+        order.forEach(function (href) {
+            var link = links.filter(function (candidate) {
+                return candidate.getAttribute('href') === href;
+            })[0];
+
+            if (link) {
+                nav.appendChild(link);
+            }
+        });
+    }
+
+    function persistQuicknavOrder(nav) {
+        var order = Array.prototype.map.call(nav.querySelectorAll('a'), function (link) {
+            return link.getAttribute('href');
+        });
+
+        try {
+            window.localStorage.setItem(quicknavStorageKey(), JSON.stringify(order));
+        } catch (e) {
+            // Private browsing / storage disabled - reordering just won't persist.
+        }
+    }
+
+    /**
+     * Wires drag-and-drop reordering onto an already-rendered .scp-quicknav.
+     * Safe to call once per page load (idempotent guard via dataset flag).
+     */
+    window.scpQuicknavReorder = function () {
+        var nav = document.querySelector('.scp-quicknav');
+
+        if (!nav || nav.dataset.scpReorderWired) {
+            return;
+        }
+
+        nav.dataset.scpReorderWired = '1';
+
+        applyStoredQuicknavOrder(nav);
+
+        var dragged = null;
+
+        Array.prototype.forEach.call(nav.querySelectorAll('a'), function (link) {
+            link.setAttribute('draggable', 'true');
+
+            link.addEventListener('dragstart', function () {
+                dragged = link;
+                link.classList.add('scp-quicknav--dragging');
+            });
+
+            link.addEventListener('dragend', function () {
+                link.classList.remove('scp-quicknav--dragging');
+                dragged = null;
+                persistQuicknavOrder(nav);
+            });
+
+            link.addEventListener('dragover', function (event) {
+                event.preventDefault();
+
+                if (!dragged || dragged === link) {
+                    return;
+                }
+
+                var rect = link.getBoundingClientRect();
+                var before = (event.clientX - rect.left) < rect.width / 2;
+                nav.insertBefore(dragged, before ? link : link.nextSibling);
+            });
+        });
+    };
+
+    // ---- Large-title scroll (header brand shrinks once the page's own
+    // h1 scrolls out of view) ----
+
+    function initLargeTitleScroll() {
+        var header = document.querySelector('.scp-site-header');
+        var title = document.querySelector('.scp-panel h1');
+
+        if (!header || !title || typeof IntersectionObserver === 'undefined') {
+            return;
+        }
+
+        var observer = new IntersectionObserver(
+            function (entries) {
+                entries.forEach(function (entry) {
+                    header.classList.toggle('scp-site-header--scrolled', !entry.isIntersecting);
+                });
+            },
+            { rootMargin: '-' + header.offsetHeight + 'px 0px 0px 0px', threshold: 0 }
+        );
+
+        observer.observe(title);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        window.scpKebabMenus();
+        window.scpQuicknavReorder();
+        initLargeTitleScroll();
+    });
+})();

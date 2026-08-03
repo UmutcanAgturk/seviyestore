@@ -21,7 +21,8 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
         ?string $phone,
         ?string $email,
         ?string $taxNumber,
-        ?string $address
+        ?string $address,
+        ?int $userId = null
     ): Supplier {
         $now = $this->now();
 
@@ -33,6 +34,7 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
             'tax_number' => $taxNumber,
             'address' => $address,
             'status' => SupplierStatus::ACTIVE->value,
+            'user_id' => $userId,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -54,12 +56,13 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
         ?string $email,
         ?string $taxNumber,
         ?string $address,
-        SupplierStatus $status
+        SupplierStatus $status,
+        ?int $userId = null
     ): Supplier {
         $table = $this->connection->table('suppliers');
         $sql = $this->connection->prepare(
             "UPDATE {$table} SET name = %s, contact_name = %s, phone = %s, email = %s, "
-                . 'tax_number = %s, address = %s, status = %s, updated_at = %s WHERE id = %d',
+                . 'tax_number = %s, address = %s, status = %s, user_id = %d, updated_at = %s WHERE id = %d',
             [
                 $name,
                 (string) $contactName,
@@ -68,6 +71,7 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
                 (string) $taxNumber,
                 (string) $address,
                 $status->value,
+                $userId,
                 $this->now(),
                 $id,
             ]
@@ -112,6 +116,15 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
         return isset($rows[0]) ? $this->hydrate($rows[0]) : null;
     }
 
+    public function findByUserId(int $userId): ?Supplier
+    {
+        $table = $this->connection->table('suppliers');
+        $sql = $this->connection->prepare("SELECT * FROM {$table} WHERE user_id = %d LIMIT 1", [$userId]);
+        $rows = $this->connection->getResults($sql);
+
+        return isset($rows[0]) ? $this->hydrate($rows[0]) : null;
+    }
+
     public function all(): array
     {
         $table = $this->connection->table('suppliers');
@@ -125,6 +138,8 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
      */
     private function hydrate(array $row): Supplier
     {
+        $userId = isset($row['user_id']) ? (int) $row['user_id'] : 0;
+
         return new Supplier(
             (int) $row['id'],
             (string) $row['name'],
@@ -133,7 +148,8 @@ final class WpdbSupplierRepository implements SupplierRepositoryInterface
             $this->nullableString($row['email'] ?? null),
             $this->nullableString($row['tax_number'] ?? null),
             $this->nullableString($row['address'] ?? null),
-            SupplierStatus::from((string) $row['status'])
+            SupplierStatus::from((string) $row['status']),
+            $userId > 0 ? $userId : null
         );
     }
 

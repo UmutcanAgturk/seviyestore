@@ -46,8 +46,17 @@
 
     function applyPeriod(prefix, period) {
         root.querySelector('[data-scp-overview-' + prefix + '-total]').textContent = formatMoney(period.total);
-        root.querySelector('[data-scp-overview-' + prefix + '-count]').textContent = period.order_count
-            + ' ' + scpPanelText.overviewOrdersLabel;
+
+        var countEl = root.querySelector('[data-scp-overview-' + prefix + '-count]');
+
+        if (typeof window.scpAnimateCounter === 'function') {
+            window.scpAnimateCounter(countEl, period.order_count, function (value) {
+                return Math.round(value) + ' ' + scpPanelText.overviewOrdersLabel;
+            });
+            return;
+        }
+
+        countEl.textContent = period.order_count + ' ' + scpPanelText.overviewOrdersLabel;
     }
 
     function renderProducts(products) {

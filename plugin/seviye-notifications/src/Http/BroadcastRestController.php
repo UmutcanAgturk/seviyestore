@@ -9,7 +9,10 @@ use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
+use Seviye\Notifications\Domain\ScheduledBroadcast;
+use Seviye\Notifications\Domain\ScheduledBroadcastStatus;
 use Seviye\Notifications\Rbac\NotificationCapability;
+use Seviye\Notifications\Repository\ScheduledBroadcastRepositoryInterface;
 use Seviye\Students\Contracts\BranchParentLookupInterface;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -30,6 +33,15 @@ use WP_REST_Response;
  * same honest "recorded FAILED, never silently dropped" behaviour) every
  * other notification on this platform goes through; this endpoint is a
  * fan-out over that existing pipe, not a new delivery mechanism.
+ *
+ * "Zamanlanmış toplu duyuru": send() accepts an optional `scheduled_at` - if
+ * given (and in the future), nothing is dispatched now; a
+ * Domain\ScheduledBroadcast row is persisted instead and a one-shot WP Cron
+ * event registered (see Http\ScheduledBroadcastHooks, which does the actual
+ * recipient resolution/dispatch when it fires). Branch scope is resolved
+ * and LOCKED IN at scheduling time via the same resolveBranchScope() the
+ * immediate path uses - a Şube Müdürü's own branch, or whatever an HQ
+ * caller requested (null = every branch).
  */
 final class BroadcastRestController extends AbstractRestController
 {
@@ -38,7 +50,8 @@ final class BroadcastRestController extends AbstractRestController
     public function __construct(
         private readonly BranchParentLookupInterface $parents,
         private readonly BranchMembershipInterface $branchMemberships,
-        private readonly NotificationDispatcherInterface $dispatcher
+        private readonly NotificationDispatcherInterface $dispatcher,
+        private readonly ScheduledBroadcastRepositoryInterface $scheduledBroadcasts
     ) {
     }
 
@@ -53,7 +66,20 @@ final class BroadcastRestController extends AbstractRestController
                 'body' => ['required' => true, 'type' => 'string'],
                 'branch_id' => ['required' => false, 'type' => 'integer'],
                 'channels' => ['required' => false, 'type' => 'array'],
+                'scheduled_at' => ['required' => false, 'type' => 'string'],
             ],
+        ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/notifications/broadcast/scheduled', [
+            'methods' => 'GET',
+            'callback' => [$this, 'listScheduled'],
+            'permission_callback' => [$this, 'canSendBroadcast'],
+        ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/notifications/broadcast/scheduled/(?P<id>\d+)', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'cancelScheduled'],
+            'permission_callback' => [$this, 'canAccessScheduled'],
         ]);
     }
 
@@ -82,8 +108,34 @@ final class BroadcastRestController extends AbstractRestController
             );
         }
 
-        $recipients = $this->resolveRecipients($request);
+        $scheduledAt = $this->resolveScheduledAt($request);
+
+        if ($scheduledAt === false) {
+            return new WP_REST_Response(
+                ['message' => __('Zamanlama tarihi gelecekte bir tarih olmalı.', 'seviye-notifications')],
+                422
+            );
+        }
+
         $channels = $this->resolveChannels($request);
+
+        if ($scheduledAt !== null) {
+            $branchId = $this->resolveBranchScope($request);
+            $broadcast = $this->scheduledBroadcasts->create(
+                get_current_user_id(),
+                $branchId,
+                $subject,
+                $body,
+                $channels,
+                $scheduledAt
+            );
+
+            wp_schedule_single_event(strtotime($scheduledAt), ScheduledBroadcastHooks::HOOK, [$broadcast->id]);
+
+            return new WP_REST_Response($this->serializeScheduled($broadcast), 201);
+        }
+
+        $recipients = $this->resolveRecipients($request);
 
         foreach ($recipients as $userId) {
             foreach ($channels as $channel) {
@@ -92,6 +144,93 @@ final class BroadcastRestController extends AbstractRestController
         }
 
         return new WP_REST_Response(['recipient_count' => count($recipients)]);
+    }
+
+    public function listScheduled(): WP_REST_Response
+    {
+        $branchId = $this->resolveBranchScope(null);
+
+        return new WP_REST_Response(array_map(
+            $this->serializeScheduled(...),
+            $this->scheduledBroadcasts->allForBranch($branchId)
+        ));
+    }
+
+    public function cancelScheduled(WP_REST_Request $request): WP_REST_Response
+    {
+        $broadcast = $this->scheduledBroadcasts->find((int) $request->get_param('id'));
+
+        if ($broadcast === null) {
+            $message = __('Zamanlanmış duyuru bulunamadı.', 'seviye-notifications');
+
+            return new WP_REST_Response(['message' => $message], 404);
+        }
+
+        if ($broadcast->status !== ScheduledBroadcastStatus::PENDING) {
+            $message = __('Yalnızca bekleyen bir duyuru iptal edilebilir.', 'seviye-notifications');
+
+            return new WP_REST_Response(['message' => $message], 422);
+        }
+
+        wp_clear_scheduled_hook(ScheduledBroadcastHooks::HOOK, [$broadcast->id]);
+        $this->scheduledBroadcasts->cancel($broadcast->id);
+
+        return new WP_REST_Response(['success' => true]);
+    }
+
+    public function canAccessScheduled(WP_REST_Request $request): bool
+    {
+        if (!$this->canSendBroadcast()) {
+            return false;
+        }
+
+        if (current_user_can(NotificationCapability::SEND_BROADCAST->value)) {
+            return true;
+        }
+
+        $broadcast = $this->scheduledBroadcasts->find((int) $request->get_param('id'));
+        $ownBranchId = $this->branchMemberships->branchIdForUser(get_current_user_id());
+
+        return $broadcast !== null && $broadcast->branchId === $ownBranchId;
+    }
+
+    /**
+     * `null` = "send immediately" (no scheduled_at given), `false` = an
+     * invalid/past scheduled_at was given (caller returns 422), a string =
+     * the validated, future MySQL datetime to schedule for.
+     */
+    private function resolveScheduledAt(WP_REST_Request $request): string|false|null
+    {
+        $raw = trim((string) ($request->get_param('scheduled_at') ?? ''));
+
+        if ($raw === '') {
+            return null;
+        }
+
+        $timestamp = strtotime($raw);
+
+        if ($timestamp === false || $timestamp <= time()) {
+            return false;
+        }
+
+        return gmdate('Y-m-d H:i:s', $timestamp);
+    }
+
+    /**
+     * Same scope resolution resolveRecipients() uses to fetch recipients
+     * NOW - reused here to LOCK IN a scheduled broadcast's branch_id at
+     * creation time, and to scope listScheduled()'s visibility. $request
+     * is null for listScheduled(), which has no branch_id param to read
+     * (an HQ caller always sees every branch's scheduled broadcasts, never
+     * just one) - only the write path (send()) lets HQ target one branch.
+     */
+    private function resolveBranchScope(?WP_REST_Request $request): ?int
+    {
+        if (current_user_can(NotificationCapability::SEND_BROADCAST->value)) {
+            return $request !== null ? $this->intParam($request, 'branch_id') : null;
+        }
+
+        return $this->branchMemberships->branchIdForUser(get_current_user_id());
     }
 
     /**
@@ -137,5 +276,27 @@ final class BroadcastRestController extends AbstractRestController
         $value = $request->get_param($name);
 
         return $value === null || $value === '' ? null : (int) $value;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeScheduled(ScheduledBroadcast $broadcast): array
+    {
+        $channelValues = array_map(
+            static fn (NotificationChannel $channel): string => $channel->value,
+            $broadcast->channels
+        );
+
+        return [
+            'id' => $broadcast->id,
+            'branch_id' => $broadcast->branchId,
+            'subject' => $broadcast->subject,
+            'body' => $broadcast->body,
+            'channels' => $channelValues,
+            'scheduled_at' => $broadcast->scheduledAt,
+            'status' => $broadcast->status->value,
+            'created_at' => $broadcast->createdAt,
+        ];
     }
 }

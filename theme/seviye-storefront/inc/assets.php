@@ -65,6 +65,19 @@ function scp_enqueue_panel_assets(): void
         true
     );
 
+    // Design-system foundation (toast/modal/kebab-menu/command-palette/
+    // skeleton/success-pulse helpers) - see scp-ui-kit.js's own docblock.
+    // No dependency on scp-api-fetch (self-contained), enqueued first so
+    // its globals (window.scpToast etc.) exist before any panel script
+    // that might call them runs.
+    wp_enqueue_script(
+        'scp-ui-kit',
+        SCP_THEME_URL . '/assets/js/scp-ui-kit.js',
+        [],
+        scp_asset_version('/assets/js/scp-ui-kit.js'),
+        true
+    );
+
     $localized = [
         'restUrl' => esc_url_raw(rest_url('seviye/v1/')),
         'wpRestRoot' => esc_url_raw(rest_url()),
@@ -270,6 +283,38 @@ function scp_enqueue_panel_assets(): void
         'privacyStatus_pending' => __('Bekliyor', 'seviye-storefront'),
         'privacyStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
         'privacyStatus_rejected' => __('Reddedildi', 'seviye-storefront'),
+        'supplierNoOrders' => __('Size ait bir satın alma siparişi yok.', 'seviye-storefront'),
+        'supplierItemsLabel' => __('kalem', 'seviye-storefront'),
+        'supplierUnitsLabel' => __('adet', 'seviye-storefront'),
+        'supplierMarkShippedAction' => __('Gönderildi Olarak İşaretle', 'seviye-storefront'),
+        'supplierMarkedShipped' => __('Kargo bilgisi kaydedildi.', 'seviye-storefront'),
+        'supportStatus_open' => __('Bekliyor', 'seviye-storefront'),
+        'supportStatus_answered' => __('Yanıtlandı', 'seviye-storefront'),
+        'supportStatus_closed' => __('Kapatıldı', 'seviye-storefront'),
+        'supportNoTickets' => __('Bir destek talebi yok.', 'seviye-storefront'),
+        'supportGenelMerkezLabel' => __('Genel Merkez', 'seviye-storefront'),
+        'supportStaffLabel' => __('Personel', 'seviye-storefront'),
+        'supportVeliLabel' => __('Veli', 'seviye-storefront'),
+        'supportTicketCreated' => __('Destek talebiniz gönderildi.', 'seviye-storefront'),
+        'supportTicketClosed' => __('Destek talebi kapatıldı.', 'seviye-storefront'),
+        /* translators: %s: education year being promoted from - token replaced client-side (students-panel.js) */
+        'confirmPromoteStudents' => __(
+            '%s eğitim yılındaki tüm aktif öğrenciler bir sonraki eğitim yılına taşınacak. Bu işlem geri alınamaz. Devam edilsin mi?',
+            'seviye-storefront'
+        ),
+        'promoting' => __('Geçiş uygulanıyor…', 'seviye-storefront'),
+        /* translators: 1: promoted count, 2: new year - tokens replaced client-side, see students-panel.js */
+        'promoteSummary' => __('%1$d öğrenci %2$s eğitim yılına taşındı.', 'seviye-storefront'),
+        'broadcastScheduled' => __('Duyuru zamanlandı.', 'seviye-storefront'),
+        'broadcastNoScheduled' => __('Zamanlanmış bir duyuru yok.', 'seviye-storefront'),
+        'broadcastCancelScheduled' => __('İptal Et', 'seviye-storefront'),
+        'broadcastScheduledStatus_pending' => __('Bekliyor', 'seviye-storefront'),
+        'broadcastScheduledStatus_sent' => __('Gönderildi', 'seviye-storefront'),
+        'broadcastScheduledStatus_cancelled' => __('İptal Edildi', 'seviye-storefront'),
+        'commandPalettePlaceholder' => __('Bir bölüme git…', 'seviye-storefront'),
+        'commandPaletteEmpty' => __('Eşleşme yok.', 'seviye-storefront'),
+        'skipToContent' => __('İçeriğe geç', 'seviye-storefront'),
+        'openCommandPalette' => __('Bul', 'seviye-storefront'),
     ];
 
     if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
@@ -399,6 +444,23 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
+    // "Tedarikçi portalı" - never capability-gated (the closed Role enum
+    // has no role for this), reached only via the scp_depo_supplier_id_for_user
+    // filter check in inc/access-gate.php - see that filter's docblock in
+    // Depo/DepoModule::boot().
+    if ($zone === 'tedarikci') {
+        $handle = 'scp-supplier-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/supplier-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/supplier-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
     if ($zone === 'siparislerim' && $isParentZone) {
         $handle = 'scp-orders-panel';
         wp_enqueue_script(
@@ -506,6 +568,25 @@ function scp_enqueue_panel_assets(): void
     );
     wp_localize_script($handle, 'scpPanel', array_merge($localized, [
         'canManagePrivacyRequests' => current_user_can('scp_manage_privacy_requests'),
+    ]));
+    wp_localize_script($handle, 'scpPanelText', $text);
+
+    // "Destek Talepleri" - self-service card (scp_submit_support_ticket,
+    // only rendered when that capability is held - see
+    // templates/partials/support-tickets.php) + staff queue (only when
+    // scpPanel.canManageSupportTickets, see templates/zone.php). Enqueued
+    // unconditionally like scp-privacy-requests-panel above; the script
+    // itself checks for each root element's presence.
+    $handle = 'scp-support-tickets-panel';
+    wp_enqueue_script(
+        $handle,
+        SCP_THEME_URL . '/assets/js/support-tickets-panel.js',
+        ['scp-api-fetch'],
+        scp_asset_version('/assets/js/support-tickets-panel.js'),
+        true
+    );
+    wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+        'canManageSupportTickets' => current_user_can('scp_manage_support_tickets'),
     ]));
     wp_localize_script($handle, 'scpPanelText', $text);
 

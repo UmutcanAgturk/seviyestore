@@ -8,6 +8,7 @@
     "./plugin/seviye-branches",
     "./plugin/seviye-students",
     "./plugin/seviye-parents",
+    "./plugin/seviye-destek",
     "./plugin/seviye-pricing",
     "./plugin/seviye-commerce",
     "./plugin/seviye-depo",

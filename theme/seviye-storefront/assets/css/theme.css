@@ -8,6 +8,7 @@
 
 :root {
   --scp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --scp-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --scp-bg: #f3f5f9;
   --scp-surface: #ffffff;
   --scp-surface-alt: #f8fafc;
@@ -31,9 +32,86 @@
   --scp-success-text: #0b7a4c;
   --scp-radius: 12px;
   --scp-radius-sm: 8px;
+  --scp-radius-lg: 18px;
   --scp-header-height: 56px;
-  --scp-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --scp-shadow-raised: 0 8px 24px rgba(16, 24, 40, 0.1);
+
+  /*
+   * Elevation scale ("derinlik") - four soft, layered levels rather than
+   * one flat shadow reused everywhere; each step adds a slightly larger,
+   * softer shadow so raised surfaces (dropdowns, modals, command palette)
+   * read as physically closer to the viewer, not just "has a shadow".
+   * -1 is an inset level for pressed/active states.
+   */
+  --scp-shadow-inset: inset 0 1px 2px rgba(16, 24, 40, 0.06);
+  --scp-shadow-0: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --scp-shadow-1: 0 2px 6px rgba(16, 24, 40, 0.07), 0 1px 2px rgba(16, 24, 40, 0.05);
+  --scp-shadow-2: 0 8px 24px rgba(16, 24, 40, 0.1), 0 2px 6px rgba(16, 24, 40, 0.06);
+  --scp-shadow-3: 0 20px 48px rgba(16, 24, 40, 0.16), 0 6px 16px rgba(16, 24, 40, 0.08);
+  /* Back-compat aliases - existing rules reference these two names. */
+  --scp-shadow: var(--scp-shadow-0);
+  --scp-shadow-raised: var(--scp-shadow-2);
+
+  /*
+   * Typography scale ("tipografi") - a fixed ramp instead of ad hoc rem
+   * values scattered per-component, so a heading always lands on the same
+   * step everywhere it appears.
+   */
+  --scp-text-xs: 0.75rem;
+  --scp-text-sm: 0.8125rem;
+  --scp-text-base: 0.9375rem;
+  --scp-text-md: 1.0625rem;
+  --scp-text-lg: 1.25rem;
+  --scp-text-xl: 1.75rem;
+  --scp-text-2xl: 2.25rem;
+  --scp-leading-tight: 1.2;
+  --scp-leading-normal: 1.5;
+  --scp-tracking-tight: -0.015em;
+
+  /*
+   * Spacing scale ("boşluk") - 4px base unit, doubling-ish steps. Existing
+   * hardcoded paddings/margins are left as-is (a wholesale find/replace
+   * across 1850 lines of CSS is its own risky, low-value change); new
+   * components from here on use these instead of inventing fresh values.
+   */
+  --scp-space-1: 4px;
+  --scp-space-2: 8px;
+  --scp-space-3: 12px;
+  --scp-space-4: 16px;
+  --scp-space-5: 20px;
+  --scp-space-6: 24px;
+  --scp-space-8: 32px;
+  --scp-space-10: 40px;
+  --scp-space-12: 48px;
+
+  /*
+   * Motion tokens ("hareket") - one shared easing curve (a gentle
+   * decelerate, the same family macOS/iOS transitions use) and three
+   * durations, so every future transition/animation feels like the same
+   * system instead of each component picking its own timing. Respected via
+   * the prefers-reduced-motion override below, not per-component checks.
+   */
+  --scp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --scp-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --scp-duration-fast: 120ms;
+  --scp-duration-base: 200ms;
+  --scp-duration-slow: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --scp-duration-fast: 0ms;
+    --scp-duration-base: 0ms;
+    --scp-duration-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -59,8 +137,13 @@
     --scp-info-bg: #122236;
     --scp-success-bg: #10291f;
     --scp-success-text: #86efac;
-    --scp-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --scp-shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --scp-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    --scp-shadow-0: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --scp-shadow-1: 0 2px 6px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --scp-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --scp-shadow-3: 0 20px 48px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.4);
+    --scp-shadow: var(--scp-shadow-0);
+    --scp-shadow-raised: var(--scp-shadow-2);
   }
 }
 
@@ -174,7 +257,7 @@ body {
   text-decoration: none;
   font-weight: 600;
   padding-bottom: 2px;
-  transition: color 0.15s ease;
+  transition: color var(--scp-duration-base) var(--scp-ease);
 }
 
 .scp-site-header__nav a::after {
@@ -185,7 +268,7 @@ body {
   bottom: -3px;
   height: 2px;
   background: var(--scp-primary);
-  transition: right 0.18s ease;
+  transition: right var(--scp-duration-base) var(--scp-ease);
 }
 
 .scp-site-header__nav a:hover {
@@ -254,41 +337,60 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  width: 320px;
-  max-height: 400px;
+  width: 360px;
+  max-height: 420px;
   overflow-y: auto;
-  padding: 12px;
+  padding: 8px;
   background: var(--scp-surface);
   border: 1px solid var(--scp-border);
-  border-radius: 12px;
-  box-shadow: var(--scp-shadow-raised);
+  border-radius: var(--scp-radius);
+  box-shadow: var(--scp-shadow-3);
   z-index: 20;
+  animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
 }
 
 .scp-notif-item {
-  padding: 8px 6px;
-  border-radius: 8px;
+  position: relative;
+  padding: 10px 12px 10px 20px;
+  margin: 2px 0;
+  border-radius: var(--scp-radius-sm);
   cursor: pointer;
+  transition: background var(--scp-duration-fast) var(--scp-ease);
+}
+
+.scp-notif-item::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 16px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--scp-primary);
 }
 
 .scp-notif-item strong {
   display: block;
-  font-size: 0.875rem;
+  font-size: var(--scp-text-sm);
 }
 
 .scp-notif-item p {
   margin: 2px 0 0;
   color: var(--scp-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--scp-text-xs);
 }
 
 .scp-notif-item:hover {
-  background: var(--scp-bg);
+  background: var(--scp-surface-alt);
 }
 
 .scp-notif-item--read {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: default;
+}
+
+.scp-notif-item--read::before {
+  background: transparent;
 }
 
 .scp-site-main {
@@ -303,16 +405,17 @@ body {
 
 .scp-panel h1 {
   margin: 0 0 6px;
-  font-size: 1.75rem;
+  font-size: var(--scp-text-xl);
+  line-height: var(--scp-leading-tight);
   font-weight: 800;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--scp-tracking-tight);
   color: var(--scp-primary-dark);
 }
 
 .scp-panel h1 + p {
   margin: 0 0 28px;
   color: var(--scp-text-muted);
-  font-size: 0.9375rem;
+  font-size: var(--scp-text-base);
 }
 
 .scp-panel__content {
@@ -335,10 +438,13 @@ body {
   border-radius: 999px;
   background: var(--scp-surface);
   color: var(--scp-text-muted);
-  font-size: 0.8125rem;
+  font-size: var(--scp-text-sm);
   font-weight: 600;
   text-decoration: none;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    color var(--scp-duration-base) var(--scp-ease),
+    border-color var(--scp-duration-base) var(--scp-ease),
+    background var(--scp-duration-base) var(--scp-ease);
 }
 
 .scp-quicknav a:hover {

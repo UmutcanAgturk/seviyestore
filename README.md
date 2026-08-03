@@ -18,11 +18,11 @@ Ayrıntılı mimari kararlar ve gerekçeleri için: [`docs/ARCHITECTURE.md`](doc
 
 ## Kurulum: tek adım (önerilen)
 
-`Seviye Storefront` teması artık 12 Seviye eklentisinin tamamını
+`Seviye Storefront` teması artık 13 Seviye eklentisinin tamamını
 `inc/bundled-plugins/*.zip` altında gömülü halde içerir. Yalnızca temayı
 WordPress'e yükleyip etkinleştirin — otomatik olarak wp-admin'e "Seviye
 Kurulum" adlı bir sayfaya yönlendirilirsiniz; oradaki "Kurulumu Başlat"
-düğmesi WooCommerce'i (yüklü değilse wordpress.org'dan) ve 12 eklentiyi
+düğmesi WooCommerce'i (yüklü değilse wordpress.org'dan) ve 13 eklentiyi
 doğru sırayla kurup etkinleştirir, son adımda ilk Genel Merkez hesabını
 (T.C. Kimlik No + şifre) oluşturur. Ayrıntılar için
 [`theme/README.md`](theme/README.md)'nin "Tek adımlı kurulum" bölümüne
@@ -54,6 +54,7 @@ içindir (her eklentiyi kendi klasöründe `composer install` ile kurmak).
 | Seviye Branches | ✅ Şube entity, Yetkililer (personel ataması), Contracts, REST, RBAC kuruldu; logo yükleme planlandı |
 | Seviye Students | ✅ Öğrenci entity (şube/eğitim yılı/sınıf), veli ile çoktan-çoğa ilişki, REST, RBAC kuruldu |
 | Seviye Parents | ✅ Veli profili (telefon, bildirim tercihi, KVKK onayı), REST, RBAC kuruldu |
+| Seviye Destek | ✅ Veli destek/talep (helpdesk) sistemi - KVKK talebinden ayrı, genel şikayet/soru bildirme ve şube personelinin (ya da HQ'nun) yanıtlayıp kapatabileceği bir ticket akışı (`scp_support_tickets`, `scp_support_messages`), REST, RBAC kuruldu |
 | Seviye Pricing | ✅ Öğrenci/şube/genel kapsamlı özel fiyat kuralları, öncelik-bazlı `PriceResolverInterface`, REST, RBAC kuruldu |
 | Seviye Commerce | ✅ Sepet fiyatlandırma, tema tarafı (ürün sayfası öğrenci seçici, mağaza girişi), sipariş kalıcılığı (`scp_order_line_items`, KDV tutarı dahil), split payment + hakediş event tetikleme, ürün varyantları (beden/renk), düşük stok uyarısı, öğrenci bazlı harcama limiti ve kupon/kampanya kodu sistemi kuruldu (asıl hakediş/cari kaydı Seviye Finance'ın işi) |
 | Seviye Depo | 🟡 Tedarikçi kaydı, satın alma siparişi + mal kabul, append-only stok hareketi defteri (`scp_stock_movements`) ve tema paneli kuruldu (faz 1 - tek merkezi depo modeli); stok sayımı (cycle count) ve depo raporları planlandı |
@@ -79,6 +80,7 @@ cd plugin/seviye-security && composer install && cd -
 cd plugin/seviye-branches && composer install && cd -
 cd plugin/seviye-students && composer install && cd -
 cd plugin/seviye-parents && composer install && cd -
+cd plugin/seviye-destek && composer install && cd -
 cd plugin/seviye-pricing && composer install && cd -
 cd plugin/seviye-commerce && composer install && cd -
 cd plugin/seviye-depo && composer install && cd -
@@ -89,17 +91,19 @@ cd plugin/seviye-api && composer install && cd -
 ```
 
 `plugin/seviye-core`, `plugin/seviye-security`, `plugin/seviye-branches`,
-`plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-pricing`,
-`plugin/seviye-commerce`, `plugin/seviye-depo`, `plugin/seviye-finance`,
-`plugin/seviye-reports`, `plugin/seviye-notifications` ve `plugin/seviye-api`
-klasörlerini WordPress'in `wp-content/plugins/` altına, `theme/seviye-storefront`'u
-ise `wp-content/themes/` altına sembolik link ile bağlayın. Ardından
-WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
-Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye
-Pricing'i**, **Seviye Commerce'i**, **Seviye Depo'yu**, **Seviye Finance'ı**,
+`plugin/seviye-students`, `plugin/seviye-parents`, `plugin/seviye-destek`,
+`plugin/seviye-pricing`, `plugin/seviye-commerce`, `plugin/seviye-depo`,
+`plugin/seviye-finance`, `plugin/seviye-reports`, `plugin/seviye-notifications`
+ve `plugin/seviye-api` klasörlerini WordPress'in `wp-content/plugins/` altına,
+`theme/seviye-storefront`'u ise `wp-content/themes/` altına sembolik link ile
+bağlayın. Ardından WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
+Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye Destek'i**,
+**Seviye Pricing'i**, **Seviye Commerce'i**, **Seviye Depo'yu**, **Seviye Finance'ı**,
 **Seviye Reports'u**, **Seviye Notifications'ı** ve **Seviye API'yi** (bu sırayla —
 Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
-olmasını gerektirir; Pricing hem Branches'ın hem Students'ın Contracts'ını
+olmasını gerektirir; Destek hem Branches'ın hem Students'ın Contracts'ını
+tükettiğinden (ticket'ların şube kapsamı, velinin hangi şubelerin çocuğuna
+sahip olduğu) ikisi de zaten aktif olmalıdır; Pricing hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
 Students'ın ve Pricing'in Contracts'ını tükettiğinden üçü de zaten aktif
 olmalıdır; Finance'ın hakediş defteri Commerce'in event'lerini yalnızca
@@ -123,7 +127,12 @@ aktivasyonu Core'u **ve Branches'ın aktif olduğunu** doğrular (aksi halde
 `scp_students`'ın `scp_branches`'a FK kurması başarısız olur) ve kendi
 migration'larını (`scp_students`, `scp_student_parents`) çalıştırır. Parents
 aktivasyonu yalnızca Core'u doğrular ve kendi migration'unu
-(`scp_parent_profiles`) çalıştırır. Pricing aktivasyonu Core'u, **Branches'ın**
+(`scp_parent_profiles`) çalıştırır. Destek aktivasyonu Core'u, **Branches'ın**
+ve **Students'ın aktif olduğunu** doğrular (ticket'ların şube kapsamı
+Branches'ın Contracts'ını, velinin hangi şubelerin çocuğuna sahip olduğu
+Students'ın `ParentChildrenLookupInterface`'ini tüketir) ve kendi
+migration'larını (`scp_support_tickets`, `scp_support_messages`) çalıştırır.
+Pricing aktivasyonu Core'u, **Branches'ın**
 ve **Students'ın aktif olduğunu** doğrular (aksi halde `scp_price_rules`'ın
 FK'ları kurulamaz) ve kendi migration'unu (`scp_price_rules`) çalıştırır.
 Commerce aktivasyonu Core'u, WooCommerce'in aktif olduğunu, **Branches'ın**,

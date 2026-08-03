@@ -178,8 +178,29 @@ final class AuthRestController extends AbstractRestController
         return new WP_REST_Response([
             'success' => true,
             'roles' => $roles,
-            'redirect_url' => RoleRouter::landingPathFor($roles),
+            'redirect_url' => $this->landingPathFor($userId, $roles),
         ]);
+    }
+
+    /**
+     * "Tedarikçi portalı" - Role enum'ın kapalı kümesine dokunmadan, RoleRouter
+     * (WP fonksiyonu çağırmayan, saf PHP olarak kalması gereken bir sınıf -
+     * bkz. RoleRouter'ın kendi docblock'u) yerine burada, WP'ye duyarlı
+     * Http katmanında kontrol edilir. Depo yüklü değilse/tedarikçi bağlı
+     * değilse filtre hiçbir şey döndürmez ve normal RoleRouter akışına
+     * düşülür.
+     *
+     * @param list<string> $roles
+     */
+    private function landingPathFor(int $userId, array $roles): string
+    {
+        $supplierId = apply_filters('scp_depo_supplier_id_for_user', null, $userId);
+
+        if ($supplierId !== null) {
+            return '/tedarikci';
+        }
+
+        return RoleRouter::landingPathFor($roles);
     }
 
     public function forgotPassword(WP_REST_Request $request): WP_REST_Response

@@ -134,6 +134,10 @@
                 passwordForm.reset();
                 passwordStatusEl.classList.remove('scp-status--error');
                 passwordStatusEl.textContent = scpPanelText.passwordChanged;
+
+                if (typeof window.scpSuccessPulse === 'function') {
+                    window.scpSuccessPulse(passwordStatusEl);
+                }
             });
         });
     }

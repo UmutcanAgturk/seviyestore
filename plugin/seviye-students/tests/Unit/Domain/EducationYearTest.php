@@ -64,4 +64,9 @@ final class EducationYearTest extends TestCase
 
         EducationYear::fromString('not-a-year');
     }
+
+    public function testNextReturnsTheImmediatelyFollowingYear(): void
+    {
+        self::assertSame('2026-2027', EducationYear::fromString('2025-2026')->next()->value());
+    }
 }

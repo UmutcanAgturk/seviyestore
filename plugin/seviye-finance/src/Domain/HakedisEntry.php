@@ -22,6 +22,10 @@ namespace Seviye\Finance\Domain;
  * "negative VAT" concept to represent here. It exists purely as captured
  * accounting data for Seviye Reports (not yet built) to consume later; this
  * module makes no use of it itself.
+ *
+ * `refundId` is null for EARNED/REVERSED (stored as the DB sentinel 0 -
+ * see the refund_id column's docblock in CreateHakedisEntriesTable), and
+ * the WooCommerce refund post ID for PARTIAL_REVERSAL.
  */
 final class HakedisEntry
 {
@@ -35,7 +39,8 @@ final class HakedisEntry
         public readonly float $commissionRate,
         public readonly float $price,
         public readonly float $vatAmount,
-        public readonly HakedisEntryType $type
+        public readonly HakedisEntryType $type,
+        public readonly ?int $refundId = null
     ) {
     }
 }

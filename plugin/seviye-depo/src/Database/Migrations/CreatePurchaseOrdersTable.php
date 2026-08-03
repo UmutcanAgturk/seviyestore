@@ -17,6 +17,12 @@ use Seviye\Core\Database\MigrationInterface;
  * varsayılanı (RESTRICT) geçerli, scp_students.branch_id ile aynı ilke:
  * aktif/geçmiş satın alma siparişi olan bir tedarikçi sessizce
  * silinemesin. Bkz. WpdbSupplierRepository::delete().
+ *
+ * supplier_shipped_at (nullable) - "Tedarikçi portalı": tedarikçinin
+ * kendisinin "gönderdim" olarak işaretlediği an. Kasıtlı olarak `status`'u
+ * DEĞİŞTİRMEZ - okulun "mal kabul" (receive) akışından tamamen ayrı, salt
+ * bilgilendirme amaçlı bir alan; okul fiziksel teslimat gerçekten
+ * geldiğinde kendi ayrı receive() akışını yine kendisi tetikler.
  */
 final class CreatePurchaseOrdersTable implements MigrationInterface
 {
@@ -44,6 +50,7 @@ final class CreatePurchaseOrdersTable implements MigrationInterface
             expected_date DATE NULL,
             note TEXT NULL,
             created_by BIGINT UNSIGNED NOT NULL,
+            supplier_shipped_at DATETIME NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),

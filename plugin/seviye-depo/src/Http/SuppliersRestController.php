@@ -68,13 +68,20 @@ final class SuppliersRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('Tedarikçi adı gerekli.', 'seviye-depo')], 422);
         }
 
+        [$userId, $error] = $this->resolvePortalUserId($request);
+
+        if ($error !== null) {
+            return new WP_REST_Response(['message' => $error], 422);
+        }
+
         $supplier = $this->suppliers->create(
             $name,
             $this->nullableParam($request, 'contact_name'),
             $this->nullableParam($request, 'phone'),
             $this->nullableParam($request, 'email'),
             $this->nullableParam($request, 'tax_number'),
-            $this->nullableParam($request, 'address')
+            $this->nullableParam($request, 'address'),
+            $userId
         );
 
         return new WP_REST_Response($this->serialize($supplier), 201);
@@ -91,6 +98,12 @@ final class SuppliersRestController extends AbstractRestController
         $status = SupplierStatus::tryFrom((string) ($request->get_param('status') ?? SupplierStatus::ACTIVE->value))
             ?? SupplierStatus::ACTIVE;
 
+        [$userId, $error] = $this->resolvePortalUserId($request);
+
+        if ($error !== null) {
+            return new WP_REST_Response(['message' => $error], 422);
+        }
+
         $supplier = $this->suppliers->update(
             (int) $request->get_param('id'),
             $name,
@@ -99,10 +112,40 @@ final class SuppliersRestController extends AbstractRestController
             $this->nullableParam($request, 'email'),
             $this->nullableParam($request, 'tax_number'),
             $this->nullableParam($request, 'address'),
-            $status
+            $status,
+            $userId
         );
 
         return new WP_REST_Response($this->serialize($supplier));
+    }
+
+    /**
+     * "Tedarikçi portalı" - HQ, tedarikçiyi bir WP hesabına kullanıcı
+     * adı/e-postasıyla bağlar (ham bir kullanıcı ID'si girdirmek yerine -
+     * daha az hataya açık). Boş bırakılırsa bağlantı kaldırılır
+     * (user_id null). Çözülemeyen bir değer sessizce yok sayılmak yerine
+     * net bir hata döner - aksi halde HQ'nun yazım hatası fark edilmeden
+     * "bağlantısız" bir tedarikçi oluştururdu.
+     *
+     * @return array{0: ?int, 1: ?string}
+     */
+    private function resolvePortalUserId(WP_REST_Request $request): array
+    {
+        $identifier = trim((string) ($request->get_param('user_email') ?? ''));
+
+        if ($identifier === '') {
+            return [null, null];
+        }
+
+        $user = get_user_by('email', $identifier) ?: get_user_by('login', $identifier);
+
+        if ($user === false) {
+            $message = __('Bu kullanıcı adı/e-posta ile eşleşen bir WordPress hesabı bulunamadı.', 'seviye-depo');
+
+            return [null, $message];
+        }
+
+        return [(int) $user->ID, null];
     }
 
     public function destroy(WP_REST_Request $request): WP_REST_Response
@@ -128,6 +171,8 @@ final class SuppliersRestController extends AbstractRestController
      */
     private function serialize(Supplier $supplier): array
     {
+        $portalUser = $supplier->userId !== null ? get_userdata($supplier->userId) : false;
+
         return [
             'id' => $supplier->id,
             'name' => $supplier->name,
@@ -137,6 +182,7 @@ final class SuppliersRestController extends AbstractRestController
             'tax_number' => $supplier->taxNumber,
             'address' => $supplier->address,
             'status' => $supplier->status->value,
+            'portal_user_email' => $portalUser !== false ? $portalUser->user_email : null,
         ];
     }
 
@@ -153,6 +199,7 @@ final class SuppliersRestController extends AbstractRestController
             'tax_number' => ['required' => false, 'type' => 'string'],
             'address' => ['required' => false, 'type' => 'string'],
             'status' => ['required' => false, 'type' => 'string'],
+            'user_email' => ['required' => false, 'type' => 'string'],
         ];
     }
 }

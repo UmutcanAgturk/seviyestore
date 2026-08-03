@@ -221,6 +221,23 @@ button.scp-badge:hover {
   border-bottom: 1px solid var(--scp-border);
 }
 
+.scp-support-message {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--scp-radius-sm);
+  background: var(--scp-surface-alt);
+}
+
+.scp-support-message--staff {
+  background: var(--scp-primary-bg);
+}
+
+.scp-support-message__meta {
+  font-size: 0.75rem;
+  color: var(--scp-text-muted);
+  margin-bottom: 4px;
+}
+
 .scp-form {
   margin-top: 16px;
 }
@@ -633,5 +650,690 @@ button.scp-badge:hover {
 
   .scp-hakedis-stats {
     gap: 20px 24px;
+  }
+}
+
+/*
+ * ============================================================
+ * Design system pass: kebab menu, grouped list/table, toast,
+ * modal/action-sheet, form variants, empty states, command
+ * palette, skeleton loading, module identity tiles, notification
+ * center. Built on top of theme.css's token set (--scp-space-*,
+ * --scp-text-*, --scp-shadow-*, --scp-ease/--scp-duration-*)
+ * rather than inventing a second set of hardcoded values.
+ * ============================================================
+ */
+
+/* ---- Grouped table (denser header, zebra rows, sticky header) ---- */
+
+.scp-table--grouped thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.scp-table--grouped tbody tr:nth-child(even) {
+  background: var(--scp-surface-alt);
+}
+
+.scp-table--grouped tbody tr:nth-child(even):hover {
+  background: var(--scp-primary-bg);
+}
+
+/* ---- Kebab (⋮) overflow menu - a single reusable pattern for row actions
+   that don't fit as inline buttons. Markup convention (wired by
+   assets/js/scp-ui-kit.js):
+   <div class="scp-kebab" data-scp-kebab>
+     <button type="button" class="scp-kebab__toggle" aria-haspopup="true" aria-expanded="false">⋮</button>
+     <div class="scp-kebab__menu" role="menu" hidden>...buttons/links...</div>
+   </div> */
+
+.scp-kebab {
+  position: relative;
+  display: inline-block;
+}
+
+.scp-kebab__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--scp-radius-sm);
+  background: transparent;
+  color: var(--scp-text-muted);
+  font-size: 1.125rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--scp-duration-fast) var(--scp-ease), color var(--scp-duration-fast) var(--scp-ease);
+}
+
+.scp-kebab__toggle:hover,
+.scp-kebab__toggle[aria-expanded="true"] {
+  background: var(--scp-surface-alt);
+  color: var(--scp-text);
+}
+
+.scp-kebab__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 180px;
+  padding: 6px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  box-shadow: var(--scp-shadow-2);
+  z-index: 30;
+}
+
+.scp-kebab__menu[hidden] {
+  display: none;
+}
+
+.scp-kebab__menu button,
+.scp-kebab__menu a {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--scp-text);
+  font: inherit;
+  font-size: var(--scp-text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.scp-kebab__menu button:hover,
+.scp-kebab__menu a:hover {
+  background: var(--scp-surface-alt);
+}
+
+.scp-kebab__menu button.scp-kebab__item--danger {
+  color: var(--scp-danger);
+}
+
+/* ---- Toast notifications - transient, stacked, top-right. See
+   assets/js/scp-ui-kit.js's scpToast(message, variant). Host element
+   (#scp-toast-host) is injected once by that script. ---- */
+
+.scp-toast-host {
+  position: fixed;
+  top: calc(var(--scp-header-height) + 16px);
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+.scp-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-left: 3px solid var(--scp-primary);
+  border-radius: var(--scp-radius-sm);
+  box-shadow: var(--scp-shadow-2);
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text);
+  animation: scp-toast-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-toast--success {
+  border-left-color: var(--scp-accent);
+}
+
+.scp-toast--error {
+  border-left-color: var(--scp-danger);
+}
+
+.scp-toast--leaving {
+  animation: scp-toast-out var(--scp-duration-base) var(--scp-ease-in) forwards;
+}
+
+@keyframes scp-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scp-toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+/* ---- Modal / action-sheet - a single overlay+panel pattern for
+   confirmations and small forms that don't warrant a full page. See
+   assets/js/scp-ui-kit.js's scpModal({ title, body, actions }). On a
+   narrow viewport it becomes a bottom action-sheet instead of a centered
+   dialog (see the max-width:640px override below). ---- */
+
+.scp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(16, 24, 40, 0.45);
+  animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-modal {
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  background: var(--scp-surface);
+  border-radius: var(--scp-radius-lg);
+  box-shadow: var(--scp-shadow-3);
+  animation: scp-modal-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-modal h2 {
+  margin: 0 0 8px;
+  font-size: var(--scp-text-md);
+}
+
+.scp-modal p {
+  margin: 0 0 20px;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-base);
+}
+
+.scp-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@keyframes scp-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scp-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .scp-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .scp-modal {
+    max-width: none;
+    border-radius: var(--scp-radius-lg) var(--scp-radius-lg) 0 0;
+    animation-name: scp-sheet-in;
+  }
+
+  @keyframes scp-sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ---- Borderless form variant + segmented control ---- */
+
+.scp-form--borderless input,
+.scp-form--borderless select,
+.scp-form--borderless textarea {
+  border: none;
+  border-bottom: 1px solid var(--scp-border);
+  border-radius: 0;
+  padding-left: 2px;
+  padding-right: 2px;
+  background: transparent;
+}
+
+.scp-form--borderless input:focus,
+.scp-form--borderless select:focus,
+.scp-form--borderless textarea:focus {
+  border-bottom-color: var(--scp-primary);
+  box-shadow: none;
+}
+
+.scp-segmented {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius-sm);
+  gap: 2px;
+}
+
+.scp-segmented__option {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--scp-text-muted);
+  font: inherit;
+  font-size: var(--scp-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--scp-duration-fast) var(--scp-ease), color var(--scp-duration-fast) var(--scp-ease);
+}
+
+.scp-segmented__option:hover {
+  color: var(--scp-text);
+}
+
+.scp-segmented__option[aria-pressed="true"] {
+  background: var(--scp-surface);
+  color: var(--scp-text);
+  box-shadow: var(--scp-shadow-1);
+}
+
+/* ---- Empty states - icon + message + optional action, replacing a bare
+   .scp-empty text block where a section can usefully suggest what to do
+   next. ---- */
+
+.scp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--scp-text-muted);
+}
+
+.scp-empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--scp-surface-alt);
+  color: var(--scp-text-muted);
+}
+
+.scp-empty-state__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.scp-empty-state h3 {
+  margin: 4px 0 0;
+  font-size: var(--scp-text-md);
+  color: var(--scp-text);
+}
+
+.scp-empty-state p {
+  margin: 0;
+  max-width: 320px;
+  font-size: var(--scp-text-sm);
+}
+
+/* ---- Skeleton loading - a shimmering placeholder shown while a panel's
+   first fetch is in flight (assets/js/scp-ui-kit.js's scpSkeleton()).
+   Kept to solid blocks (no per-component skeleton shapes) so one utility
+   covers table bodies, stat tiles and lists alike. ---- */
+
+.scp-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: scp-skeleton-sweep 1.4s var(--scp-ease) infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .scp-skeleton::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  }
+}
+
+@keyframes scp-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.scp-skeleton-row {
+  height: 16px;
+  margin: 8px 0;
+}
+
+/* ---- Success animation - a small check-in-circle burst shown after a
+   save completes (scpSuccessPulse() in scp-ui-kit.js targets a status
+   element, e.g. [data-scp-*-status], and briefly appends this class). ---- */
+
+.scp-status--success-pulse::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  border-radius: 999px;
+  background: var(--scp-accent);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  animation: scp-pop var(--scp-duration-slow) var(--scp-ease);
+}
+
+@keyframes scp-pop {
+  0% {
+    transform: scale(0);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---- Command palette (Cmd+K / Ctrl+K) - see assets/js/scp-ui-kit.js.
+   Scrapes .scp-quicknav's already permission-correct links, so it never
+   duplicates capability logic. ---- */
+
+.scp-command-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  background: transparent;
+  color: var(--scp-text-muted);
+  font: inherit;
+  font-size: var(--scp-text-sm);
+  cursor: pointer;
+  transition: border-color var(--scp-duration-fast) var(--scp-ease), color var(--scp-duration-fast) var(--scp-ease);
+}
+
+.scp-command-trigger:hover {
+  border-color: var(--scp-primary-light);
+  color: var(--scp-primary);
+}
+
+.scp-command-trigger kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--scp-border);
+  border-radius: 4px;
+  background: var(--scp-surface-alt);
+  font-family: var(--scp-font-mono);
+  font-size: 0.6875rem;
+}
+
+.scp-command-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 24px 24px;
+  background: rgba(16, 24, 40, 0.45);
+  animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-command-palette {
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  background: var(--scp-surface);
+  border-radius: var(--scp-radius-lg);
+  box-shadow: var(--scp-shadow-3);
+  animation: scp-modal-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-command-palette__input {
+  width: 100%;
+  padding: 18px 20px;
+  border: none;
+  border-bottom: 1px solid var(--scp-border);
+  font: inherit;
+  font-size: var(--scp-text-md);
+  color: var(--scp-text);
+  background: transparent;
+}
+
+.scp-command-palette__input:focus {
+  outline: none;
+}
+
+.scp-command-palette__list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+
+.scp-command-palette__item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--scp-radius-sm);
+  color: var(--scp-text);
+  text-decoration: none;
+  font-size: var(--scp-text-base);
+}
+
+.scp-command-palette__item--active {
+  background: var(--scp-primary-bg);
+  color: var(--scp-primary);
+}
+
+.scp-command-palette__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+}
+
+/* ---- Module identity - a colored icon tile per module, used on the
+   quicknav/dashboard entry points so each module reads as its own place
+   rather than an identical pill. Palette assigns a semantic color per
+   module family; icon glyph comes from the (already-loaded) inline SVG
+   sprite - see templates/partials/icon.php. ---- */
+
+.scp-module-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  text-decoration: none;
+  color: var(--scp-text);
+  transition: box-shadow var(--scp-duration-base) var(--scp-ease), transform var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-module-tile:hover {
+  box-shadow: var(--scp-shadow-2);
+  transform: translateY(-1px);
+}
+
+.scp-module-tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  color: #fff;
+}
+
+.scp-module-tile__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.scp-module-tile__label {
+  font-weight: 600;
+  font-size: var(--scp-text-base);
+}
+
+.scp-module-tile--students .scp-module-tile__icon { background: #2563eb; }
+.scp-module-tile--branches .scp-module-tile__icon { background: #7c3aed; }
+.scp-module-tile--products .scp-module-tile__icon { background: #0f9d63; }
+.scp-module-tile--orders .scp-module-tile__icon { background: #ea580c; }
+.scp-module-tile--pricing .scp-module-tile__icon { background: #0891b2; }
+.scp-module-tile--depo .scp-module-tile__icon { background: #a16207; }
+.scp-module-tile--hakedis .scp-module-tile__icon { background: #be123c; }
+.scp-module-tile--reports .scp-module-tile__icon { background: #4338ca; }
+.scp-module-tile--support .scp-module-tile__icon { background: #0d9488; }
+.scp-module-tile--settings .scp-module-tile__icon { background: #475569; }
+
+/* .scp-quicknav a's own pill styling (theme.css) is more specific than
+   .scp-module-tile alone (two classes beat one), so the quicknav's own
+   variant needs its own override: a smaller tile that still fits the
+   quicknav's flex-wrap row, and no color-invert hover (the tile already
+   has its own hover treatment above). */
+.scp-quicknav a.scp-module-tile {
+  display: flex;
+  padding: 8px 14px 8px 8px;
+  border-radius: var(--scp-radius-lg, 12px);
+}
+
+.scp-quicknav a.scp-module-tile:hover {
+  color: var(--scp-text);
+  background: var(--scp-surface);
+}
+
+.scp-quicknav a.scp-module-tile .scp-module-tile__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.scp-quicknav a.scp-module-tile .scp-module-tile__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.scp-quicknav a.scp-module-tile .scp-module-tile__label {
+  font-size: var(--scp-text-sm);
+}
+
+/* Drag-reorder handle for the quicknav's own section order (persisted
+   client-side only - see scpQuicknavReorder() in scp-ui-kit.js; server-side
+   section VISIBILITY still comes entirely from capability checks, this
+   only reorders what a user already has access to). */
+.scp-quicknav a[draggable="true"] {
+  cursor: grab;
+}
+
+.scp-quicknav a.scp-quicknav--dragging {
+  opacity: 0.5;
+}
+
+/* ---- Accessibility: a single, visible focus ring everywhere, only when
+   navigating by keyboard (:focus-visible), instead of relying on each
+   component's own ad hoc :focus rule. ---- */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--scp-primary-light);
+  outline-offset: 2px;
+}
+
+.scp-skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--scp-primary);
+  color: #fff;
+  border-radius: var(--scp-radius-sm);
+  text-decoration: none;
+  font-size: var(--scp-text-sm);
+  font-weight: 700;
+  transition: top var(--scp-duration-fast) var(--scp-ease);
+}
+
+.scp-skip-link:focus {
+  top: 8px;
+}
+
+/* ---- Large-title scroll: .scp-panel h1 shrinks slightly once the page
+   scrolls past it (toggled via .scp-panel--scrolled, added by
+   scp-ui-kit.js's IntersectionObserver on .scp-panel h1), the same
+   large-title-collapses-into-the-header feel iOS navigation bars use. ---- */
+
+.scp-panel h1 {
+  transition: font-size var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-site-header--scrolled .scp-site-header__brand-link {
+  font-size: 1rem;
+  transition: font-size var(--scp-duration-base) var(--scp-ease);
+}
+
+/* ---- Responsive: a third (tablet) tier between the existing 640px phone
+   breakpoint and unconstrained desktop, so a table/grid-heavy panel isn't
+   forced to either the full 1100px desktop layout or the fully-stacked
+   phone layout on an iPad-width viewport. ---- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .scp-panel {
+    max-width: 100%;
+    padding: 0 20px;
+  }
+
+  .scp-stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .scp-form__row {
+    gap: 10px;
   }
 }

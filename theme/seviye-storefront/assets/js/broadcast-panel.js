@@ -23,11 +23,20 @@
     var form = root.querySelector('[data-scp-broadcast-form]');
     var branchField = root.querySelector('[data-scp-broadcast-branch-field]');
     var branchSelect = branchField.querySelector('select');
+    var scheduledStatusEl = root.querySelector('[data-scp-broadcast-scheduled-status]');
+    var scheduledTable = root.querySelector('[data-scp-broadcast-scheduled-table]');
+    var scheduledBody = root.querySelector('[data-scp-broadcast-scheduled-body]');
     var apiFetch = scpApiFetch;
+    var branchNames = {};
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
+    }
+
+    function setScheduledStatus(message, isError) {
+        scheduledStatusEl.textContent = message || '';
+        scheduledStatusEl.classList.toggle('scp-status--error', Boolean(isError));
     }
 
     function populateBranchSelect(branches) {
@@ -44,6 +53,7 @@
             option.value = String(branch.id);
             option.textContent = branch.name;
             branchSelect.appendChild(option);
+            branchNames[branch.id] = branch.name;
         });
     }
 
@@ -65,6 +75,96 @@
         return channels;
     }
 
+    function scheduledStatusLabel(status) {
+        return scpPanelText['broadcastScheduledStatus_' + status] || status;
+    }
+
+    function scheduledStatusBadgeClass(status) {
+        if (status === 'sent') {
+            return 'scp-badge--active';
+        }
+
+        if (status === 'cancelled') {
+            return 'scp-badge--inactive';
+        }
+
+        return 'scp-badge--warning';
+    }
+
+    function renderScheduled(broadcasts) {
+        scheduledBody.innerHTML = '';
+
+        if (broadcasts.length === 0) {
+            scheduledTable.hidden = true;
+            setScheduledStatus(scpPanelText.broadcastNoScheduled);
+            return;
+        }
+
+        scheduledTable.hidden = false;
+        setScheduledStatus('');
+
+        broadcasts.forEach(function (broadcast) {
+            var row = document.createElement('tr');
+
+            var subjectCell = document.createElement('td');
+            subjectCell.textContent = broadcast.subject;
+            row.appendChild(subjectCell);
+
+            var branchCell = document.createElement('td');
+            branchCell.textContent = broadcast.branch_id
+                ? (branchNames[broadcast.branch_id] || String(broadcast.branch_id))
+                : scpPanelText.allBranches;
+            row.appendChild(branchCell);
+
+            var scheduledAtCell = document.createElement('td');
+            scheduledAtCell.textContent = broadcast.scheduled_at;
+            row.appendChild(scheduledAtCell);
+
+            var statusCell = document.createElement('td');
+            var badge = document.createElement('span');
+            badge.className = 'scp-badge ' + scheduledStatusBadgeClass(broadcast.status);
+            badge.textContent = scheduledStatusLabel(broadcast.status);
+            statusCell.appendChild(badge);
+            row.appendChild(statusCell);
+
+            var actionsCell = document.createElement('td');
+
+            if (broadcast.status === 'pending') {
+                var cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                cancelButton.textContent = scpPanelText.broadcastCancelScheduled;
+                cancelButton.addEventListener('click', function () {
+                    apiFetch('notifications/broadcast/scheduled/' + broadcast.id, { method: 'DELETE' }).then(
+                        function (result) {
+                            if (!result.ok) {
+                                setScheduledStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                                return;
+                            }
+
+                            loadScheduled();
+                        }
+                    );
+                });
+                actionsCell.appendChild(cancelButton);
+            }
+
+            row.appendChild(actionsCell);
+            scheduledBody.appendChild(row);
+        });
+    }
+
+    function loadScheduled() {
+        apiFetch('notifications/broadcast/scheduled').then(function (result) {
+            if (!result.ok) {
+                setScheduledStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                return;
+            }
+
+            renderScheduled(result.data);
+        });
+    }
+
     form.addEventListener('submit', function (event) {
         event.preventDefault();
 
@@ -76,6 +176,10 @@
 
         if (scpPanel.canViewAllBranches && branchSelect.value) {
             payload.branch_id = Number(branchSelect.value);
+        }
+
+        if (form.scheduled_at.value) {
+            payload.scheduled_at = form.scheduled_at.value;
         }
 
         apiFetch('notifications/broadcast', {
@@ -90,6 +194,13 @@
             form.reset();
             form.channel_email.checked = true;
             form.channel_panel.checked = true;
+
+            if (result.data.scheduled_at) {
+                setStatus(scpPanelText.broadcastScheduled);
+                loadScheduled();
+                return;
+            }
+
             setStatus(
                 result.data.recipient_count
                     + ' ' + scpPanelText.broadcastSentSuffix
@@ -104,4 +215,6 @@
             }
         });
     }
+
+    loadScheduled();
 })();

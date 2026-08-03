@@ -80,4 +80,53 @@ final class HakedisEventListenerTest extends TestCase
         self::assertCount(1, $repository->entries);
         self::assertSame(25.0, $repository->balanceForBranch(7));
     }
+
+    public function testOnOrderLineItemPartiallyReversedRecordsAFractionOfTheBranchShare(): void
+    {
+        $repository = new FakeHakedisRepository();
+        $listener = new HakedisEventListener($repository);
+
+        $payload = $this->payload() + ['refund_id' => 900, 'reversal_ratio' => 0.4];
+        $listener->onOrderLineItemPartiallyReversed(new Event('commerce.order_line_item_partially_reversed', $payload));
+
+        self::assertCount(1, $repository->entries);
+        $entry = $repository->entries[0];
+        self::assertSame(-10.0, $entry->amount);
+        self::assertSame(HakedisEntryType::PARTIAL_REVERSAL, $entry->type);
+        self::assertSame(900, $entry->refundId);
+        self::assertSame(-10.0, $repository->balanceForBranch(7));
+    }
+
+    public function testTwoDistinctRefundsOnTheSameItemBothRecordTheirOwnPartialReversal(): void
+    {
+        $repository = new FakeHakedisRepository();
+        $listener = new HakedisEventListener($repository);
+
+        $listener->onOrderLineItemPartiallyReversed(new Event(
+            'commerce.order_line_item_partially_reversed',
+            $this->payload() + ['refund_id' => 900, 'reversal_ratio' => 0.4]
+        ));
+        $listener->onOrderLineItemPartiallyReversed(new Event(
+            'commerce.order_line_item_partially_reversed',
+            $this->payload() + ['refund_id' => 901, 'reversal_ratio' => 0.2]
+        ));
+
+        self::assertCount(2, $repository->entries);
+        self::assertSame(-15.0, $repository->balanceForBranch(7));
+    }
+
+    public function testReplayingTheSameRefundIdIsIgnored(): void
+    {
+        $repository = new FakeHakedisRepository();
+        $listener = new HakedisEventListener($repository);
+
+        $event = new Event(
+            'commerce.order_line_item_partially_reversed',
+            $this->payload() + ['refund_id' => 900, 'reversal_ratio' => 0.4]
+        );
+        $listener->onOrderLineItemPartiallyReversed($event);
+        $listener->onOrderLineItemPartiallyReversed($event);
+
+        self::assertCount(1, $repository->entries);
+    }
 }

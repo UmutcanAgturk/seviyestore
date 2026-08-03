@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * The first real cross-plugin check this platform has: that all 12 plugins
+ * The first real cross-plugin check this platform has: that all 13 plugins
  * actually boot together against a real WordPress + MySQL (not each
  * plugin's own isolated unit-test fakes), and that Core's migrations
  * actually create real tables - two things no single plugin's own
@@ -22,6 +22,7 @@ final class PluginActivationTest extends WP_UnitTestCase
             'seviye-branches/seviye-branches.php',
             'seviye-students/seviye-students.php',
             'seviye-parents/seviye-parents.php',
+            'seviye-destek/seviye-destek.php',
             'seviye-pricing/seviye-pricing.php',
             'seviye-commerce/seviye-commerce.php',
             'seviye-depo/seviye-depo.php',

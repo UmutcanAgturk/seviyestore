@@ -34,6 +34,14 @@ interface PurchaseOrderRepositoryInterface
     public function cancel(int $id): void;
 
     /**
+     * "Tedarikçi portalı" - tedarikçinin kendi bildirdiği kargo/gönderim
+     * bilgisi. Yalnızca bilgilendirme amaçlıdır, status'u DEĞİŞTİRMEZ ve
+     * okulun kendi mal kabul akışından (receiveItem()) tamamen ayrıdır -
+     * bkz. CreatePurchaseOrdersTable'ın supplier_shipped_at docblock'u.
+     */
+    public function markShipped(int $id): void;
+
+    /**
      * Increments the item's quantity_received by $quantity, then
      * recalculates and persists the parent purchase order's status
      * (sent -> partially_received -> completed, see

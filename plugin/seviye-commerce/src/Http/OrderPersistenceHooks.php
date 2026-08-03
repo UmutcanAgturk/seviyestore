@@ -42,7 +42,10 @@ use WC_Order_Refund;
  * and `commerce.order_refunded` (fired from WooCommerce's own
  * `woocommerce_order_refunded` hook rather than the status-changed one,
  * because a PARTIAL refund never changes the order's status off
- * `completed` - see onOrderRefunded()'s own docblock).
+ * `completed` - see onOrderRefunded()'s own docblock), which ALSO fires
+ * `commerce.order_line_item_partially_reversed` per item (Finance's
+ * proportional reversal - a real gap this platform used to just document,
+ * not fill; see AdminOrdersRestController::refund()'s docblock history).
  */
 final class OrderPersistenceHooks
 {
@@ -188,6 +191,17 @@ final class OrderPersistenceHooks
      * partially-refunded order's status off `completed`). Using this hook
      * instead of syncOrderStatus()'s is what makes a partial refund's
      * customer notification fire at all.
+     *
+     * "Kısmi iade -> hakediş orantılı ters kayıt": also fires a proportional
+     * hakediş reversal per line item, but ONLY when the order is not now
+     * fully refunded - `get_remaining_refund_amount()` reflects the order's
+     * true current state regardless of exactly when in WooCommerce's own
+     * internal sequence this hook runs relative to the status-changed one,
+     * so checking it here (rather than assuming full vs. partial from this
+     * single refund's own amount) is what prevents double-reversing: a full
+     * refund's 100% reversal is syncOrderStatus()'s job (via
+     * HAKEDIS_REVERSAL_STATUSES), firing both here would double-count the
+     * same money reversed twice.
      */
     public function onOrderRefunded(int $orderId, int $refundId): void
     {
@@ -203,12 +217,30 @@ final class OrderPersistenceHooks
         $payload['reason'] = $refund->get_reason();
 
         $this->eventBus->dispatch(new Event('commerce.order_refunded', $payload));
+
+        $orderTotal = (float) $order->get_total();
+
+        if ($orderTotal > 0.0 && (float) $order->get_remaining_refund_amount() > 0.0) {
+            $ratio = min(1.0, (float) $refund->get_amount() / $orderTotal);
+            $this->firePartialHakedisReversal($orderId, $refundId, $ratio);
+        }
     }
 
     private function fireHakedisEvents(int $orderId, string $eventName): void
     {
         foreach ($this->orderLineItems->findByOrder($orderId) as $item) {
             $this->eventBus->dispatch(new Event($eventName, $this->hakedisPayload($item)));
+        }
+    }
+
+    private function firePartialHakedisReversal(int $orderId, int $refundId, float $ratio): void
+    {
+        foreach ($this->orderLineItems->findByOrder($orderId) as $item) {
+            $payload = $this->hakedisPayload($item);
+            $payload['refund_id'] = $refundId;
+            $payload['reversal_ratio'] = $ratio;
+
+            $this->eventBus->dispatch(new Event('commerce.order_line_item_partially_reversed', $payload));
         }
     }
 

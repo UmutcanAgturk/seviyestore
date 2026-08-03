@@ -45,6 +45,47 @@ final class WpdbHakedisRepositoryTest extends TestCase
         self::assertFalse($repository->entryExists(500, 3, HakedisEntryType::EARNED));
     }
 
+    public function testRecordPersistsARefundIdForAPartialReversal(): void
+    {
+        $connection = new FakeConnection();
+        $connection->nextInsertId = 6;
+        $connection->resultsToReturn = [
+            $this->row(6, 7, 500, 3, 42, '-10.00', '12.50', '200.00', '36.00', 'partial_reversal', 900),
+        ];
+        $repository = new WpdbHakedisRepository($connection);
+
+        $entry = $repository->record(7, 500, 3, 42, -10.0, 12.5, 200.0, 36.0, HakedisEntryType::PARTIAL_REVERSAL, 900);
+
+        self::assertSame(900, $entry->refundId);
+        [, $data] = $connection->inserted[0];
+        self::assertSame(900, $data['refund_id']);
+    }
+
+    public function testRecordDefaultsRefundIdToTheZeroSentinelWhenNull(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [$this->row(5, 7, 500, 3, 42, '25.00', '12.50', '200.00', '36.00', 'earned')];
+        $repository = new WpdbHakedisRepository($connection);
+
+        $entry = $repository->record(7, 500, 3, 42, 25.0, 12.5, 200.0, 36.0, HakedisEntryType::EARNED);
+
+        self::assertNull($entry->refundId);
+        [, $data] = $connection->inserted[0];
+        self::assertSame(0, $data['refund_id']);
+    }
+
+    public function testEntryExistsScopesToTheGivenRefundId(): void
+    {
+        $connection = new FakeConnection();
+        $repository = new WpdbHakedisRepository($connection);
+
+        $connection->resultsToReturn = [['id' => '1']];
+        self::assertTrue($repository->entryExists(500, 3, HakedisEntryType::PARTIAL_REVERSAL, 900));
+
+        $connection->resultsToReturn = [];
+        self::assertFalse($repository->entryExists(500, 3, HakedisEntryType::PARTIAL_REVERSAL, 901));
+    }
+
     public function testBalanceForBranchSumsSignedAmounts(): void
     {
         $connection = new FakeConnection();
@@ -76,7 +117,8 @@ final class WpdbHakedisRepositoryTest extends TestCase
         string $commissionRate,
         string $price,
         string $vatAmount,
-        string $type
+        string $type,
+        int $refundId = 0
     ): array {
         return [
             'id' => (string) $id,
@@ -89,6 +131,7 @@ final class WpdbHakedisRepositoryTest extends TestCase
             'price' => $price,
             'vat_amount' => $vatAmount,
             'type' => $type,
+            'refund_id' => (string) $refundId,
         ];
     }
 }

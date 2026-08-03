@@ -74,7 +74,12 @@
     function loadList() {
         statusEl.textContent = '';
         statusEl.classList.remove('scp-status--error');
-        list.innerHTML = '';
+
+        if (typeof window.scpSkeletonRows === 'function') {
+            window.scpSkeletonRows(list, 3);
+        } else {
+            list.innerHTML = '';
+        }
 
         apiFetch('notifications/mine').then(function (result) {
             if (!result.ok) {

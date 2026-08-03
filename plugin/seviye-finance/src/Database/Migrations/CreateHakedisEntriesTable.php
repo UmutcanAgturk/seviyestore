@@ -16,18 +16,27 @@ use Seviye\Core\Database\MigrationInterface;
  * branch/student was later deleted would be exactly the kind of
  * irreversible data loss this platform avoids by design).
  *
- * The UNIQUE (order_id, order_item_id, type) constraint is an idempotency
- * guard: if `commerce.order_line_item_completed`/`_reversed` were ever
- * dispatched twice for the same order item (WooCommerce is expected not to
- * do this, but a ledger is exactly the wrong place to merely assume that),
- * a second INSERT attempt fails instead of silently double-crediting a
- * branch.
+ * The UNIQUE (order_id, order_item_id, type, refund_id) constraint is an
+ * idempotency guard: if `commerce.order_line_item_completed`/`_reversed`/
+ * `_partially_reversed` were ever dispatched twice for the same order item
+ * (WooCommerce is expected not to do this, but a ledger is exactly the
+ * wrong place to merely assume that), a second INSERT attempt fails
+ * instead of silently double-crediting/double-reversing a branch.
  *
  * vat_amount snapshots Commerce's own vat_amount (Seviye\Commerce\Domain\
  * OrderLineItem, itself WooCommerce's tax calculation) - added alongside
  * amount/price rather than in a separate migration, since this table has
  * never been deployed to a live install yet (see root README.md's
  * "headless session" note).
+ *
+ * "Kısmi iade -> hakediş orantılı ters kayıt": refund_id (also added
+ * in-place, same "never deployed live" reasoning) makes multiple
+ * PARTIAL_REVERSAL rows possible for the SAME order item - one per distinct
+ * WooCommerce refund, each independently idempotent - unlike EARNED/REVERSED,
+ * which happen at most once per order item and use the sentinel 0 (NOT NULL,
+ * so the UNIQUE constraint still applies to them - a NULL column would let
+ * MySQL's unique index treat every EARNED/REVERSED row as distinct and stop
+ * protecting them at all, see Domain\HakedisEntry's own docblock).
  */
 final class CreateHakedisEntriesTable implements MigrationInterface
 {
@@ -59,9 +68,10 @@ final class CreateHakedisEntriesTable implements MigrationInterface
             price DECIMAL(10,2) NOT NULL,
             vat_amount DECIMAL(10,2) NOT NULL,
             type VARCHAR(20) NOT NULL,
+            refund_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
-            UNIQUE KEY order_item_type (order_id, order_item_id, type),
+            UNIQUE KEY order_item_type_refund (order_id, order_item_id, type, refund_id),
             KEY branch_id (branch_id),
             KEY student_id (student_id)
         ) {$charsetCollate};";

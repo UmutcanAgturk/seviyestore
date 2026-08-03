@@ -15,7 +15,8 @@ interface SupplierRepositoryInterface
         ?string $phone,
         ?string $email,
         ?string $taxNumber,
-        ?string $address
+        ?string $address,
+        ?int $userId = null
     ): Supplier;
 
     public function update(
@@ -26,7 +27,8 @@ interface SupplierRepositoryInterface
         ?string $email,
         ?string $taxNumber,
         ?string $address,
-        SupplierStatus $status
+        SupplierStatus $status,
+        ?int $userId = null
     ): Supplier;
 
     /**
@@ -37,6 +39,13 @@ interface SupplierRepositoryInterface
     public function delete(int $id): void;
 
     public function find(int $id): ?Supplier;
+
+    /**
+     * "Tedarikçi portalı" - the supplier linked to this WP user's account,
+     * or null if this user has no supplier link (the overwhelming majority
+     * of platform users - every non-portal role).
+     */
+    public function findByUserId(int $userId): ?Supplier;
 
     /**
      * @return list<Supplier>

@@ -147,6 +147,10 @@ if (current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_bra
     $scp_sections['#scp-broadcast-panel'] = __('Toplu Duyuru', 'seviye-storefront');
 }
 
+if (current_user_can('scp_manage_support_tickets')) {
+    $scp_sections['#scp-support-tickets-queue-panel'] = __('Destek Talepleri', 'seviye-storefront');
+}
+
 $scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
 $scp_sections['#scp-privacy-requests-panel'] = __('Verilerim (KVKK)', 'seviye-storefront');
 
@@ -175,6 +179,25 @@ if (scp_current_zone() === 'admin' && current_user_can('scp_view_audit_logs')) {
     $scp_sections['#scp-activity-log-panel'] = __('Aktivite Günlüğü', 'seviye-storefront');
 }
 
+/*
+ * Module-identity tiles (.scp-module-tile in panel.css) only exist for the
+ * platform's core modules - everything else in $scp_sections (account
+ * security, KVKK, broadcast, ...) renders as a plain quicknav link, same as
+ * before this map existed.
+ */
+$scp_section_variants = [
+    '#scp-students-panel' => 'students',
+    '#scp-branches-panel' => 'branches',
+    '#scp-products-panel' => 'products',
+    scp_admin_orders_path() => 'orders',
+    '#scp-pricing-panel' => 'pricing',
+    '#scp-depo-panel' => 'depo',
+    '#scp-hakedis-panel' => 'hakedis',
+    '#scp-reports-panel' => 'reports',
+    '#scp-support-tickets-queue-panel' => 'support',
+    '#scp-api-keys-panel' => 'settings',
+];
+
 get_header();
 ?>
 <div class="scp-panel">
@@ -195,8 +218,20 @@ get_header();
 
     <?php if (count($scp_sections) > 1) : ?>
         <nav class="scp-quicknav" aria-label="<?php esc_attr_e('Bölüm kısayolları', 'seviye-storefront'); ?>">
-            <?php foreach ($scp_sections as $scp_href => $scp_label) : ?>
-                <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+            <?php foreach ($scp_sections as $scp_href => $scp_label) :
+                $scp_variant = $scp_section_variants[$scp_href] ?? null;
+                ?>
+                <?php if ($scp_variant) : ?>
+                    <a href="<?php echo esc_url($scp_href); ?>" class="scp-module-tile scp-module-tile--<?php echo esc_attr($scp_variant); ?>">
+                        <span class="scp-module-tile__icon"><?php
+                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it.
+                            echo scp_module_icon_svg($scp_variant);
+                        ?></span>
+                        <span class="scp-module-tile__label"><?php echo esc_html($scp_label); ?></span>
+                    </a>
+                <?php else : ?>
+                    <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+                <?php endif; ?>
             <?php endforeach; ?>
         </nav>
     <?php endif; ?>
@@ -328,6 +363,44 @@ get_header();
                 <div data-scp-import-result hidden>
                     <p data-scp-import-summary></p>
                     <ul class="scp-list" data-scp-import-errors></ul>
+                </div>
+            </div>
+
+            <div class="scp-card scp-card--nested">
+                <div class="scp-card__header">
+                    <h3><?php esc_html_e('Toplu Sınıf/Eğitim Yılı Geçişi', 'seviye-storefront'); ?></h3>
+                </div>
+
+                <p class="scp-form__hint">
+                    <?php esc_html_e(
+                        'Seçilen eğitim yılındaki tüm aktif öğrenciler bir sonraki eğitim yılına taşınır. Sınıf eşlemesi opsiyoneldir - her satıra "eski sınıf=yeni sınıf" yazın (ör. 5-A=6-A); eşlemesi olmayan sınıf adı değişmeden kalır.',
+                        'seviye-storefront'
+                    ); ?>
+                </p>
+
+                <form class="scp-form scp-form--inline" data-scp-promote-form>
+                    <label data-scp-promote-branch-field hidden>
+                        <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
+                        <select name="branch_id"></select>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Mevcut Eğitim Yılı', 'seviye-storefront'); ?></span>
+                        <input type="text" name="from_education_year" placeholder="2025-2026" required>
+                    </label>
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn">
+                            <?php esc_html_e('Toplu Geçiş Yap', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </form>
+
+                <label>
+                    <span><?php esc_html_e('Sınıf Eşleme (opsiyonel)', 'seviye-storefront'); ?></span>
+                    <textarea data-scp-promote-class-map rows="3" placeholder="5-A=6-A&#10;5-B=6-B"></textarea>
+                </label>
+
+                <div data-scp-promote-result hidden>
+                    <p data-scp-promote-summary></p>
                 </div>
             </div>
 
@@ -1464,10 +1537,85 @@ get_header();
                         <span><?php esc_html_e('SMS', 'seviye-storefront'); ?></span>
                     </label>
                 </fieldset>
+                <label>
+                    <span><?php esc_html_e('Zamanla (opsiyonel - boş bırakılırsa hemen gönderilir)', 'seviye-storefront'); ?></span>
+                    <input type="datetime-local" name="scheduled_at">
+                </label>
                 <div class="scp-form__actions">
                     <button type="submit" class="scp-btn"><?php esc_html_e('Gönder', 'seviye-storefront'); ?></button>
                 </div>
             </form>
+
+            <div class="scp-card scp-card--nested">
+                <div class="scp-card__header">
+                    <h3><?php esc_html_e('Zamanlanmış Duyurular', 'seviye-storefront'); ?></h3>
+                </div>
+                <p class="scp-status" data-scp-broadcast-scheduled-status></p>
+                <div class="scp-table-wrapper">
+                    <table class="scp-table" data-scp-broadcast-scheduled-table hidden>
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Başlık', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Zamanlanma', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody data-scp-broadcast-scheduled-body></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if (current_user_can('scp_manage_support_tickets')) : ?>
+        <section class="scp-card" id="scp-support-tickets-queue-panel">
+            <div class="scp-card__header">
+                <h2><?php esc_html_e('Destek Talepleri', 'seviye-storefront'); ?></h2>
+            </div>
+
+            <p class="scp-status" data-scp-support-queue-status></p>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table" data-scp-support-queue-table hidden>
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Konu', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Güncellenme', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-support-queue-body></tbody>
+                </table>
+            </div>
+
+            <div class="scp-card scp-card--nested" data-scp-support-queue-detail hidden>
+                <div class="scp-card__header">
+                    <h3 data-scp-support-queue-detail-title></h3>
+                    <div>
+                        <button type="button" class="scp-btn scp-btn--small" data-scp-support-queue-close-ticket>
+                            <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                        </button>
+                        <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-support-queue-detail-close>
+                            <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <ul class="scp-list" data-scp-support-queue-messages></ul>
+
+                <form class="scp-form" data-scp-support-queue-reply-form>
+                    <textarea name="message" rows="3" required></textarea>
+                    <div class="scp-form__actions">
+                        <button type="submit" class="scp-btn scp-btn--small">
+                            <?php esc_html_e('Yanıtla', 'seviye-storefront'); ?>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </section>
     <?php endif; ?>
 

@@ -24,7 +24,8 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
         float $commissionRate,
         float $price,
         float $vatAmount,
-        HakedisEntryType $type
+        HakedisEntryType $type,
+        ?int $refundId = null
     ): HakedisEntry {
         $this->connection->insert($this->connection->table('hakedis_entries'), [
             'branch_id' => $branchId,
@@ -36,6 +37,7 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
             'price' => $price,
             'vat_amount' => $vatAmount,
             'type' => $type->value,
+            'refund_id' => $refundId ?? 0,
             'created_at' => $this->now(),
         ]);
 
@@ -53,12 +55,13 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
         return $this->hydrate($rows[0]);
     }
 
-    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type): bool
+    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type, ?int $refundId = null): bool
     {
         $table = $this->connection->table('hakedis_entries');
         $sql = $this->connection->prepare(
-            "SELECT id FROM {$table} WHERE order_id = %d AND order_item_id = %d AND type = %s LIMIT 1",
-            [$orderId, $orderItemId, $type->value]
+            'SELECT id FROM ' . $table
+                . ' WHERE order_id = %d AND order_item_id = %d AND type = %s AND refund_id = %d LIMIT 1',
+            [$orderId, $orderItemId, $type->value, $refundId ?? 0]
         );
 
         return $this->connection->getResults($sql) !== [];
@@ -96,7 +99,8 @@ final class WpdbHakedisRepository implements HakedisRepositoryInterface
             (float) $row['commission_rate'],
             (float) $row['price'],
             (float) $row['vat_amount'],
-            HakedisEntryType::from((string) $row['type'])
+            HakedisEntryType::from((string) $row['type']),
+            isset($row['refund_id']) && (int) $row['refund_id'] > 0 ? (int) $row['refund_id'] : null
         );
     }
 

@@ -22,7 +22,8 @@ final class FakeHakedisRepository implements HakedisRepositoryInterface
         float $commissionRate,
         float $price,
         float $vatAmount,
-        HakedisEntryType $type
+        HakedisEntryType $type,
+        ?int $refundId = null
     ): HakedisEntry {
         $entry = new HakedisEntry(
             count($this->entries) + 1,
@@ -34,7 +35,8 @@ final class FakeHakedisRepository implements HakedisRepositoryInterface
             $commissionRate,
             $price,
             $vatAmount,
-            $type
+            $type,
+            $refundId
         );
 
         $this->entries[] = $entry;
@@ -42,10 +44,15 @@ final class FakeHakedisRepository implements HakedisRepositoryInterface
         return $entry;
     }
 
-    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type): bool
+    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type, ?int $refundId = null): bool
     {
         foreach ($this->entries as $entry) {
-            if ($entry->orderId === $orderId && $entry->orderItemId === $orderItemId && $entry->type === $type) {
+            if (
+                $entry->orderId === $orderId
+                && $entry->orderItemId === $orderItemId
+                && $entry->type === $type
+                && $entry->refundId === $refundId
+            ) {
                 return true;
             }
         }

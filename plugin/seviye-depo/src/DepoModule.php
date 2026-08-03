@@ -146,6 +146,22 @@ final class DepoModule implements ModuleInterface
             $rbac->grantCapability($role, WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value);
         }
 
+        // "Tedarikçi portalı" - Security (AuthRestController) ve tema
+        // (access-gate.php/zones.php) bu filtre üzerinden "bu kullanıcı bir
+        // tedarikçiye mi bağlı" sorusunu sorar, Depo'ya sert bir composer
+        // bağımlılığı eklemeden. Role enum'a yeni bir rol eklemek yerine
+        // seçilen yaklaşım - bkz. SupplierRepositoryInterface::findByUserId().
+        add_filter(
+            'scp_depo_supplier_id_for_user',
+            static function (?int $default, int $userId) use ($container): ?int {
+                $repository = $container->get(SupplierRepositoryInterface::class);
+
+                return $repository->findByUserId($userId)?->id ?? $default;
+            },
+            10,
+            2
+        );
+
         // Deferred to `init`: LowStockPurchaseSuggestionListener reacts to
         // commerce.product_low_stock, dispatched by Seviye Commerce - which
         // may not have booted yet within this same ModuleRegistry::bootAll()

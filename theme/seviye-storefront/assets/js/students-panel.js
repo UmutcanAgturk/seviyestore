@@ -41,6 +41,12 @@
     var importSummary = root.querySelector('[data-scp-import-summary]');
     var importErrorsList = root.querySelector('[data-scp-import-errors]');
     var importTemplateLink = root.querySelector('[data-scp-download-import-template]');
+    var promoteForm = root.querySelector('[data-scp-promote-form]');
+    var promoteBranchField = root.querySelector('[data-scp-promote-branch-field]');
+    var promoteBranchSelect = promoteBranchField.querySelector('select');
+    var promoteClassMapField = root.querySelector('[data-scp-promote-class-map]');
+    var promoteResult = root.querySelector('[data-scp-promote-result]');
+    var promoteSummary = root.querySelector('[data-scp-promote-summary]');
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -66,14 +72,25 @@
 
         branchField.hidden = false;
         importBranchField.hidden = false;
+        promoteBranchField.hidden = false;
+
+        var allBranchesOption = document.createElement('option');
+        allBranchesOption.value = '';
+        allBranchesOption.textContent = scpPanelText.allBranches;
+        promoteBranchSelect.appendChild(allBranchesOption);
 
         apiFetch('branches').then(function (result) {
             if (!result.ok) {
                 return;
             }
 
-            [branchSelect, importBranchSelect].forEach(function (select) {
-                select.innerHTML = '';
+            [branchSelect, importBranchSelect, promoteBranchSelect].forEach(function (select) {
+                var isPromoteSelect = select === promoteBranchSelect;
+
+                if (!isPromoteSelect) {
+                    select.innerHTML = '';
+                }
+
                 result.data.forEach(function (branch) {
                     var option = document.createElement('option');
                     option.value = String(branch.id);
@@ -82,6 +99,27 @@
                 });
             });
         });
+    }
+
+    function parseClassNameMap(raw) {
+        var map = {};
+
+        raw.split('\n').forEach(function (line) {
+            var parts = line.split('=');
+
+            if (parts.length !== 2) {
+                return;
+            }
+
+            var fromClassName = parts[0].trim();
+            var toClassName = parts[1].trim();
+
+            if (fromClassName !== '' && toClassName !== '') {
+                map[fromClassName] = toClassName;
+            }
+        });
+
+        return map;
     }
 
     function loadStudents() {
@@ -576,6 +614,49 @@
             });
         };
         reader.readAsText(file, 'UTF-8');
+    });
+
+    promoteForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var fromEducationYear = new FormData(promoteForm).get('from_education_year');
+
+        // phpcs is not relevant to JS, but the confirm() copy mirrors this
+        // codebase's other irreversible-bulk-action confirmations (e.g.
+        // confirmDeleteStudent) - see inc/assets.php's scpPanelText.
+        if (!window.confirm(scpPanelText.confirmPromoteStudents.replace('%s', fromEducationYear))) {
+            return;
+        }
+
+        var payload = { from_education_year: fromEducationYear };
+        var classNameMap = parseClassNameMap(promoteClassMapField.value);
+
+        if (Object.keys(classNameMap).length > 0) {
+            payload.class_name_map = classNameMap;
+        }
+
+        if (scpPanel.canManageAllBranches && promoteBranchSelect.value !== '') {
+            payload.branch_id = parseInt(promoteBranchSelect.value, 10);
+        }
+
+        promoteResult.hidden = true;
+        setStatus(scpPanelText.promoting);
+
+        apiFetch('students/promote', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus('');
+            promoteSummary.textContent = scpPanelText.promoteSummary
+                .replace('%1$d', String(result.data.promoted_count))
+                .replace('%2$s', result.data.to_education_year);
+            promoteResult.hidden = false;
+            promoteForm.reset();
+            promoteClassMapField.value = '';
+            loadStudents();
+        });
     });
 
     loadBranchesIfNeeded();

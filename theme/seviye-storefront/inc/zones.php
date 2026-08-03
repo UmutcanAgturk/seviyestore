@@ -35,12 +35,16 @@ function scp_register_zone_rewrites(): void
     add_rewrite_rule('^sube/(.+)/?$', 'index.php?scp_zone=sube&scp_zone_path=$matches[1]', 'top');
     add_rewrite_rule('^profilim/?$', 'index.php?scp_zone=profilim', 'top');
     add_rewrite_rule('^siparislerim/?$', 'index.php?scp_zone=siparislerim', 'top');
+    // "Tedarikçi portalı" - RoleRouter'ın bilmediği tek zone: erişimi Role
+    // enum'ın kapalı kümesi yerine scp_depo_supplier_id_for_user filtresi
+    // kararlaştırır, bkz. inc/access-gate.php'nin scp_enforce_role_zone()'u.
+    add_rewrite_rule('^tedarikci/?$', 'index.php?scp_zone=tedarikci', 'top');
 }
 
 /**
  * `after_switch_theme` only fires the ONE time this theme is activated -
  * every zone rule added to scp_register_zone_rewrites() afterwards (this
- * is the second: /siparislerim landed after /profilim was already live)
+ * is the third: /tedarikci landed after /siparislerim was already live)
  * never reaches the site's cached `rewrite_rules` option on an existing
  * install, so the new path 404s/falls through to index.php's shop
  * redirect until someone manually re-saves Settings -> Permalinks. Self-heal
@@ -53,7 +57,7 @@ function scp_maybe_flush_zone_rewrite_rules(): void
 {
     $rules = get_option('rewrite_rules');
 
-    if (!is_array($rules) || !isset($rules['^siparislerim/?$'])) {
+    if (!is_array($rules) || !isset($rules['^tedarikci/?$'])) {
         flush_rewrite_rules();
     }
 }
@@ -99,6 +103,20 @@ function scp_render_zone_template(): void
     if ($zone === 'siparislerim') {
         get_header();
         include SCP_THEME_DIR . '/templates/orders.php';
+        get_footer();
+        exit;
+    }
+
+    // /tedarikci - "Tedarikçi portalı": kendi WP hesabına scp_suppliers.user_id
+    // ile bağlı bir tedarikçinin kendi satın alma siparişlerini görüp
+    // "gönderildi" işaretleyebileceği ayrı bir yüzey (bkz.
+    // plugin/seviye-depo/src/Http/PurchaseOrdersRestController.php'nin
+    // /mine ve /{id}/mark-shipped endpoint'leri). Buraya erişim,
+    // RoleRouter'ın rol->zone politikasından TAMAMEN bağımsız - bkz.
+    // inc/access-gate.php'nin scp_enforce_role_zone()'u.
+    if ($zone === 'tedarikci') {
+        get_header();
+        include SCP_THEME_DIR . '/templates/supplier-dashboard.php';
         get_footer();
         exit;
     }
@@ -177,6 +195,14 @@ function scp_admin_orders_path(): string
  */
 function scp_current_user_landing_path(): string
 {
+    // "Tedarikçi portalı" - bkz. inc/access-gate.php'nin scp_enforce_role_zone()'u
+    // ile aynı öncelik: bağlı bir tedarikçi için RoleRouter'a hiç sorulmaz.
+    $supplierId = apply_filters('scp_depo_supplier_id_for_user', null, get_current_user_id());
+
+    if ($supplierId !== null) {
+        return home_url('/tedarikci');
+    }
+
     if (!class_exists(\Seviye\Security\Routing\RoleRouter::class)) {
         return home_url('/');
     }

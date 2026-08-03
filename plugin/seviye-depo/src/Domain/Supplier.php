@@ -14,7 +14,8 @@ final class Supplier
         public readonly ?string $email,
         public readonly ?string $taxNumber,
         public readonly ?string $address,
-        public readonly SupplierStatus $status
+        public readonly SupplierStatus $status,
+        public readonly ?int $userId = null
     ) {
     }
 }

@@ -49,8 +49,24 @@ function scp_enforce_role_zone(): void
         return;
     }
 
-    $roles = array_values(wp_get_current_user()->roles);
     $requestPath = scp_current_request_path();
+
+    // "Tedarikçi portalı" - RoleRouter Role enum'ın kapalı kümesini bilir,
+    // tedarikçi bağlantısını bilmez (bkz. Depo/DepoModule::boot()'un
+    // scp_depo_supplier_id_for_user filtresi). Bağlı bir kullanıcı yalnızca
+    // /tedarikci'ye girebilir - RoleRouter'ın kendi zone'una asla düşmez.
+    $supplierId = apply_filters('scp_depo_supplier_id_for_user', null, get_current_user_id());
+
+    if ($supplierId !== null) {
+        if (scp_normalize_zone_path($requestPath) === '/tedarikci') {
+            return;
+        }
+
+        wp_safe_redirect(home_url('/tedarikci'));
+        exit;
+    }
+
+    $roles = array_values(wp_get_current_user()->roles);
 
     if (\Seviye\Security\Routing\RoleRouter::isPathAllowedForRoles($requestPath, $roles)) {
         return;
@@ -58,6 +74,11 @@ function scp_enforce_role_zone(): void
 
     wp_safe_redirect(home_url(\Seviye\Security\Routing\RoleRouter::landingPathFor($roles)));
     exit;
+}
+
+function scp_normalize_zone_path(string $path): string
+{
+    return '/' . trim((string) wp_parse_url($path, PHP_URL_PATH), '/');
 }
 
 function scp_current_request_path(): string

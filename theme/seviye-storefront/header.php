@@ -21,6 +21,9 @@ if (!defined('ABSPATH')) {
 </head>
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
+<a class="scp-skip-link" href="#scp-main-content">
+    <?php esc_html_e('İçeriğe geç', 'seviye-storefront'); ?>
+</a>
 <header class="scp-site-header">
     <?php $scp_header_logo_url = scp_logo_url('thumbnail'); ?>
     <div class="scp-site-header__brand">
@@ -34,6 +37,15 @@ if (!defined('ABSPATH')) {
         </a>
     </div>
     <nav class="scp-site-header__nav">
+        <button
+            type="button"
+            class="scp-command-trigger"
+            data-scp-command-trigger
+            aria-label="<?php esc_attr_e('Bul (Cmd+K)', 'seviye-storefront'); ?>"
+        >
+            <?php esc_html_e('Bul', 'seviye-storefront'); ?>
+            <kbd aria-hidden="true">⌘K</kbd>
+        </button>
         <?php if (function_exists('wc_get_page_permalink') && current_user_can('scp_view_own_children')) : ?>
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
                 <?php esc_html_e('Mağaza', 'seviye-storefront'); ?>
@@ -77,4 +89,4 @@ if (!defined('ABSPATH')) {
         </a>
     </nav>
 </header>
-<main class="scp-site-main">
+<main id="scp-main-content" class="scp-site-main">

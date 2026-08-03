@@ -18,7 +18,8 @@ final class PurchaseOrder
         public readonly ?string $note,
         public readonly int $createdByUserId,
         public readonly string $createdAt,
-        public readonly array $items
+        public readonly array $items,
+        public readonly ?string $supplierShippedAt = null
     ) {
     }
 }

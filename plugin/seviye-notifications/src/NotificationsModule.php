@@ -21,6 +21,7 @@ use Seviye\Notifications\Channel\GmailSmtpConfigurator;
 use Seviye\Notifications\Channel\NetgsmSmsChannel;
 use Seviye\Notifications\Channel\PanelChannel;
 use Seviye\Notifications\Database\Migrations\CreateNotificationsTable;
+use Seviye\Notifications\Database\Migrations\CreateScheduledBroadcastsTable;
 use Seviye\Notifications\Dispatch\NotificationDispatcher;
 use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
@@ -28,12 +29,15 @@ use Seviye\Notifications\Http\BroadcastRestController;
 use Seviye\Notifications\Http\EmailSettingsRestController;
 use Seviye\Notifications\Http\NotificationsRestController;
 use Seviye\Notifications\Http\NotificationsSettingsRestController;
+use Seviye\Notifications\Http\ScheduledBroadcastHooks;
 use Seviye\Notifications\Http\WeeklyDigestHooks;
 use Seviye\Notifications\Rbac\NotificationCapability;
 use Seviye\Notifications\Recipient\RecipientResolverInterface;
 use Seviye\Notifications\Recipient\WpRecipientResolver;
 use Seviye\Notifications\Repository\NotificationRepositoryInterface;
+use Seviye\Notifications\Repository\ScheduledBroadcastRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
+use Seviye\Notifications\Repository\WpdbScheduledBroadcastRepository;
 use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\OrderStatusNotificationListener;
@@ -75,6 +79,13 @@ final class NotificationsModule implements ModuleInterface
         );
 
         $container->singleton(
+            ScheduledBroadcastRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbScheduledBroadcastRepository => new WpdbScheduledBroadcastRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
+        $container->singleton(
             RecipientResolverInterface::class,
             static fn (ServiceContainer $c): WpRecipientResolver => new WpRecipientResolver(
                 $c->get(ParentContactLookupInterface::class)
@@ -97,6 +108,7 @@ final class NotificationsModule implements ModuleInterface
         );
 
         $container->get(MigrationRunner::class)->register(new CreateNotificationsTable());
+        $container->get(MigrationRunner::class)->register(new CreateScheduledBroadcastsTable());
 
         // Deferred to `init` (not resolved here in boot()): NotificationDispatcherInterface's
         // factory resolves Parents' Contracts\ParentContactLookupInterface. Like
@@ -168,6 +180,20 @@ final class NotificationsModule implements ModuleInterface
                 $container->get(NotificationDispatcherInterface::class),
                 new WeeklyDigestBuilder()
             ))->register();
+
+            // "Zamanlanmış toplu duyuru" - see ScheduledBroadcastHooks's own
+            // docblock. Deferred to `init` for the same reason as the
+            // listeners above: it depends on Students' BranchParentLookupInterface,
+            // not guaranteed bound yet inside this module's own boot(). The
+            // register() call here only wires the `add_action()` handler -
+            // it does not itself schedule anything; each individual
+            // scheduled broadcast's one-shot event is registered by
+            // Http\BroadcastRestController::send() at creation time.
+            (new ScheduledBroadcastHooks(
+                $container->get(ScheduledBroadcastRepositoryInterface::class),
+                $container->get(BranchParentLookupInterface::class),
+                $container->get(NotificationDispatcherInterface::class)
+            ))->register();
         });
 
         // "Google maili özelinde göndereceğiz" - routes wp_mail() (hence
@@ -195,7 +221,8 @@ final class NotificationsModule implements ModuleInterface
             static fn (): BroadcastRestController => new BroadcastRestController(
                 $container->get(BranchParentLookupInterface::class),
                 $container->get(BranchMembershipInterface::class),
-                $container->get(NotificationDispatcherInterface::class)
+                $container->get(NotificationDispatcherInterface::class),
+                $container->get(ScheduledBroadcastRepositoryInterface::class)
             )
         );
 

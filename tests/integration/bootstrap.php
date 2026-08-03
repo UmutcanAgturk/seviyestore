@@ -42,6 +42,7 @@ function scp_manually_load_plugins(): void
         'seviye-branches/seviye-branches.php',
         'seviye-students/seviye-students.php',
         'seviye-parents/seviye-parents.php',
+        'seviye-destek/seviye-destek.php',
         'seviye-pricing/seviye-pricing.php',
         'seviye-commerce/seviye-commerce.php',
         'seviye-depo/seviye-depo.php',

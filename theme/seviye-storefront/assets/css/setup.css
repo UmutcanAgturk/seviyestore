@@ -2,41 +2,107 @@
  * "Seviye Kurulum" wp-admin page styling - a wp-admin screen, not a
  * front-end panel, so this intentionally does not reuse panel.css/theme.css
  * (those style the logged-in front-end, which runs inside WordPress' admin
- * chrome here instead).
+ * chrome here instead). Local, deliberately small tokens here mirror the
+ * FEEL of the front-end's design system (soft depth, rounded surfaces,
+ * gentle motion) without pulling in its color palette - staying close to
+ * wp-admin's own blue/gray so the wizard doesn't look like a foreign
+ * screen bolted onto wp-admin.
  */
+
+:root {
+  --scp-setup-radius: 10px;
+  --scp-setup-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --scp-setup-shadow-raised: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --scp-setup-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --scp-setup-duration: 200ms;
+}
 
 .scp-setup-wrap {
   max-width: 720px;
+}
+
+.scp-setup-wrap h1 {
+  letter-spacing: -0.01em;
+}
+
+#scp-setup-start {
+  border-radius: var(--scp-setup-radius);
+  transition: transform 80ms var(--scp-setup-ease), box-shadow var(--scp-setup-duration) var(--scp-setup-ease);
+}
+
+#scp-setup-start:hover {
+  box-shadow: var(--scp-setup-shadow-raised);
+}
+
+#scp-setup-start:active {
+  transform: translateY(1px);
 }
 
 .scp-setup-steps {
   margin: 20px 0;
   padding: 0;
   list-style: none;
+  counter-reset: scp-setup-step;
 }
 
 .scp-setup-steps__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  margin-bottom: 6px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
   background: #fff;
   border: 1px solid #dcdcde;
-  border-radius: 4px;
+  border-radius: var(--scp-setup-radius);
+  box-shadow: var(--scp-setup-shadow);
+  transition: box-shadow var(--scp-setup-duration) var(--scp-setup-ease), border-color var(--scp-setup-duration) var(--scp-setup-ease);
+}
+
+.scp-setup-steps__item::before {
+  counter-increment: scp-setup-step;
+  content: counter(scp-setup-step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 12px;
+  border-radius: 999px;
+  background: #f0f0f1;
+  color: #646970;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .scp-setup-steps__label {
+  display: flex;
+  align-items: center;
   font-weight: 600;
+  flex: 1;
 }
 
 .scp-setup-steps__status {
   font-size: 13px;
   color: #646970;
+  transition: color var(--scp-setup-duration) var(--scp-setup-ease);
 }
 
 .scp-setup-steps__status[data-status="running"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #2271b1;
+}
+
+.scp-setup-steps__status[data-status="running"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid #b8daf1;
+  border-top-color: #2271b1;
+  border-radius: 999px;
+  animation: scp-setup-spin 0.7s linear infinite;
 }
 
 .scp-setup-steps__status[data-status="done"] {
@@ -49,14 +115,48 @@
   font-weight: 600;
 }
 
+.scp-setup-steps__item:has(.scp-setup-steps__status[data-status="done"]) {
+  border-color: #b8e6c1;
+}
+
+.scp-setup-steps__item:has(.scp-setup-steps__status[data-status="failed"]) {
+  border-color: #f1b3b2;
+}
+
+@keyframes scp-setup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scp-setup-steps__status[data-status="running"]::before {
+    animation: none;
+  }
+}
+
 .scp-setup-credentials {
-  padding: 16px 20px;
+  padding: 18px 22px;
   margin-top: 20px;
   background: #fff;
   border-left: 4px solid #2271b1;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  border-radius: 0 var(--scp-setup-radius) var(--scp-setup-radius) 0;
+  box-shadow: var(--scp-setup-shadow);
+  animation: scp-setup-fade-in var(--scp-setup-duration) var(--scp-setup-ease);
 }
 
 .scp-setup-credentials code {
   font-size: 14px;
+}
+
+@keyframes scp-setup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -113,6 +113,17 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
         $this->setStatus($id, PurchaseOrderStatus::CANCELLED);
     }
 
+    public function markShipped(int $id): void
+    {
+        $table = $this->connection->table('purchase_orders');
+        $sql = $this->connection->prepare(
+            "UPDATE {$table} SET supplier_shipped_at = %s, updated_at = %s WHERE id = %d",
+            [$this->now(), $this->now(), $id]
+        );
+
+        $this->connection->query($sql);
+    }
+
     public function receiveItem(int $itemId, int $quantity): PurchaseOrderItem
     {
         $table = $this->connection->table('purchase_order_items');
@@ -221,6 +232,8 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
      */
     private function hydrateHeader(array $row, array $items): PurchaseOrder
     {
+        $shippedAt = $row['supplier_shipped_at'] ?? null;
+
         return new PurchaseOrder(
             (int) $row['id'],
             (int) $row['supplier_id'],
@@ -232,7 +245,8 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
             isset($row['note']) && $row['note'] !== '' ? (string) $row['note'] : null,
             (int) $row['created_by'],
             (string) $row['created_at'],
-            $items
+            $items,
+            $shippedAt !== null && $shippedAt !== '' ? (string) $shippedAt : null
         );
     }
 

@@ -54,6 +54,17 @@ final class EducationYear
         return (int) explode('-', $this->value)[0];
     }
 
+    /**
+     * "Toplu sınıf/eğitim yılı geçişi" - the year immediately after this
+     * one (e.g. "2025-2026" -> "2026-2027").
+     */
+    public function next(): self
+    {
+        $nextStart = $this->startYear() + 1;
+
+        return new self($nextStart . '-' . ($nextStart + 1));
+    }
+
     public function __toString(): string
     {
         return $this->value;

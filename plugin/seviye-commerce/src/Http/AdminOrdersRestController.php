@@ -167,12 +167,13 @@ final class AdminOrdersRestController extends AbstractRestController
      * bookkeeping (adjusts the order's refunded total, and - for a FULL
      * refund - transitions the order to `refunded`, which
      * OrderPersistenceHooks::syncOrderStatus() reacts to by reversing the
-     * hakediş already credited for it). A PARTIAL refund deliberately does
-     * NOT reverse any hakediş - WooCommerce itself does not demote a
-     * partially-refunded order's status off `completed`, so there is no
-     * transition for syncOrderStatus() to react to; adjusting hakediş
-     * proportionally for a partial refund is a real gap, documented here
-     * rather than silently done wrong.
+     * hakediş already credited for it). A PARTIAL refund does not go
+     * through that same transition - WooCommerce itself does not demote a
+     * partially-refunded order's status off `completed` - so
+     * OrderPersistenceHooks::onOrderRefunded() (WooCommerce's own
+     * `woocommerce_order_refunded` hook, which fires for both full and
+     * partial refunds) is what fires the proportional hakediş reversal
+     * instead; see that method's own docblock.
      *
      * `restock_items => false` - a refund here does not imply a physical
      * return; if stock genuinely needs restoring, that is Depo's own

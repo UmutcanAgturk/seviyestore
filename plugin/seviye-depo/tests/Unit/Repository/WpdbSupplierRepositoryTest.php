@@ -76,11 +76,53 @@ final class WpdbSupplierRepositoryTest extends TestCase
         $repository->delete(1);
     }
 
+    public function testCreatePersistsTheLinkedUserId(): void
+    {
+        $connection = new FakeConnection();
+        $connection->nextInsertId = 5;
+        $connection->resultsToReturn = [$this->row(5, 'Okul Tekstil', 'active')];
+        $repository = new WpdbSupplierRepository($connection);
+
+        $repository->create('Okul Tekstil', null, null, null, null, null, 42);
+
+        [, $data] = $connection->inserted[0];
+        self::assertSame(42, $data['user_id']);
+    }
+
+    public function testFindByUserIdHydratesTheLinkedSupplier(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [$this->row(5, 'Okul Tekstil', 'active', 'Ahmet Yılmaz', 42)];
+        $repository = new WpdbSupplierRepository($connection);
+
+        $supplier = $repository->findByUserId(42);
+
+        self::assertNotNull($supplier);
+        self::assertSame(42, $supplier->userId);
+    }
+
+    public function testUnlinkedSupplierHasANullUserId(): void
+    {
+        $connection = new FakeConnection();
+        $connection->resultsToReturn = [$this->row(5, 'Okul Tekstil', 'active')];
+        $repository = new WpdbSupplierRepository($connection);
+
+        $supplier = $repository->find(5);
+
+        self::assertNotNull($supplier);
+        self::assertNull($supplier->userId);
+    }
+
     /**
      * @return array<string, mixed>
      */
-    private function row(int $id, string $name, string $status, ?string $contactName = 'Ahmet Yılmaz'): array
-    {
+    private function row(
+        int $id,
+        string $name,
+        string $status,
+        ?string $contactName = 'Ahmet Yılmaz',
+        ?int $userId = null
+    ): array {
         return [
             'id' => (string) $id,
             'name' => $name,
@@ -90,6 +132,7 @@ final class WpdbSupplierRepositoryTest extends TestCase
             'tax_number' => '1234567890',
             'address' => 'İstanbul',
             'status' => $status,
+            'user_id' => $userId !== null ? (string) $userId : null,
         ];
     }
 }

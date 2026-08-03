@@ -76,6 +76,62 @@ final class PurchaseOrdersRestController extends AbstractRestController
             'callback' => [$this, 'receive'],
             'permission_callback' => $this->requireCapability(WarehouseCapability::RECEIVE_STOCK->value),
         ]);
+
+        // "Tedarikçi portalı" - WarehouseCapability'den TAMAMEN bağımsız:
+        // erişim, isteği yapan WP kullanıcısının scp_suppliers.user_id'ye
+        // bağlı olup olmadığına göre kararlaştırılır (bkz. Role enum'ın
+        // kapalı küme olduğuna dair not - Depo/DepoModule::boot()).
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/mine', [
+            'methods' => 'GET',
+            'callback' => [$this, 'mine'],
+            'permission_callback' => $this->requireLinkedSupplier(...),
+        ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/(?P<id>\d+)/mark-shipped', [
+            'methods' => 'POST',
+            'callback' => [$this, 'markShipped'],
+            'permission_callback' => $this->requireLinkedSupplier(...),
+        ]);
+    }
+
+    private function requireLinkedSupplier(): bool
+    {
+        return $this->suppliers->findByUserId(get_current_user_id()) !== null;
+    }
+
+    public function mine(): WP_REST_Response
+    {
+        $supplier = $this->suppliers->findByUserId(get_current_user_id());
+
+        if ($supplier === null) {
+            $message = __('Bu hesaba bağlı bir tedarikçi bulunamadı.', 'seviye-depo');
+
+            return new WP_REST_Response(['message' => $message], 403);
+        }
+
+        $orders = array_map($this->serialize(...), $this->purchaseOrders->all(null, $supplier->id));
+
+        return new WP_REST_Response($orders);
+    }
+
+    public function markShipped(WP_REST_Request $request): WP_REST_Response
+    {
+        $supplier = $this->suppliers->findByUserId(get_current_user_id());
+        $order = $this->purchaseOrders->find((int) $request->get_param('id'));
+
+        if ($order === null || $supplier === null || $order->supplierId !== $supplier->id) {
+            return new WP_REST_Response(['message' => __('Satın alma siparişi bulunamadı.', 'seviye-depo')], 404);
+        }
+
+        if (!in_array($order->status, [PurchaseOrderStatus::SENT, PurchaseOrderStatus::PARTIALLY_RECEIVED], true)) {
+            $message = __('Yalnızca gönderilmiş bir sipariş için kargo bilgisi işaretlenebilir.', 'seviye-depo');
+
+            return new WP_REST_Response(['message' => $message], 422);
+        }
+
+        $this->purchaseOrders->markShipped($order->id);
+
+        return new WP_REST_Response($this->serialize($this->purchaseOrders->find($order->id)));
     }
 
     public function index(WP_REST_Request $request): WP_REST_Response
@@ -287,6 +343,7 @@ final class PurchaseOrdersRestController extends AbstractRestController
             'note' => $order->note,
             'created_by' => $order->createdByUserId,
             'created_at' => $order->createdAt,
+            'supplier_shipped_at' => $order->supplierShippedAt,
             'items' => array_map($this->serializeItem(...), $order->items),
         ];
     }

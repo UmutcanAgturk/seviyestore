@@ -16,6 +16,7 @@ use Seviye\Commerce\Http\CouponsRestController;
 use Seviye\Commerce\Http\LowStockNotificationHooks;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
+use Seviye\Commerce\Http\ProductReviewGate;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
 use Seviye\Commerce\Http\SpendingLimitCartHooks;
@@ -265,6 +266,8 @@ final class CommerceModule implements ModuleInterface
             $visibilityHooks->register();
 
             (new LowStockNotificationHooks($container->get(EventBusInterface::class)))->register();
+
+            (new ProductReviewGate())->register();
         });
     }
 }

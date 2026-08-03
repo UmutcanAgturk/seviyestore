@@ -18,10 +18,17 @@ interface HakedisRepositoryInterface
         float $commissionRate,
         float $price,
         float $vatAmount,
-        HakedisEntryType $type
+        HakedisEntryType $type,
+        ?int $refundId = null
     ): HakedisEntry;
 
-    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type): bool;
+    /**
+     * $refundId distinguishes repeated PARTIAL_REVERSAL entries for the
+     * same order item (one per distinct refund) - see
+     * Domain\HakedisEntryType::PARTIAL_REVERSAL. Always null for
+     * EARNED/REVERSED, whose idempotency check never needs it.
+     */
+    public function entryExists(int $orderId, int $orderItemId, HakedisEntryType $type, ?int $refundId = null): bool;
 
     /**
      * Sum of every entry's signed amount for a branch - always up to date,

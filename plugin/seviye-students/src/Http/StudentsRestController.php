@@ -64,6 +64,17 @@ final class StudentsRestController extends AbstractRestController
             ],
         ]);
 
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/students/promote', [
+            'methods' => 'POST',
+            'callback' => [$this, 'promote'],
+            'permission_callback' => $this->requireCapability(StudentCapability::MANAGE_STUDENTS->value),
+            'args' => [
+                'from_education_year' => ['required' => true, 'type' => 'string'],
+                'class_name_map' => ['required' => false, 'type' => 'object'],
+                'branch_id' => ['required' => false, 'type' => 'integer'],
+            ],
+        ]);
+
         register_rest_route(RestApiRegistrar::NAMESPACE, '/students/mine', [
             'methods' => 'GET',
             'callback' => [$this, 'mine'],
@@ -267,6 +278,97 @@ final class StudentsRestController extends AbstractRestController
             'imported' => $imported,
             'errors' => $errors,
         ]);
+    }
+
+    /**
+     * "Toplu sınıf/eğitim yılı geçişi" - CSV import öğrenci OLUŞTURMAyı
+     * çözdü, bu ise MEVCUT öğrencileri her yıl sonunda toplu olarak bir
+     * sonraki eğitim yılına taşır (bkz. Domain\EducationYear::next()).
+     * Yalnızca ACTIVE öğrenciler ve from_education_year'i eşleşenler
+     * etkilenir - mezun/pasif öğrenciler asla dokunulmaz. class_name_map
+     * (opsiyonel) eski sınıf adını yeniye çevirir (ör. "5-A" -> "6-A");
+     * haritada karşılığı olmayan bir sınıf adı DEĞİŞMEDEN kalır - okulun
+     * sınıf adlandırma biçimini tahmin etmek yerine açıkça belirtilmesini
+     * ister (bkz. normalizeClassNameMap()).
+     *
+     * branch_id null bırakılırsa - store()/import()'un aksine - HQ için
+     * geçersiz bir istek değil, tam tersine "her şubeyi kapsa" anlamına
+     * gelir (resolveBranchIdForWrite() burada KULLANILMAZ, o yalnızca "kendi
+     * şubem YOKSA istekteki şube" der, "yoksa hepsi" demez).
+     */
+    public function promote(WP_REST_Request $request): WP_REST_Response
+    {
+        $fromRaw = (string) $request->get_param('from_education_year');
+
+        if (!EducationYear::isValid($fromRaw)) {
+            return new WP_REST_Response(['message' => __('Geçersiz eğitim yılı.', 'seviye-students')], 422);
+        }
+
+        $from = EducationYear::fromString($fromRaw);
+        $to = $from->next();
+        $classNameMap = $this->normalizeClassNameMap($request->get_param('class_name_map'));
+
+        $branchId = $this->currentUserBranchId();
+
+        if ($branchId === null) {
+            $requested = $request->get_param('branch_id');
+            $branchId = $requested !== null && $requested !== '' ? (int) $requested : null;
+
+            if ($branchId !== null && !$this->branchLookup->exists($branchId)) {
+                return new WP_REST_Response(['message' => __('Geçersiz şube.', 'seviye-students')], 422);
+            }
+        }
+
+        $candidates = $branchId !== null ? $this->students->findByBranch($branchId) : $this->students->all();
+        $promoted = [];
+
+        foreach ($candidates as $student) {
+            if ($student->status !== StudentStatus::ACTIVE || $student->educationYear->value() !== $from->value()) {
+                continue;
+            }
+
+            $newClassName = $classNameMap[$student->className] ?? $student->className;
+
+            $updated = $this->students->update(
+                $student->id,
+                $student->branchId,
+                $student->firstName,
+                $student->lastName,
+                $to,
+                $newClassName,
+                $student->status,
+                $student->tcNo
+            );
+
+            $promoted[] = $this->serialize($updated);
+        }
+
+        return new WP_REST_Response([
+            'promoted_count' => count($promoted),
+            'to_education_year' => $to->value(),
+            'promoted' => $promoted,
+        ]);
+    }
+
+    /**
+     * @param mixed $raw
+     * @return array<string, string>
+     */
+    private function normalizeClassNameMap(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $map = [];
+
+        foreach ($raw as $fromClassName => $toClassName) {
+            if (is_string($fromClassName) && is_string($toClassName) && trim($toClassName) !== '') {
+                $map[$fromClassName] = trim($toClassName);
+            }
+        }
+
+        return $map;
     }
 
     /**

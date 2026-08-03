@@ -80,6 +80,10 @@ final class FinanceModule implements ModuleInterface
         $eventBus = $container->get(EventBusInterface::class);
         $eventBus->listen('commerce.order_line_item_completed', [$listener, 'onOrderLineItemCompleted']);
         $eventBus->listen('commerce.order_line_item_reversed', [$listener, 'onOrderLineItemReversed']);
+        $eventBus->listen(
+            'commerce.order_line_item_partially_reversed',
+            [$listener, 'onOrderLineItemPartiallyReversed']
+        );
 
         $rbac = $container->get(RbacManager::class);
         $rbac->grantCapability(Role::GENEL_MERKEZ, HakedisCapability::VIEW_HAKEDIS->value);

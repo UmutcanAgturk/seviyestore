@@ -1,7 +1,7 @@
 <?php
 
 /**
- * One-click setup: bundles all 11 Seviye plugin zips inside the theme
+ * One-click setup: bundles all 13 Seviye plugin zips inside the theme
  * itself (`inc/bundled-plugins/*.zip`, built via `composer install
  * --no-dev` the same way task "Package all plugins as installable
  * WordPress zips" did) so activating this theme alone is enough to bring
@@ -12,7 +12,7 @@
  * themes use for "required plugins" - TGMPA is built for the general case
  * (arbitrary sources, version checks, a bulk-upgrader UI, multisite,
  * "recommended vs required"...). This platform is a closed set of exactly
- * 11 known, privately-owned plugins with an already-fixed, already
+ * 13 known, privately-owned plugins with an already-fixed, already
  * documented activation order (see root README.md) - a purpose-built,
  * much smaller installer is the same "avoid a heavy dependency, hand-roll
  * a minimal but genuinely valid implementation" call this codebase already
@@ -64,6 +64,7 @@ function scp_setup_steps(): array
         scp_bundled_setup_step('bundled', 'seviye-branches', 'Seviye Branches', 'seviye-branches/seviye-branches.php'),
         scp_bundled_setup_step('bundled', 'seviye-students', 'Seviye Students', 'seviye-students/seviye-students.php'),
         scp_bundled_setup_step('bundled', 'seviye-parents', 'Seviye Parents', 'seviye-parents/seviye-parents.php'),
+        scp_bundled_setup_step('bundled', 'seviye-destek', 'Seviye Destek', 'seviye-destek/seviye-destek.php'),
         scp_bundled_setup_step('bundled', 'seviye-pricing', 'Seviye Pricing', 'seviye-pricing/seviye-pricing.php'),
         scp_bundled_setup_step('bundled', 'seviye-commerce', 'Seviye Commerce', 'seviye-commerce/seviye-commerce.php'),
         scp_bundled_setup_step('bundled', 'seviye-depo', 'Seviye Depo', 'seviye-depo/seviye-depo.php'),
@@ -153,7 +154,7 @@ function scp_render_setup_page(): void
         <h1><?php esc_html_e('Seviye Commerce Platform Kurulumu', 'seviye-storefront'); ?></h1>
         <p>
             <?php esc_html_e(
-                'Bu sihirbaz WooCommerce\'i ve platformun 11 Seviye eklentisini sırasıyla kurup etkinleştirir.',
+                'Bu sihirbaz WooCommerce\'i ve platformun 13 Seviye eklentisini sırasıyla kurup etkinleştirir.',
                 'seviye-storefront'
             ); ?>
         </p>
