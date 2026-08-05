@@ -3630,6 +3630,20 @@ tamamen bağımsız, kalıcı bir düzeltme.
 PHP dosyası değişmedi (sadece tema JS'i), plugin zip'leri yeniden
 derlenmedi - sadece tema zip'i.
 
+**Ek düzeltme (aynı tur)**: "Teslim edildi yazınca WooCommerce'de
+tamamlandı olarak düzenlensin" - `deliver()` artık `OrderFulfillment`
+meta'sını işaretlemenin yanı sıra, sipariş `completed` değilse
+`$order->update_status('completed', $note)` da çağırıyor (`ship()`
+BUNU YAPMIYOR - kargoya verilen bir sipariş hâlâ sürüyor olabilir, asıl
+"satış bitti" sinyali teslimat). Bu, cancel()'ın zaten kullandığı AYNI
+`update_status()` çağrısı olduğu için `woocommerce_order_status_changed`
+kancasını tetikliyor -
+`OrderPersistenceHooks::syncOrderStatus()` (hakediş event'leri,
+`scp_order_line_items` senkronu) hiçbir özel durum eklenmeden, sanki
+personel durumu elle `completed`'e çevirmiş gibi doğru çalışıyor;
+zaten `completed` olan bir siparişi teslim edildi işaretlemek (personel
+önce tamamlandı demiş, günler sonra teslim etmiş) no-op kalıyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

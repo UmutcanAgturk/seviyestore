@@ -346,6 +346,20 @@ final class AdminOrdersRestController extends AbstractRestController
      * Does NOT require ship() to have been called first - a branch may hand
      * an order to a parent in person, with no kargo company/tracking number
      * involved at all (see OrderFulfillment's own docblock).
+     *
+     * "Teslim edildi yazınca WooCommerce'de tamamlandı olarak düzenlensin" -
+     * unlike ship() (a shipped order may still very much be in progress),
+     * marking an order delivered IS the real-world signal that the sale is
+     * finished, so this also transitions the order's own WC status to
+     * `completed` (via update_status(), same as cancel()'s own status
+     * transition) - firing the SAME `woocommerce_order_status_changed` hook
+     * that already handles a `completed` transition everywhere else
+     * (OrderPersistenceHooks::syncOrderStatus(): fires hakediş, keeps
+     * scp_order_line_items in sync), so hakediş/Reports/refund-eligibility
+     * behave exactly as if staff had flipped the status by hand. A no-op if
+     * the order is already `completed` (FULFILLABLE_STATUSES already allows
+     * marking an already-completed order delivered - e.g. staff completed
+     * it first, then delivered it days later).
      */
     public function deliver(WP_REST_Request $request): WP_REST_Response
     {
@@ -371,6 +385,12 @@ final class AdminOrdersRestController extends AbstractRestController
         }
 
         $this->fulfillment->markDelivered($order);
+
+        if ($order->get_status() !== 'completed') {
+            $note = __('Sipariş teslim edildi olarak işaretlendi.', 'seviye-commerce');
+            $order->update_status('completed', $note);
+        }
+
         $this->eventBus->dispatch(new Event('commerce.order_delivered', $this->payloadBuilder->build($order)));
 
         return new WP_REST_Response($this->presenter->present($order, null, true));
