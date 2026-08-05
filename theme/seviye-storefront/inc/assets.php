@@ -177,6 +177,8 @@ function scp_enqueue_panel_assets(): void
             'seviye-storefront'
         ),
         'supplierDeleted' => __('Tedarikçi silindi.', 'seviye-storefront'),
+        'supplierPortalLinked' => __('Bağlı', 'seviye-storefront'),
+        'supplierPortalNotLinked' => __('Bağlı değil', 'seviye-storefront'),
         'confirmCancelPurchaseOrder' => __(
             'Bu satın alma siparişini iptal etmek istediğinize emin misiniz?',
             'seviye-storefront'

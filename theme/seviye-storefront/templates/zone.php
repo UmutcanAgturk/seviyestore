@@ -1033,6 +1033,7 @@ get_header();
                                 <th><?php esc_html_e('İletişim', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Telefon', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('E-posta', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Portal', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
                                 <th></th>
                             </tr>
@@ -1083,6 +1084,19 @@ get_header();
                             <input type="text" name="address">
                         </label>
                     </div>
+
+                    <div class="scp-form__row">
+                        <label>
+                            <span><?php esc_html_e('Tedarikçi portalı hesabı (e-posta veya kullanıcı adı)', 'seviye-storefront'); ?></span>
+                            <input type="text" name="user_email" autocomplete="off">
+                        </label>
+                    </div>
+                    <p class="scp-hint">
+                        <?php esc_html_e(
+                            'Buraya girilen e-posta/kullanıcı adı zaten var olan bir WordPress hesabına ait olmalı. Bu tedarikçi o hesapla giriş yaptığında kendi satın alma siparişlerini gördüğü /tedarikci portalına yönlendirilir. Boş bırakılırsa bağlantı kaldırılır.',
+                            'seviye-storefront'
+                        ); ?>
+                    </p>
 
                     <div class="scp-form__actions">
                         <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>

@@ -71,6 +71,16 @@
                 }
             );
 
+            var portalCell = document.createElement('td');
+            var portalBadge = document.createElement('span');
+            var isLinked = Boolean(supplier.portal_user_email);
+            portalBadge.className = 'scp-badge ' + (isLinked ? 'scp-badge--active' : 'scp-badge--inactive');
+            portalBadge.textContent = isLinked
+                ? supplier.portal_user_email
+                : scpPanelText.supplierPortalNotLinked;
+            portalCell.appendChild(portalBadge);
+            row.appendChild(portalCell);
+
             var statusCell = document.createElement('td');
             var badge = document.createElement('span');
             var isActive = supplier.status === 'active';
@@ -121,6 +131,7 @@
         supplierForm.email.value = supplier ? supplier.email || '' : '';
         supplierForm.tax_number.value = supplier ? supplier.tax_number || '' : '';
         supplierForm.address.value = supplier ? supplier.address || '' : '';
+        supplierForm.user_email.value = supplier ? supplier.portal_user_email || '' : '';
         supplierStatusField.hidden = !supplier;
         deleteSupplierButton.hidden = !supplier;
 
@@ -166,7 +177,8 @@
             phone: supplierForm.phone.value,
             email: supplierForm.email.value,
             tax_number: supplierForm.tax_number.value,
-            address: supplierForm.address.value
+            address: supplierForm.address.value,
+            user_email: supplierForm.user_email.value
         };
 
         if (id) {
