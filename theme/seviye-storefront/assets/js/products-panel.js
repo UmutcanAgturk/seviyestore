@@ -3,22 +3,24 @@
  *
  * Two tiers, mirroring zone.php's own gating:
  *   - scpPanel.canManageProducts (Genel Merkez/Bölge Müdürü/Şube Müdürü):
- *     "Yeni Ürün" link (see templates/products-admin.php), owner/status/
- *     actions columns, and every row navigates to that product's own edit
- *     page (see templates/product-edit.php, assets/js/product-edit-panel.js)
- *     on click - a manageable one (server-computed `can_manage`, see
- *     ProductsRestController::serialize()) goes straight there; a
- *     non-manageable one (a Şube Müdürü looking at a product THEY didn't
- *     create - see Support\ProductOwnership) shows WHO owns it instead,
- *     rather than navigating to a page they can't write to anyway. The
- *     "Şubeler" per-branch active/passive grid stays canManageAllBranches
- *     (HQ) only regardless of ownership - a Şube Müdürü instead gets a
- *     single toggle for their OWN branch's status on ANY product (see
- *     statusCell()), independent of who created it.
- *   - VIEW_PRODUCTS only (Muhasebe/Depo/Sistem): read-only id/name/price/
- *     category/stock list, no owner/status/actions columns and no
- *     navigation at all - those table cells don't even exist in the DOM
- *     (see products-admin.php) unless canManageProducts is true.
+ *     "Yeni Ürün" link (see templates/products-admin.php) plus owner/
+ *     status columns (ownerCell()/statusCell()) - the "Şubeler" per-branch
+ *     active/passive grid stays canManageAllBranches (HQ) only regardless
+ *     of ownership, a Şube Müdürü instead gets a single toggle for their
+ *     OWN branch's status on ANY product, independent of who created it.
+ *   - scpPanel.canViewProducts (Muhasebe/Depo/Sistem): read-only id/name/
+ *     price/category/stock list, no owner/status columns - those table
+ *     cells don't even exist in the DOM (see products-admin.php) unless
+ *     canManageProducts is true.
+ *
+ * EVERY row is clickable for BOTH tiers ("ürünleri görebiliyorum ama
+ * tıklanacak bir yer yok" fix) - it always navigates to that product's own
+ * page (see templates/product-edit.php, assets/js/product-edit-panel.js),
+ * which renders editable or strictly read-only per the server-computed
+ * `can_manage` flag (see ProductsRestController::serialize()) - a
+ * VIEW_PRODUCTS-only viewer or a Şube Müdürü looking at a product THEY
+ * didn't create both land on the SAME read-only view there, told who
+ * actually owns it, rather than a dead end here.
  *
  * All actual editing (name/price/stock/image/category/variants/price
  * rules) lives on the dedicated edit page now, not here - see
@@ -26,7 +28,7 @@
  *
  * Expects two globals localized from PHP (see inc/assets.php):
  *   scpPanel     { restUrl, wpRestRoot, nonce, canManageProducts,
- *                  canManageAllBranches, productsBasePath }
+ *                  canViewProducts, canManageAllBranches, productsBasePath }
  *   scpPanelText { ...translated UI strings }
  */
 (function () {
@@ -120,27 +122,21 @@
             if (scpPanel.canManageProducts) {
                 row.appendChild(ownerCell(product));
                 row.appendChild(statusCell(product));
-                row.appendChild(actionsCell(product));
+            }
 
-                // "Ürüne tıklandığında o ürünün düzenleme sayfası gelsin" -
-                // the whole row navigates to the product's own edit page,
-                // for anyone this specific product's can_manage flag allows
-                // (Genel Merkez/Bölge Müdürü always, a Şube Müdürü only for
-                // a product they created themselves - see
-                // ProductsRestController::canManageProductFully()). Button
-                // clicks inside the row (Şubeler/Durum/Düzenle) stop
-                // propagation so they don't ALSO trigger this. A row the
-                // user can't manage is still clickable - it shows WHY
-                // instead of doing nothing, so "I clicked and nothing
-                // happened" never looks like a broken feature.
+            row.appendChild(actionsCell(product));
+
+            // "Ürüne tıklandığında o ürünün düzenleme sayfası gelsin" - the
+            // whole row navigates to the product's own page for ANYONE who
+            // reached this list at all (canManageProducts OR
+            // canViewProducts); the destination page itself decides
+            // editable vs. read-only from `product.can_manage`, so there's
+            // no "blocked" dead end here to special-case - see this file's
+            // own docblock. Button clicks inside the row (Şubeler/Durum/
+            // Detay) stop propagation so they don't ALSO trigger this.
+            if (scpPanel.canManageProducts || scpPanel.canViewProducts) {
                 row.classList.add('scp-row--clickable');
                 row.addEventListener('click', function () {
-                    if (!product.can_manage) {
-                        var owner = product.owner_branch_name || scpPanelText.productOwnerHq;
-                        setStatus(scpPanelText.productNotManageable.replace('%s', owner), true);
-                        return;
-                    }
-
                     goToEditPage(product);
                 });
             }
@@ -203,19 +199,19 @@
     function actionsCell(product) {
         var cell = document.createElement('td');
 
-        if (!product.can_manage) {
+        if (!scpPanel.canManageProducts && !scpPanel.canViewProducts) {
             return cell;
         }
 
-        var editButton = document.createElement('button');
-        editButton.type = 'button';
-        editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        editButton.textContent = scpPanelText.edit;
-        editButton.addEventListener('click', function (event) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        button.textContent = product.can_manage ? scpPanelText.edit : scpPanelText.details;
+        button.addEventListener('click', function (event) {
             event.stopPropagation();
             goToEditPage(product);
         });
-        cell.appendChild(editButton);
+        cell.appendChild(button);
 
         return cell;
     }

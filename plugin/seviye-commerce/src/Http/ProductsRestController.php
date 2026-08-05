@@ -9,6 +9,7 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Commerce\Domain\ProductBranchStatus;
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
+use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
@@ -53,7 +54,8 @@ final class ProductsRestController extends AbstractRestController
         private readonly ProductBranchVisibilityRepositoryInterface $visibility,
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly BranchLookupInterface $branches,
-        private readonly ProductOwnership $ownership
+        private readonly ProductOwnership $ownership,
+        private readonly ProductGradeLevels $gradeLevels
     ) {
     }
 
@@ -187,6 +189,7 @@ final class ProductsRestController extends AbstractRestController
         $productId = $product->save();
         $this->applyCategory($productId, $request);
         $this->ownership->setOwnerBranchId($productId, $this->currentUserBranchId());
+        $this->applyGradeLevels($productId, $request);
 
         if ($hasVariants) {
             $termsByKey = $this->applyVariants(wc_get_product($productId), $sizes, $colors);
@@ -217,6 +220,7 @@ final class ProductsRestController extends AbstractRestController
         $this->applyWritableFields($product, $request);
         $product->save();
         $this->applyCategory($product->get_id(), $request);
+        $this->applyGradeLevels($product->get_id(), $request);
 
         return new WP_REST_Response($this->serialize(wc_get_product($product->get_id())));
     }
@@ -650,6 +654,24 @@ final class ProductsRestController extends AbstractRestController
         }
     }
 
+    /**
+     * Unlike applyCategory() above, an explicit EMPTY array is meaningful
+     * here (it clears a product back to "visible to every grade level" -
+     * see ProductGradeLevels) - only a genuinely ABSENT param (a partial
+     * update that never mentioned grade_levels at all) leaves the existing
+     * value untouched.
+     */
+    private function applyGradeLevels(int $productId, WP_REST_Request $request): void
+    {
+        $gradeLevels = $request->get_param('grade_levels');
+
+        if ($gradeLevels === null) {
+            return;
+        }
+
+        $this->gradeLevels->setGradeLevelsFor($productId, array_map('strval', (array) $gradeLevels));
+    }
+
     private function resolveCategoryTermId(string $name): ?int
     {
         $existing = term_exists($name, 'product_cat');
@@ -706,6 +728,10 @@ final class ProductsRestController extends AbstractRestController
             'owner_branch_name' => $ownerBranch?->name,
             'can_manage' => current_user_can(ProductCapability::MANAGE_PRODUCTS->value)
                 && ($ownBranchId === null || $ownerBranchId === $ownBranchId),
+            // Empty list = visible to every grade level (see
+            // ProductGradeLevels) - the theme's product form renders this
+            // as "hepsi" (nothing checked) rather than a restriction.
+            'grade_levels' => $this->gradeLevels->gradeLevelsFor($product->get_id()),
         ];
     }
 
@@ -793,6 +819,11 @@ final class ProductsRestController extends AbstractRestController
             'category' => ['required' => false, 'type' => 'string'],
             'sizes' => ['required' => false, 'type' => 'string'],
             'colors' => ['required' => false, 'type' => 'string'],
+            'grade_levels' => [
+                'required' => false,
+                'type' => 'array',
+                'items' => ['type' => 'string'],
+            ],
         ];
     }
 }

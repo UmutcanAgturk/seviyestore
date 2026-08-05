@@ -36,6 +36,7 @@ use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
 use Seviye\Commerce\Repository\WpdbSpendingLimitRepository;
 use Seviye\Commerce\Support\CartPricingService;
+use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Commerce\Support\StudentSpendingCalculator;
@@ -50,6 +51,7 @@ use Seviye\Core\Rbac\Role;
 use Seviye\Core\Support\Environment;
 use Seviye\Pricing\Contracts\PriceResolverInterface;
 use Seviye\Students\Contracts\ParentBranchLookupInterface;
+use Seviye\Students\Contracts\ParentClassLookupInterface;
 use Seviye\Students\Contracts\StudentGuardianCheckInterface;
 use Seviye\Students\Contracts\StudentLookupInterface;
 
@@ -113,6 +115,11 @@ final class CommerceModule implements ModuleInterface
         $container->singleton(
             ProductOwnership::class,
             static fn (): ProductOwnership => new ProductOwnership()
+        );
+
+        $container->singleton(
+            ProductGradeLevels::class,
+            static fn (): ProductGradeLevels => new ProductGradeLevels()
         );
 
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
@@ -188,7 +195,8 @@ final class CommerceModule implements ModuleInterface
                 $container->get(ProductBranchVisibilityRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class),
-                $container->get(ProductOwnership::class)
+                $container->get(ProductOwnership::class),
+                $container->get(ProductGradeLevels::class)
             )
         );
 
@@ -271,7 +279,9 @@ final class CommerceModule implements ModuleInterface
             $visibilityHooks = new ProductVisibilityHooks(
                 $container->get(ProductBranchVisibilityRepositoryInterface::class),
                 $container->get(ParentBranchLookupInterface::class),
-                $container->get(ProductOwnership::class)
+                $container->get(ParentClassLookupInterface::class),
+                $container->get(ProductOwnership::class),
+                $container->get(ProductGradeLevels::class)
             );
             $visibilityHooks->register();
 

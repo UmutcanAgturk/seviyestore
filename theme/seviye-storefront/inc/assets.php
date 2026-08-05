@@ -103,6 +103,7 @@ function scp_enqueue_panel_assets(): void
         'parentLinked' => __('Veli bağlandı.', 'seviye-storefront'),
         'profileSaved' => __('Profiliniz güncellendi.', 'seviye-storefront'),
         'noChildren' => __('Sisteme bağlı bir öğrenci bulunamadı.', 'seviye-storefront'),
+        'pricingProductNotFound' => __('Ürün bulunamadı. Listeden bir ürün seçin.', 'seviye-storefront'),
         'scopeGeneral' => __('Genel', 'seviye-storefront'),
         'scopeBranch' => __('Şube', 'seviye-storefront'),
         'scopeStudent' => __('Öğrenci', 'seviye-storefront'),
@@ -165,6 +166,8 @@ function scp_enqueue_panel_assets(): void
         'importing' => __('İçe aktarılıyor…', 'seviye-storefront'),
         /* translators: 1: imported count, 2: error row count - tokens replaced client-side (students-panel.js) */
         'importSummary' => __('%1$d öğrenci içe aktarıldı, %2$d satırda hata oluştu.', 'seviye-storefront'),
+        /* translators: 1: imported count, 2: error row count - tokens replaced client-side (pricing-panel.js) */
+        'pricingImportSummary' => __('%1$d fiyat kuralı içe aktarıldı, %2$d satırda hata oluştu.', 'seviye-storefront'),
         /* translators: 1: CSV line number, 2: error message - tokens replaced client-side, see students-panel.js */
         'importErrorLine' => __('Satır %1$d: %2$s', 'seviye-storefront'),
         'spendingLimitNone' => __('Bu öğrenci için harcama limiti tanımlı değil.', 'seviye-storefront'),
@@ -388,16 +391,24 @@ function scp_enqueue_panel_assets(): void
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageProducts' => current_user_can('scp_manage_products'),
+            'canViewProducts' => current_user_can('scp_view_products'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
             'productsBasePath' => scp_admin_products_path(),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    // Reached at all already implies scp_manage_products (see
-    // inc/zones.php's own capability check on this sub-path - a
-    // VIEW_PRODUCTS-only role never gets here).
-    if ($isProductEditPage && current_user_can('scp_manage_products')) {
+    // /yeni requires scp_manage_products (see inc/zones.php's own gate on
+    // that specific sub-path); an existing /{id} only needs
+    // scp_manage_products OR scp_view_products - a VIEW_PRODUCTS-only
+    // viewer can open it read-only ("ürünleri görebiliyorum ama tıklanacak
+    // bir yer yok" fix). This script's own JS decides read-only vs
+    // editable per product from the fetched `can_manage` flag either way,
+    // so the SAME enqueue condition the page route itself uses is enough
+    // here too - no need to duplicate the /yeni-vs-/{id} distinction.
+    $canReachProductEditPage = current_user_can('scp_manage_products') || current_user_can('scp_view_products');
+
+    if ($isProductEditPage && $canReachProductEditPage) {
         $handle = 'scp-product-edit-panel';
         wp_enqueue_script(
             $handle,

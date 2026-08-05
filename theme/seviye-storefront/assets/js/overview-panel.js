@@ -102,8 +102,11 @@
      * docs/ARCHITECTURE.md bölüm 16): 30 points, one line, is not worth a
      * bundled dependency. No axes/gridlines by design (this is a compact
      * trend indicator, not an analytical chart) - each point's exact date/
-     * ciro/sipariş sayısı is available via its native SVG <title> hover
-     * tooltip, and the two range labels below anchor the endpoints.
+     * ciro/sipariş sayısı is shown via a mouse-follow crosshair + tooltip
+     * (see wireTrendInteraction() below) instead of a native SVG <title>
+     * (which only ever fired for the exact 3px a data point's own <circle>
+     * covered, and only after a hover delay) - "mouse ile gezerken
+     * grafiğin mouseye göre hareket ve verileri göstermesi".
      */
     function renderTrend(points) {
         if (!points || points.length === 0) {
@@ -171,16 +174,123 @@
             circle.setAttribute('cy', coord.y.toFixed(1));
             circle.setAttribute('r', '3');
             circle.setAttribute('class', 'scp-trend-chart__point');
-
-            var title = document.createElementNS(svgNs, 'title');
-            title.textContent = coord.point.date + ': ' + formatMoney(coord.point.total)
-                + ' (' + coord.point.order_count + ' ' + scpPanelText.overviewOrdersLabel + ')';
-            circle.appendChild(title);
-
             svg.appendChild(circle);
         });
 
+        var crosshair = document.createElementNS(svgNs, 'line');
+        crosshair.setAttribute('class', 'scp-trend-chart__crosshair');
+        crosshair.setAttribute('y1', String(paddingY));
+        crosshair.setAttribute('y2', String(baselineY));
+        crosshair.style.display = 'none';
+        svg.appendChild(crosshair);
+
+        var hoverPoint = document.createElementNS(svgNs, 'circle');
+        hoverPoint.setAttribute('class', 'scp-trend-chart__hover-point');
+        hoverPoint.setAttribute('r', '4');
+        hoverPoint.style.display = 'none';
+        svg.appendChild(hoverPoint);
+
+        // Transparent rect spanning the whole chart, so pointer tracking
+        // isn't limited to the exact pixels a 3px <circle> covers.
+        var capture = document.createElementNS(svgNs, 'rect');
+        capture.setAttribute('class', 'scp-trend-chart__capture');
+        capture.setAttribute('x', '0');
+        capture.setAttribute('y', '0');
+        capture.setAttribute('width', String(width));
+        capture.setAttribute('height', String(height));
+        svg.appendChild(capture);
+
         trendSvgHost.appendChild(svg);
+
+        var tooltip = document.createElement('div');
+        tooltip.className = 'scp-trend-chart__tooltip';
+        tooltip.hidden = true;
+        trendSvgHost.appendChild(tooltip);
+
+        wireTrendInteraction(svg, capture, crosshair, hoverPoint, tooltip, coords, width, height);
+    }
+
+    /**
+     * Tracks the pointer across the capture <rect> and snaps the
+     * crosshair/highlighted point/tooltip to the NEAREST of the (up to 30)
+     * daily coordinates - there's no continuous data to interpolate
+     * between, only one value per day, so "following the mouse" means
+     * always showing whichever day's point the cursor is currently
+     * closest to.
+     */
+    function wireTrendInteraction(svg, capture, crosshair, hoverPoint, tooltip, coords, viewBoxWidth, viewBoxHeight) {
+        function pointerToViewBoxX(clientX) {
+            var rect = svg.getBoundingClientRect();
+            var ratio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+            return ratio * viewBoxWidth;
+        }
+
+        function nearestCoord(viewBoxX) {
+            var nearest = coords[0];
+            var nearestDistance = Infinity;
+
+            coords.forEach(function (coord) {
+                var distance = Math.abs(coord.x - viewBoxX);
+
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearest = coord;
+                }
+            });
+
+            return nearest;
+        }
+
+        function showAt(coord) {
+            crosshair.setAttribute('x1', coord.x.toFixed(1));
+            crosshair.setAttribute('x2', coord.x.toFixed(1));
+            crosshair.style.display = '';
+
+            hoverPoint.setAttribute('cx', coord.x.toFixed(1));
+            hoverPoint.setAttribute('cy', coord.y.toFixed(1));
+            hoverPoint.style.display = '';
+
+            tooltip.innerHTML = '';
+            var dateEl = document.createElement('strong');
+            dateEl.textContent = formatShortDate(coord.point.date);
+            var detailEl = document.createElement('span');
+            detailEl.textContent = formatMoney(coord.point.total)
+                + ' – ' + coord.point.order_count + ' ' + scpPanelText.overviewOrdersLabel;
+            tooltip.appendChild(dateEl);
+            tooltip.appendChild(detailEl);
+            tooltip.hidden = false;
+
+            // The tooltip is a plain HTML element (not SVG), so its
+            // position is in the host's own pixel box, not the SVG's
+            // (possibly non-uniformly stretched, preserveAspectRatio="none")
+            // viewBox units - convert coord.x/y back to a 0..1 ratio first.
+            var hostWidth = svg.clientWidth;
+            var hostHeight = svg.clientHeight;
+            tooltip.style.left = ((coord.x / viewBoxWidth) * hostWidth) + 'px';
+            tooltip.style.top = ((coord.y / viewBoxHeight) * hostHeight) + 'px';
+        }
+
+        function hide() {
+            crosshair.style.display = 'none';
+            hoverPoint.style.display = 'none';
+            tooltip.hidden = true;
+        }
+
+        capture.addEventListener('mousemove', function (event) {
+            showAt(nearestCoord(pointerToViewBoxX(event.clientX)));
+        });
+        capture.addEventListener('mouseleave', hide);
+
+        // Touch: a finger drag across the chart tracks the same way.
+        capture.addEventListener('touchmove', function (event) {
+            if (event.touches.length === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            showAt(nearestCoord(pointerToViewBoxX(event.touches[0].clientX)));
+        }, { passive: false });
+        capture.addEventListener('touchend', hide);
     }
 
     function load() {

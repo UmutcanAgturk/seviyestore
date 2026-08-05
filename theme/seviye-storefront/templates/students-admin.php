@@ -171,7 +171,14 @@ if (!defined('ABSPATH')) {
                 </label>
                 <label>
                     <span><?php esc_html_e('Sınıf', 'seviye-storefront'); ?></span>
-                    <input type="text" name="class_name" required>
+                    <select name="class_name" required>
+                        <option value=""></option>
+                        <?php foreach (scp_grade_level_options() as $scp_grade_level) : ?>
+                            <option value="<?php echo esc_attr($scp_grade_level); ?>">
+                                <?php echo esc_html($scp_grade_level); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </label>
             </div>
 

@@ -180,16 +180,26 @@ function scp_render_zone_template(): void
             exit;
         }
 
-        // The edit/create page writes to the catalog - only a
-        // scp_manage_products holder may reach it, never a VIEW_PRODUCTS-only
-        // read-only role (Muhasebe/Depo/Sistem), who gets bounced back to
-        // the list instead of a raw 403.
-        if (!current_user_can('scp_manage_products')) {
-            wp_safe_redirect(scp_admin_products_path());
-            exit;
-        }
-
+        // "Ürünleri görebiliyorum ama tıklanacak bir yer yok" - a
+        // VIEW_PRODUCTS-only role (Muhasebe/Depo/Sistem) couldn't reach a
+        // product's own page AT ALL before this fix, not even read-only:
+        // this block used to require scp_manage_products for every
+        // sub-path, /{id} included. It's now split - /yeni (create) still
+        // requires scp_manage_products (it WRITES a brand new product),
+        // but /{id} (view an existing one) only needs the same
+        // manage-OR-view check the list itself already passed above.
+        // templates/product-edit.php/assets/js/product-edit-panel.js
+        // already render read-only (disabled form, no delete/pricing
+        // controls) whenever the fetched product's own `can_manage` is
+        // false - see ProductsRestController::serialize() - so a viewer
+        // reaching an existing product here was already handled
+        // correctly on the FORM side; only this route gate was too broad.
         if ($productSubPath === 'yeni') {
+            if (!current_user_can('scp_manage_products')) {
+                wp_safe_redirect(scp_admin_products_path());
+                exit;
+            }
+
             $scp_product_id = null;
         } elseif (ctype_digit($productSubPath) && (int) $productSubPath > 0) {
             $scp_product_id = (int) $productSubPath;

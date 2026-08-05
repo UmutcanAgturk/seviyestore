@@ -11,10 +11,16 @@
  * templates/products-admin.php's list (a quick visibility flip, not really
  * "editing the product" - see that template's own note).
  *
- * Reached at all already implies inc/zones.php's own capability check
- * (scp_manage_products - not scp_view_products, this page WRITES) and id
- * validation passed - see the render branch there, which sets
- * $scp_product_id (null for /yeni, a positive int for /{id}).
+ * Reached at all already implies inc/zones.php's own capability check and
+ * id validation passed - see the render branch there, which sets
+ * $scp_product_id (null for /yeni, a positive int for /{id}). /yeni
+ * requires scp_manage_products (it WRITES a brand new product); an
+ * existing /{id} only needs scp_manage_products OR scp_view_products - a
+ * VIEW_PRODUCTS-only viewer (Muhasebe/Depo/Sistem) can open any product
+ * here read-only. assets/js/product-edit-panel.js is what actually
+ * enforces the read-only behavior client-side, from the fetched product's
+ * own `can_manage` flag (see ProductsRestController::serialize()) - this
+ * page's own PHP doesn't need to know which case it is.
  */
 
 declare(strict_types=1);
@@ -105,6 +111,24 @@ $scp_is_new_product = $scp_product_id === null;
                     'seviye-storefront'
                 ); ?>
             </p>
+
+            <fieldset class="scp-form__fieldset" data-scp-grade-levels-field>
+                <legend><?php esc_html_e('Görünür Olacağı Sınıflar', 'seviye-storefront'); ?></legend>
+                <p class="scp-form__hint">
+                    <?php esc_html_e(
+                        'Boş bırakılırsa ürün her sınıftaki öğrenciye görünür. Seçim yapılırsa ürün yalnızca seçilen sınıf(lar)daki öğrencinin velisine görünür.',
+                        'seviye-storefront'
+                    ); ?>
+                </p>
+                <div class="scp-checkbox-grid" data-scp-grade-levels-options>
+                    <?php foreach (scp_grade_level_options() as $scp_grade_level) : ?>
+                        <label class="scp-checkbox">
+                            <input type="checkbox" name="grade_levels[]" value="<?php echo esc_attr($scp_grade_level); ?>">
+                            <span><?php echo esc_html($scp_grade_level); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </fieldset>
 
             <label>
                 <span><?php esc_html_e('Görsel', 'seviye-storefront'); ?></span>

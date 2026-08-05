@@ -16,6 +16,13 @@
  * column below): a quick visibility flip a Şube Müdürü/Genel Merkez may
  * want without leaving the list, not really "editing the product" the way
  * everything on the edit page is.
+ *
+ * The trailing "Detay"/"Düzenle" column is UNCONDITIONAL (unlike
+ * Oluşturan/Durum, which stay scp_manage_products-only) - a
+ * scp_view_products-only viewer (Muhasebe/Depo/Sistem) can open any
+ * product's own page read-only too ("ürünleri görebiliyorum ama
+ * tıklanacak bir yer yok" fix), they just never get the extra manage-only
+ * columns/buttons around it. See assets/js/products-panel.js.
  */
 
 declare(strict_types=1);
@@ -67,8 +74,8 @@ $scp_can_manage_products = current_user_can('scp_manage_products');
                         <?php if ($scp_can_manage_products) : ?>
                             <th><?php esc_html_e('Oluşturan', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
-                            <th></th>
                         <?php endif; ?>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody data-scp-products-body></tbody>

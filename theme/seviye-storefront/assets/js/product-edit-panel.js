@@ -60,6 +60,7 @@
     var variantFields = form.querySelector('[data-scp-variant-fields]');
     var variantHint = form.querySelector('[data-scp-variant-hint]');
     var variantLockedNotice = form.querySelector('[data-scp-variant-locked-notice]');
+    var gradeLevelCheckboxes = form.querySelectorAll('[name="grade_levels[]"]');
     var variationsPanel = root.querySelector('[data-scp-product-variations-panel]');
     var variationsList = root.querySelector('[data-scp-product-variations-list]');
     var saveVariationsButton = root.querySelector('[data-scp-save-variations]');
@@ -380,6 +381,11 @@
             imagePreview.hidden = true;
         }
 
+        var gradeLevels = product && product.grade_levels ? product.grade_levels : [];
+        Array.prototype.forEach.call(gradeLevelCheckboxes, function (checkbox) {
+            checkbox.checked = gradeLevels.indexOf(checkbox.value) !== -1;
+        });
+
         // "Ürün eğer Genel Merkez'den oluşturulduysa silemez" - can_manage
         // already encodes exactly that rule (see
         // ProductsRestController::canManageProductFully()).
@@ -464,7 +470,12 @@
             description: form.description.value,
             price: isVariable ? 0 : parseFloat(form.price.value) || 0,
             category: form.category.value,
-            manage_stock: isVariable ? false : manageStockCheckbox.checked
+            manage_stock: isVariable ? false : manageStockCheckbox.checked,
+            grade_levels: Array.prototype.filter.call(gradeLevelCheckboxes, function (checkbox) {
+                return checkbox.checked;
+            }).map(function (checkbox) {
+                return checkbox.value;
+            })
         };
 
         if (form.image_id.value) {

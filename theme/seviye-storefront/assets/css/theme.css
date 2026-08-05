@@ -393,8 +393,144 @@ body {
   background: transparent;
 }
 
+/* .scp-layout wraps <aside class="scp-sidebar"> + <main> (header.php,
+   footer.php) - unconditionally, even where there's no sidebar to render
+   (scp_render_sidebar() is a no-op outside /admin,/sube - inc/sidebar.php),
+   since a lone flex child with flex:1 below already fills the row on its
+   own, no different from a plain block. */
+.scp-layout {
+  display: flex;
+  align-items: flex-start;
+}
+
 .scp-site-main {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: calc(100vh - 130px);
+}
+
+/* ---- Left sidebar nav (/admin, /sube) - "menüleri üst tarafa koymak
+   yerine sol tarafa al" (bölüm 66), replacing zone.php's old top
+   quicknav (bölüm 64). Reuses the .scp-quicknav class itself (see
+   inc/sidebar.php) purely so assets/js/scp-ui-kit.js's command palette
+   scrape (`.scp-quicknav a`) keeps working unchanged - every other rule
+   here is scoped to .scp-sidebar-nav so it doesn't affect the old
+   horizontal-pill .scp-quicknav usage that no longer exists anywhere but
+   would still be safe to have elsewhere. ---- */
+
+.scp-sidebar {
+  position: sticky;
+  top: var(--scp-header-height);
+  flex: 0 0 232px;
+  width: 232px;
+  height: calc(100vh - var(--scp-header-height));
+  overflow-y: auto;
+  padding: 20px 12px;
+  border-right: 1px solid var(--scp-border);
+  background: var(--scp-surface);
+}
+
+.scp-sidebar-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scp-sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--scp-radius-sm, 8px);
+  background: transparent;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--scp-duration-base) var(--scp-ease), background var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-sidebar-nav a:hover,
+.scp-sidebar-nav a:focus-visible {
+  color: var(--scp-primary);
+  background: var(--scp-primary-bg);
+}
+
+.scp-sidebar-nav__item--group {
+  position: relative;
+}
+
+.scp-sidebar-nav__group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--scp-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: var(--scp-radius-sm, 8px);
+}
+
+.scp-sidebar-nav__item--group:hover > .scp-sidebar-nav__group-toggle,
+.scp-sidebar-nav__group-toggle:focus-visible {
+  color: var(--scp-primary);
+  background: var(--scp-primary-bg);
+}
+
+.scp-sidebar-nav__chevron {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--scp-duration-base) var(--scp-ease);
+}
+
+/* Submenu is a flyout by default (hover/keyboard-focus on the group
+   reveals it to the right of the sidebar) - it's still a DOM descendant of
+   the hovered <li>, so :hover stays active while the pointer is over the
+   flyout itself, no JS needed for the mouse case. */
+.scp-sidebar-nav__submenu {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  min-width: 200px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  box-shadow: var(--scp-shadow-2);
+  z-index: 15;
+}
+
+.scp-sidebar-nav__item--group:hover > .scp-sidebar-nav__submenu,
+.scp-sidebar-nav__item--group:focus-within > .scp-sidebar-nav__submenu,
+.scp-sidebar-nav__item--group.is-open > .scp-sidebar-nav__submenu {
+  display: flex;
+}
+
+.scp-sidebar-nav__item--group:hover > .scp-sidebar-nav__group-toggle .scp-sidebar-nav__chevron,
+.scp-sidebar-nav__item--group.is-open > .scp-sidebar-nav__group-toggle .scp-sidebar-nav__chevron {
+  transform: rotate(-135deg);
 }
 
 .scp-panel {
@@ -422,55 +558,14 @@ body {
   color: var(--scp-text);
 }
 
-.scp-quicknav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 28px;
-  padding: 0;
-  list-style: none;
-}
-
-.scp-quicknav a {
-  display: inline-block;
-  padding: 7px 16px;
-  border: 1px solid var(--scp-border);
-  border-radius: 999px;
-  background: var(--scp-surface);
-  color: var(--scp-text-muted);
-  font-size: var(--scp-text-sm);
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    color var(--scp-duration-base) var(--scp-ease),
-    border-color var(--scp-duration-base) var(--scp-ease),
-    background var(--scp-duration-base) var(--scp-ease);
-}
-
-/* Cluster headings between groups of quicknav links (see zone.php's
-   $scp_sections/$scp_group_labels - bölüm 64) - forced onto its own row via
-   flex-basis so it reads as a section break in the wrapping flex row, not
-   another pill. Not an <a>, so scpQuicknavReorder() (scp-ui-kit.js) never
-   makes it draggable and drops never land on it. */
-.scp-quicknav__group-label {
-  flex-basis: 100%;
-  margin: 10px 0 -2px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--scp-text-muted);
-}
-
-.scp-quicknav__group-label:first-child {
-  margin-top: 0;
-}
-
-.scp-quicknav a:hover {
-  color: #fff;
-  background: var(--scp-primary);
-  border-color: var(--scp-primary);
-}
+/*
+ * .scp-quicknav no longer has any pill-row styling of its own (bölüm 66
+ * replaced the top quicknav with the left sidebar above -
+ * .scp-sidebar-nav is the only thing that renders inside it now, see
+ * inc/sidebar.php) - the class stays on the sidebar's <nav> PURELY so
+ * assets/js/scp-ui-kit.js's command palette scrape (`.scp-quicknav a`)
+ * keeps working unchanged; it carries no CSS of its own any more.
+ */
 
 .scp-site-footer {
   padding: 24px 28px;
@@ -492,5 +587,34 @@ body {
 
   .scp-card {
     padding: 18px;
+  }
+
+  /* Sidebar goes from a fixed-width sticky column to a full-width block
+     ABOVE <main> - a flyout wouldn't fit a narrow viewport, and hover
+     doesn't exist on touch anyway, so submenus become a plain inline
+     expand (JS toggles .is-open on tap - see scp-ui-kit.js) instead of a
+     hover-revealed flyout. */
+  .scp-layout {
+    flex-direction: column;
+  }
+
+  .scp-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--scp-border);
+    overflow-y: visible;
+  }
+
+  .scp-sidebar-nav__submenu {
+    position: static;
+    left: auto;
+    top: auto;
+    min-width: 0;
+    border: none;
+    box-shadow: none;
+    padding: 0 0 0 12px;
   }
 }

@@ -4,6 +4,17 @@
  * Header for authenticated views only: inc/access-gate.php renders
  * templates/login.php (its own standalone document) for every logged-out
  * request, so by the time this file runs, is_user_logged_in() is true.
+ *
+ * scp_render_sidebar() (inc/sidebar.php) renders /admin,/sube's left nav
+ * HERE - not in templates/zone.php, where it used to live as a top
+ * "quicknav" (bölüm 64) - so it appears on EVERY staff page (Öğrenciler,
+ * Fiyat Kuralları, Depo, ...bölüm 65's ~20 standalone pages), not just the
+ * /admin,/sube root. "Menüleri üst tarafa koymak yerine sol tarafa al"
+ * (bölüm 66). It's a no-op (echoes nothing) outside those two zones, so
+ * .scp-layout still wraps <main> unconditionally below - simpler than
+ * conditionally wrapping, and an empty <aside> that scp_has_sidebar()
+ * skips means .scp-layout with no sidebar child just behaves like a plain
+ * block, no visual difference from before this round.
  */
 
 declare(strict_types=1);
@@ -89,4 +100,6 @@ if (!defined('ABSPATH')) {
         </a>
     </nav>
 </header>
-<main id="scp-main-content" class="scp-site-main">
+<div class="scp-layout">
+    <?php scp_render_sidebar(); ?>
+    <main id="scp-main-content" class="scp-site-main">

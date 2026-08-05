@@ -7,7 +7,8 @@ if (!defined('ABSPATH')) {
 }
 
 ?>
-</main>
+    </main>
+</div>
 <footer class="scp-site-footer">
     <p>&copy; <?php echo esc_html(gmdate('Y')); ?> <?php bloginfo('name'); ?></p>
 </footer>

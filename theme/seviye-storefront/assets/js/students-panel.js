@@ -201,6 +201,21 @@
         form.education_year.value = student ? student.education_year : '';
         form.class_name.value = student ? student.class_name : '';
 
+        // Sınıf artık bir <select> (sabit 14 seçenek) - ama bu değişiklikten
+        // ÖNCE serbest metin olarak girilmiş eski kayıtlar (ör. "5-A") bu
+        // listede yok. .value ataması eşleşmezse tarayıcı sessizce hiçbir
+        // seçeneği seçili göstermez, bu da öğrencinin gerçek sınıfını
+        // görünmez şekilde kaybettirir - bunun yerine listeye geçici bir
+        // seçenek ekleyip seçili yapıyoruz, formu kaydetmeden değiştirmezse
+        // eski değer korunur.
+        if (student && student.class_name && form.class_name.selectedIndex === -1) {
+            var scpLegacyClassOption = document.createElement('option');
+            scpLegacyClassOption.value = student.class_name;
+            scpLegacyClassOption.textContent = student.class_name;
+            scpLegacyClassOption.selected = true;
+            form.class_name.appendChild(scpLegacyClassOption);
+        }
+
         if (scpPanel.canManageAllBranches && student) {
             branchSelect.value = String(student.branch_id);
         }

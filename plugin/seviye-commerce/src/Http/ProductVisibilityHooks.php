@@ -6,8 +6,10 @@ namespace Seviye\Commerce\Http;
 
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
+use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Students\Contracts\ParentBranchLookupInterface;
+use Seviye\Students\Contracts\ParentClassLookupInterface;
 
 /**
  * Enforces the shared catalog's per-branch active/passive toggle on the
@@ -27,13 +29,23 @@ use Seviye\Students\Contracts\ParentBranchLookupInterface;
  * Genel Merkez-owned product (no owner branch) is unaffected by this gate
  * and keeps the exact opt-out behaviour every product already had before
  * ownership existed.
+ *
+ * "Yeni ürün eklerken ürünlerin hangi sınıf ya da sınıflardaki öğrencilere
+ * görüneceğini belirten bir filtre koy" - layered on TOP of the branch
+ * checks above, same "any of my children" reasoning: a grade-restricted
+ * product (see ProductGradeLevels) is visible only if at least one of the
+ * Veli's children is currently in one of the listed grade levels. A
+ * product with no grade-level restriction (the default) is unaffected,
+ * same backward-compatible opt-out shape as ownership.
  */
 final class ProductVisibilityHooks
 {
     public function __construct(
         private readonly ProductBranchVisibilityRepositoryInterface $visibility,
         private readonly ParentBranchLookupInterface $parentBranches,
-        private readonly ProductOwnership $ownership
+        private readonly ParentClassLookupInterface $parentClasses,
+        private readonly ProductOwnership $ownership,
+        private readonly ProductGradeLevels $gradeLevels
     ) {
     }
 
@@ -89,8 +101,35 @@ final class ProductVisibilityHooks
             return false;
         }
 
+        $activeForABranch = false;
+
         foreach ($branchIds as $branchId) {
             if ($this->visibility->isActiveForBranch($productId, $branchId)) {
+                $activeForABranch = true;
+
+                break;
+            }
+        }
+
+        if (!$activeForABranch) {
+            return false;
+        }
+
+        return $this->isVisibleForCurrentUsersGradeLevel($productId);
+    }
+
+    private function isVisibleForCurrentUsersGradeLevel(int $productId): bool
+    {
+        $gradeLevels = $this->gradeLevels->gradeLevelsFor($productId);
+
+        if ($gradeLevels === []) {
+            return true;
+        }
+
+        $classNames = $this->parentClasses->classNamesForParent(get_current_user_id());
+
+        foreach ($classNames as $className) {
+            if (in_array($className, $gradeLevels, true)) {
                 return true;
             }
         }

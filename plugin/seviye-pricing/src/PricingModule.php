@@ -21,6 +21,7 @@ use Seviye\Pricing\Repository\PriceRuleRepositoryInterface;
 use Seviye\Pricing\Repository\WpdbPriceRuleRepository;
 use Seviye\Pricing\Support\PriceResolver;
 use Seviye\Pricing\Support\PriceRuleImportParser;
+use Seviye\Pricing\Support\XlsxToCsvConverter;
 use Seviye\Students\Contracts\StudentLookupInterface;
 
 /**
@@ -78,13 +79,19 @@ final class PricingModule implements ModuleInterface
             static fn (): PriceRuleImportParser => new PriceRuleImportParser()
         );
 
+        $container->singleton(
+            XlsxToCsvConverter::class,
+            static fn (): XlsxToCsvConverter => new XlsxToCsvConverter()
+        );
+
         $container->get(RestApiRegistrar::class)->register(
             static fn (): PricingRestController => new PricingRestController(
                 $container->get(PriceRuleRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class),
                 $container->get(StudentLookupInterface::class),
-                $container->get(PriceRuleImportParser::class)
+                $container->get(PriceRuleImportParser::class),
+                $container->get(XlsxToCsvConverter::class)
             )
         );
     }

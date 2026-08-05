@@ -42,6 +42,8 @@ require SCP_THEME_DIR . '/inc/setup.php';
 require SCP_THEME_DIR . '/inc/plugin-installer.php';
 require SCP_THEME_DIR . '/inc/access-gate.php';
 require SCP_THEME_DIR . '/inc/zones.php';
+require SCP_THEME_DIR . '/inc/sidebar.php';
+require SCP_THEME_DIR . '/inc/grade-levels.php';
 require SCP_THEME_DIR . '/inc/ip-restriction.php';
 require SCP_THEME_DIR . '/inc/woocommerce.php';
 require SCP_THEME_DIR . '/inc/assets.php';

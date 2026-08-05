@@ -2,8 +2,10 @@
  * Price rule management for /admin (every branch) and /sube (own branch
  * only) - scp_manage_pricing is granted to Şube Müdürü too, unlike
  * scp_manage_branches, so this panel (unlike the branches one) renders in
- * both zones. Looks up rules by a plain numeric product id (see the
- * "Ürünler" panel for the catalog itself).
+ * both zones. Looks up rules by picking a product from the catalog (a
+ * <datalist>-backed search box, populated from commerce/products) instead
+ * of typing its raw id by hand - "ürün id'si girmek yerine direkt ürün
+ * seçilip fiyat güncellemesi yapılsın".
  *
  * The GENERAL scope option is narrower than "every other HQ action" here:
  * gated on scpPanel.canManageBasePricing (Genel Merkez/Sistem only), NOT
@@ -25,6 +27,8 @@
     }
 
     var lookupForm = root.querySelector('[data-scp-price-lookup-form]');
+    var productSearchInput = lookupForm.querySelector('[name="product_search"]');
+    var productOptionsList = root.querySelector('#scp-pricing-product-options');
     var statusEl = root.querySelector('[data-scp-pricing-status]');
     var resultsBlock = root.querySelector('[data-scp-price-rules-results]');
     var tableBody = root.querySelector('[data-scp-price-rules-body]');
@@ -36,13 +40,14 @@
     var statusField = root.querySelector('[data-scp-price-status-field]');
     var deleteButton = root.querySelector('[data-scp-delete-price-rule]');
     var importForm = root.querySelector('[data-scp-price-import-form]');
-    var importFileInput = importForm.querySelector('[name="csv_file"]');
+    var importFileInput = importForm.querySelector('[name="import_file"]');
     var importResult = root.querySelector('[data-scp-price-import-result]');
     var importSummary = root.querySelector('[data-scp-price-import-summary]');
     var importErrorsList = root.querySelector('[data-scp-price-import-errors]');
     var importTemplateLink = root.querySelector('[data-scp-download-price-import-template]');
 
     var currentProductId = null;
+    var productIdsByLabel = {};
 
     if (!scpPanel.canManageBasePricing) {
         var generalOption = scopeSelect.querySelector('[data-scp-scope-general]');
@@ -169,12 +174,58 @@
         updateTargetField(scopeSelect.value);
     }
 
+    /**
+     * "Ürün id'si girmek yerine direkt ürün seçilip fiyat güncellemesi
+     * yapılsın" - populates the lookup field's <datalist> with every
+     * product's "Ad (#id)" label, so picking one from the browser's own
+     * autocomplete resolves straight to an id via productIdsByLabel; no
+     * separate autocomplete widget needed.
+     */
+    function loadProductOptions() {
+        apiFetch('commerce/products').then(function (result) {
+            if (!result.ok) {
+                return;
+            }
+
+            productOptionsList.innerHTML = '';
+            productIdsByLabel = {};
+
+            result.data.forEach(function (product) {
+                var label = product.name + ' (#' + product.id + ')';
+                productIdsByLabel[label] = product.id;
+
+                var option = document.createElement('option');
+                option.value = label;
+                productOptionsList.appendChild(option);
+            });
+        });
+    }
+
+    /**
+     * An exact datalist match resolves directly; otherwise (the user typed
+     * a bare id, or a label the list doesn't have) falls back to the last
+     * run of digits in the input - covers "#123", "123", or a half-typed
+     * label ending in the id.
+     */
+    function resolveProductId(typed) {
+        if (Object.prototype.hasOwnProperty.call(productIdsByLabel, typed)) {
+            return productIdsByLabel[typed];
+        }
+
+        var match = typed.match(/(\d+)\D*$/);
+
+        return match ? parseInt(match[1], 10) : null;
+    }
+
+    loadProductOptions();
+
     lookupForm.addEventListener('submit', function (event) {
         event.preventDefault();
 
-        var productId = parseInt(lookupForm.product_id.value, 10);
+        var productId = resolveProductId(productSearchInput.value.trim());
 
         if (!productId) {
+            setStatus(scpPanelText.pricingProductNotFound, true);
             return;
         }
 
@@ -246,7 +297,7 @@
         });
     });
 
-    // ---- Toplu İçe Aktarma (CSV) ----
+    // ---- Toplu İçe Aktarma (CSV veya Excel) ----
 
     importTemplateLink.addEventListener('click', function (event) {
         event.preventDefault();
@@ -266,7 +317,7 @@
 
     function renderPriceImportResult(data) {
         importResult.hidden = false;
-        importSummary.textContent = scpPanelText.importSummary
+        importSummary.textContent = scpPanelText.pricingImportSummary
             .replace('%1$d', String(data.imported_count))
             .replace('%2$d', String(data.error_count));
 
@@ -277,6 +328,40 @@
                 .replace('%1$d', String(error.line))
                 .replace('%2$s', error.message);
             importErrorsList.appendChild(item);
+        });
+    }
+
+    /**
+     * A base64-encoded .xlsx binary can't go through btoa(String.fromCharCode
+     * (...allBytes)) in one call without risking a call-stack overflow on a
+     * large-ish file - chunking keeps each String.fromCharCode.apply() call
+     * small regardless of file size.
+     */
+    function arrayBufferToBase64(buffer) {
+        var bytes = new Uint8Array(buffer);
+        var chunkSize = 0x8000;
+        var chunks = [];
+
+        for (var i = 0; i < bytes.length; i += chunkSize) {
+            chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+        }
+
+        return window.btoa(chunks.join(''));
+    }
+
+    function submitImport(payload) {
+        apiFetch('pricing/rules/import', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus('');
+            renderPriceImportResult(result.data);
+            importForm.reset();
         });
     }
 
@@ -292,22 +377,21 @@
         importResult.hidden = true;
         setStatus(scpPanelText.importing);
 
-        var reader = new FileReader();
-        reader.onload = function () {
-            apiFetch('pricing/rules/import', {
-                method: 'POST',
-                body: JSON.stringify({ csv: String(reader.result) })
-            }).then(function (result) {
-                if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
-                    return;
-                }
+        var isXlsx = /\.xlsx$/i.test(file.name)
+            || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-                setStatus('');
-                renderPriceImportResult(result.data);
-                importForm.reset();
-            });
-        };
-        reader.readAsText(file, 'UTF-8');
+        var reader = new FileReader();
+
+        if (isXlsx) {
+            reader.onload = function () {
+                submitImport({ xlsx_base64: arrayBufferToBase64(reader.result) });
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = function () {
+                submitImport({ csv: String(reader.result) });
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
     });
 })();

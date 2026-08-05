@@ -3313,6 +3313,146 @@ Eski `#scp-*-panel` çapa referanslarının hiçbiri (tema genelinde `grep`
 ile doğrulandı) kalmadı. Yalnızca tema değişti, plugin dosyası yok - plugin
 zip'leri yeniden derlenmedi.
 
+### 66. Sol menü + Ürünler erişim düzeltmesi + etkileşimli trend grafiği + Fiyat Kuralları ürün seçici/Excel içe aktarma + sınıf bazlı ürün görünürlüğü
+
+Tek bir kullanıcı mesajında toplanmış 5 ayrı istek, bölüm 65'in "her bölüm
+kendi sayfasında" dönüşümünün hemen ardından gelen bir kullanılabilirlik
+turu.
+
+**a) Menü üstten sola taşındı**: `templates/zone.php`'nin quicknav'ı (bölüm
+64'ün gruplaması) `inc/sidebar.php` (yeni) içine taşınıp `header.php`'den
+(`<div class="scp-layout"><?php scp_render_sidebar(); ?><main>...`) HER
+`/admin`/`/sube` sayfasında render edilecek şekilde genişletildi - bölüm
+65'in ayırdığı 18 bağımsız sayfanın kendi menüsü YOKTU (sadece "←
+Panele Dön"), artık hepsinde var. Sidebar'ın kendi `<nav>`'ı hâlâ
+`scp-quicknav` sınıfını taşıyor (SADECE `scp-ui-kit.js`'nin komut paleti
+`document.querySelectorAll('.scp-quicknav a')` taramasıyla uyumluluk
+için) ama tüm gerçek stil artık `.scp-sidebar-nav__*` sınıflarında.
+Gruplu menü öğeleri `:hover`/`:focus-within` ile CSS-only bir flyout
+(`position:absolute; left:100%`) açıyor; dokunmatik/klavye için
+`window.scpSidebarNav()` (tıkla-aç/kapa, akordeon tarzı `.is-open`) aynı
+işlevi JS tarafında sağlıyor. Eski sürükle-bırak quicknav sıralama
+özelliği (`scpQuicknavReorder`, localStorage) TAMAMEN kaldırıldı - düz
+pilleri sürüklemek anlamlıyken, artık iç içe grup/flyout yapısında
+sürükleme mantıklı bir etkileşim modeli sunmuyordu.
+
+**b) Ürünler'de tıklanacak yer yoktu - kök neden bir yetki farkıydı**:
+`inc/zones.php`'nin ürün düzenleme sayfası yönlendirmesi HEM `/yeni` HEM
+`/{id}` için `scp_manage_products` şart koşuyordu; oysa
+`templates/product-edit.php`/`product-edit-panel.js` bölüm 61'den beri
+salt-okunur render etmeyi zaten biliyordu (`can_manage=false` ise form
+disabled). Yani `scp_view_products`-only bir rol (Muhasebe/Depo/Sistem)
+HİÇBİR ürünün sayfasına erişemiyordu - "tıklanacak yer yok" hissi buradan
+geliyordu. Düzeltme: `/yeni` (YAZAR) hâlâ `scp_manage_products` istiyor,
+ama `/{id}` artık `scp_manage_products` VEYA `scp_view_products` yeterli.
+`inc/assets.php`'nin script enqueue koşulu ve `products-panel.js`'nin
+satır tıklama/aksiyon butonu (artık HERKESE `can_manage` durumuna göre
+"Düzenle"/"Detay" etiketli bir buton gösteriyor, "bu ürünü sadece X
+düzenleyebilir" ile tıklamayı ENGELLEYEN eski dal kaldırıldı - o mesaj
+artık hedef sayfada zaten gösteriliyor) aynı gate'e göre güncellendi.
+
+**c) Genel Bakış trend grafiği artık mouse'u takip ediyor**:
+`overview-panel.js`'nin elle çizilmiş SVG grafiğindeki nokta başı
+`<title>` (gecikmeli, sadece 3px dairenin üstünde) yerine tüm grafiği
+kaplayan şeffaf bir `<rect class="scp-trend-chart__capture">`
+`mousemove`/`touchmove` dinliyor, en yakın günü (`nearestCoord()`, X
+mesafesine göre) bulup kesikli dikey bir `<line>` + vurgulu bir
+`<circle>` + SVG DIŞINDA düz bir HTML `<div class="...__tooltip">`
+gösteriyor. Tooltip'in piksel konumu SVG'nin `viewBox` birimlerinden
+gerçek render genişliğine 0..1 oranıyla çevriliyor
+(`preserveAspectRatio="none"` olduğu için eksenler farklı oranda
+gerilmiş olabilir).
+
+**d) Fiyat Kuralları: ürün ID yerine isimden seçim + ayrı, Excel'i de
+kabul eden toplu içe aktarma**: `templates/pricing-admin.php`'nin
+`<input type="number" name="product_id">`'ı `<input type="text"
+name="product_search" list="scp-pricing-product-options">` +
+`<datalist>` oldu - `pricing-panel.js` `commerce/products`'tan
+"{ad} (#{id})" etiketleriyle listeyi dolduruyor, gönderimde tam
+eşleşmeyi arıyor, yoksa sondaki rakam grubunu regex'le çekiyor
+(`resolveProductId()`). "Toplu İçe Aktarma" artık ayrı bir
+`scp-card--nested` içinde (önceden aynı kartta, tek satır çıplak bir
+form gibiydi). Dosya girişi `.xlsx`'i de kabul ediyor:
+`plugin/seviye-pricing/src/Support/XlsxToCsvConverter.php` (yeni) PHP'nin
+kendi `ZipArchive`+`SimpleXMLElement`'iyle (Composer bağımlılığı YOK,
+`XlsxExporter`'ın (bölüm 16) YAZMA tarafındaki "dar, iyi bilinen bir
+format için ağır bir kütüphaneden kaçın" gerekçesinin OKUMA tarafı)
+workbook'un ilk sayfasını düz CSV metnine çeviriyor, bu metin de
+DEĞİŞMEDEN mevcut `PriceRuleImportParser::parse()`'a gidiyor - CSV ve
+Excel arasında tekrarlanan doğrulama mantığı yok.
+`PricingRestController::import()` artık `csv` YA DA `xlsx_base64`
+kabul ediyor (ikisi de `required: false`, gövdede tam olarak biri
+zorunlu); `xlsx_base64` verilirse `base64_decode` + `XlsxToCsvConverter`
+ile CSV'ye çevrilip AYNI akıştan geçiyor. Yol boyunca fark edilen,
+turdan ÖNCEKİ bir etiketleme hatası da düzeltildi: `pricing-panel.js`
+fiyat kuralı içe aktarma özetinde YANLIŞLIKLA Öğrenciler'in "öğrenci içe
+aktarıldı" metnini (`importSummary`) kullanıyordu - yeni, ayrı bir
+`pricingImportSummary` string'iyle değiştirildi.
+
+**e) Öğrenci Sınıf alanı serbest metinden menüye + ürünlerde sınıf bazlı
+görünürlük filtresi**: "5. sınıftaki öğrenci için ayrı ürün, 8. sınıf
+için ayrı ürün olacak" - iki parçalı bir özellik.
+
+Ortak sözlük: yeni `theme/seviye-storefront/inc/grade-levels.php`'deki
+`scp_grade_level_options(): array` - "Anasınıfı", "1. Sınıf" ... "12.
+Sınıf", "Mezun" (14 seçenek). SAKLANAN DEĞER = GÖSTERİLEN ETİKET (ayrı bir
+kod/id yok) - bilinçli bir tercih, çünkü `class_name` zaten sipariş
+özetleri/CSV dışa aktarma/e-posta şablonlarında HAM METİN olarak
+basılıyor; ayrı bir kod tabloya çeviri katmanı hem buraları bozar hem de
+ürün `grade_levels` ile öğrenci `class_name`'i karşılaştırırken gereksiz
+bir çeviri adımı ekler - şimdi ikisi de aynı 14 etiketten biri olduğu için
+düz bir `in_array()` string eşleşmesi yeterli.
+
+`templates/students-admin.php`'nin `<input type="text" name="class_name">`'ı
+bu 14 seçenekle dolu bir `<select>` oldu. `StudentsRestController`'da
+`class_name` zaten sadece `type: string` (biçim kısıtı yok) olduğundan
+backend'de değişiklik gerekmedi. `students-panel.js`'nin düzenleme formu
+doldurma mantığına bir geriye dönük uyumluluk önlemi eklendi: bu
+değişiklikten ÖNCE serbest metinle girilmiş eski bir `class_name`
+(ör. "5-A") 14 seçenekten biriyle eşleşmezse tarayıcı `<select>`'i sessizce
+BOŞ gösterir - `form.class_name.selectedIndex === -1` kontrolüyle o eski
+değer için geçici bir `<option selected>` enjekte edilip veri sessizce
+kaybolmuyor.
+
+Yeni Commerce özelliği - ürün bazlı sınıf filtresi:
+`plugin/seviye-commerce/src/Support/ProductGradeLevels.php` (yeni,
+`ProductOwnership`'i birebir yansıtıyor) `_scp_product_grade_levels` post
+meta anahtarında bir etiket dizisi tutuyor - boş dizi (ya da meta hiç yok)
+= "her sınıfa görünür", her ürünün bu özellikten ÖNCEKİ davranışıyla aynı,
+geriye dönük taşıma gerektirmiyor. `ProductsRestController` artık
+`grade_levels` alanını `store()`/`update()`'te yazıyor
+(`applyGradeLevels()` - `applyCategory()`'nin aksine, AÇIKÇA boş bir dizi
+göndermek anlamlı: sınırlamayı temizler; sadece parametre TAMAMEN yoksa
+mevcut değer dokunulmadan kalır) ve `serialize()`'de geri döndürüyor.
+Görünürlük uygulaması Students'tan yeni yayınlanmış bir Contract
+üzerinden: `ParentClassLookupInterface`/`WpdbParentClassLookup` (yeni,
+`ParentBranchLookupInterface`/`WpdbParentBranchLookup`'ı birebir
+yansıtıyor - Commerce zaten bu dosyada `ParentBranchLookupInterface`
+üzerinden Students'a bağımlı olduğu için yeni bir cross-plugin bağımlılık
+değil). `ProductVisibilityHooks::isActiveForCurrentUser()` şube
+kontrollerinden SONRA, aynı "velinin çocuklarından herhangi biri" mantığı
+ile bir sınıf kontrolü daha yapıyor: ürünün `grade_levels`'ı boşsa
+sınırlama yok; doluysa velinin çocuklarından en az birinin `class_name`'i
+o listede olmalı. Personel (`MANAGE_PRODUCTS`) hâlâ TÜM görünürlük
+kontrollerini (şube + sınıf) atlıyor - yönettikleri şeyi görebilmeleri
+gerekiyor.
+
+`templates/product-edit.php`'ye aynı 14 seçeneği checkbox olarak
+gösteren yeni bir "Görünür Olacağı Sınıflar" `<fieldset>` eklendi ("boş
+bırakılırsa herkese görünür" ipucuyla); `product-edit-panel.js`
+`populateForm()`'da `product.grade_levels`'a göre kutuları işaretliyor,
+gönderimde işaretli kutuların `value`'larını `payload.grade_levels`'a
+topluyor.
+
+**Doğrulama**: `php -l` (dokunulan/yeni her PHP dosyası), `node --check`
+(dokunulan her JS dosyası), `vendor/bin/phpcs` (repo geneli, 0 hata),
+`plugin/seviye-students`+`seviye-commerce`+`seviye-pricing` PHPUnit
+paketleri (yeni `WpdbParentClassLookupTest`/`XlsxToCsvConverterTest`
+dahil, hepsi yeşil) temiz. `seviye-students`, `seviye-commerce`,
+`seviye-pricing` plugin zip'leri VE tema zip'i bu turda yeniden derlendi
+(hepsi PHP değişikliği içeriyor, ilk üçü plugin dosyalarında, tema ise
+tüm 5 alt-özellik için).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

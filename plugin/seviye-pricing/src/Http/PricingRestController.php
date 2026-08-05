@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Pricing\Http;
 
 use InvalidArgumentException;
+use RuntimeException;
 use Seviye\Branches\Contracts\BranchLookupInterface;
 use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Http\AbstractRestController;
@@ -17,6 +18,7 @@ use Seviye\Pricing\Domain\PriceScopeType;
 use Seviye\Pricing\Rbac\PricingCapability;
 use Seviye\Pricing\Repository\PriceRuleRepositoryInterface;
 use Seviye\Pricing\Support\PriceRuleImportParser;
+use Seviye\Pricing\Support\XlsxToCsvConverter;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -36,7 +38,8 @@ final class PricingRestController extends AbstractRestController
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly BranchLookupInterface $branches,
         private readonly StudentLookupInterface $students,
-        private readonly PriceRuleImportParser $importParser
+        private readonly PriceRuleImportParser $importParser,
+        private readonly XlsxToCsvConverter $xlsxConverter
     ) {
     }
 
@@ -60,7 +63,16 @@ final class PricingRestController extends AbstractRestController
             'methods' => 'POST',
             'callback' => [$this, 'import'],
             'permission_callback' => $this->requireCapability(PricingCapability::MANAGE_PRICING->value),
-            'args' => ['csv' => ['required' => true, 'type' => 'string']],
+            // Exactly one of the two is required (checked in import() itself,
+            // not here - 'required' per-arg would demand BOTH). csv: plain
+            // text, the original format. xlsx_base64: a base64-encoded
+            // .xlsx workbook, converted to the same CSV shape server-side by
+            // XlsxToCsvConverter before parsing - "sadece csv dosyası değil
+            // excel olarak da yüklenebilsin".
+            'args' => [
+                'csv' => ['required' => false, 'type' => 'string'],
+                'xlsx_base64' => ['required' => false, 'type' => 'string'],
+            ],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/pricing/rules/(?P<id>\d+)', [
@@ -132,10 +144,44 @@ final class PricingRestController extends AbstractRestController
      * so a CSV row can never bypass any rule a single manual POST would
      * enforce. Response shape mirrors
      * Seviye\Students\Http\StudentsRestController::import() exactly.
+     *
+     * Accepts either `csv` (plain text, the original format) or
+     * `xlsx_base64` (a base64-encoded .xlsx workbook) - the latter is
+     * converted to the SAME CSV shape by XlsxToCsvConverter first, so
+     * everything below this point never has to know which one was sent -
+     * "sadece csv dosyası değil excel olarak da yüklenebilsin".
      */
     public function import(WP_REST_Request $request): WP_REST_Response
     {
-        $rows = $this->importParser->parse((string) $request->get_param('csv'));
+        $csv = $request->get_param('csv');
+        $xlsxBase64 = $request->get_param('xlsx_base64');
+
+        if ($csv === null && $xlsxBase64 === null) {
+            return new WP_REST_Response(
+                ['message' => __('CSV veya Excel içeriği gerekli.', 'seviye-pricing')],
+                422
+            );
+        }
+
+        if ($xlsxBase64 !== null) {
+            // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- decoding an uploaded .xlsx binary transported as base64 over JSON, not code obfuscation.
+            $decoded = base64_decode((string) $xlsxBase64, true);
+
+            if ($decoded === false) {
+                return new WP_REST_Response(
+                    ['message' => __('Excel dosyası okunamadı.', 'seviye-pricing')],
+                    422
+                );
+            }
+
+            try {
+                $csv = $this->xlsxConverter->convert($decoded);
+            } catch (RuntimeException $exception) {
+                return new WP_REST_Response(['message' => $exception->getMessage()], 422);
+            }
+        }
+
+        $rows = $this->importParser->parse((string) $csv);
 
         if ($rows === []) {
             return new WP_REST_Response(['message' => __('CSV içeriği boş veya okunamadı.', 'seviye-pricing')], 422);

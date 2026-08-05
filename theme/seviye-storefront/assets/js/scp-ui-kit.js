@@ -381,101 +381,45 @@
         }
     });
 
-    // ---- Quicknav drag-reorder (client-side only; section VISIBILITY is
-    // still entirely server-rendered from capability checks - see
-    // .scp-quicknav a[draggable] in panel.css) ----
+    // ---- Sidebar group flyout - click/tap toggle (bölüm 66, inc/sidebar.php).
+    // Hover and :focus-within alone (theme.css) already reveal a group's
+    // submenu for mouse and keyboard users; this adds the same for touch,
+    // where hover doesn't exist. Accordion-style: opening one group closes
+    // any other already-open one, so only one flyout is ever visible at a
+    // time. ----
 
-    function quicknavStorageKey() {
-        return 'scpQuicknavOrder:' + window.location.pathname;
-    }
+    window.scpSidebarNav = function () {
+        var groups = document.querySelectorAll('.scp-sidebar-nav__item--group');
 
-    function applyStoredQuicknavOrder(nav) {
-        var stored;
-
-        try {
-            stored = window.localStorage.getItem(quicknavStorageKey());
-        } catch (e) {
+        if (groups.length === 0) {
             return;
         }
 
-        if (!stored) {
-            return;
-        }
+        Array.prototype.forEach.call(groups, function (group) {
+            var toggle = group.querySelector('[data-scp-sidebar-toggle]');
 
-        var order;
-
-        try {
-            order = JSON.parse(stored);
-        } catch (e) {
-            return;
-        }
-
-        var links = Array.prototype.slice.call(nav.querySelectorAll('a'));
-
-        order.forEach(function (href) {
-            var link = links.filter(function (candidate) {
-                return candidate.getAttribute('href') === href;
-            })[0];
-
-            if (link) {
-                nav.appendChild(link);
+            if (!toggle || toggle.dataset.scpSidebarWired) {
+                return;
             }
-        });
-    }
 
-    function persistQuicknavOrder(nav) {
-        var order = Array.prototype.map.call(nav.querySelectorAll('a'), function (link) {
-            return link.getAttribute('href');
-        });
+            toggle.dataset.scpSidebarWired = '1';
 
-        try {
-            window.localStorage.setItem(quicknavStorageKey(), JSON.stringify(order));
-        } catch (e) {
-            // Private browsing / storage disabled - reordering just won't persist.
-        }
-    }
+            toggle.addEventListener('click', function (event) {
+                event.stopPropagation();
 
-    /**
-     * Wires drag-and-drop reordering onto an already-rendered .scp-quicknav.
-     * Safe to call once per page load (idempotent guard via dataset flag).
-     */
-    window.scpQuicknavReorder = function () {
-        var nav = document.querySelector('.scp-quicknav');
+                var isOpen = group.classList.contains('is-open');
 
-        if (!nav || nav.dataset.scpReorderWired) {
-            return;
-        }
+                Array.prototype.forEach.call(groups, function (candidate) {
+                    candidate.classList.remove('is-open');
+                });
 
-        nav.dataset.scpReorderWired = '1';
-
-        applyStoredQuicknavOrder(nav);
-
-        var dragged = null;
-
-        Array.prototype.forEach.call(nav.querySelectorAll('a'), function (link) {
-            link.setAttribute('draggable', 'true');
-
-            link.addEventListener('dragstart', function () {
-                dragged = link;
-                link.classList.add('scp-quicknav--dragging');
+                group.classList.toggle('is-open', !isOpen);
             });
+        });
 
-            link.addEventListener('dragend', function () {
-                link.classList.remove('scp-quicknav--dragging');
-                dragged = null;
-                persistQuicknavOrder(nav);
-            });
-
-            link.addEventListener('dragover', function (event) {
-                event.preventDefault();
-
-                if (!dragged || dragged === link) {
-                    return;
-                }
-
-                var rect = link.getBoundingClientRect();
-                var before = (event.clientX - rect.left) < rect.width / 2;
-                nav.insertBefore(dragged, before ? link : link.nextSibling);
+        document.addEventListener('click', function () {
+            Array.prototype.forEach.call(groups, function (group) {
+                group.classList.remove('is-open');
             });
         });
     };
@@ -505,7 +449,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
-        window.scpQuicknavReorder();
+        window.scpSidebarNav();
         initLargeTitleScroll();
     });
 })();
