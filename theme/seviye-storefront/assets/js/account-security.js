@@ -24,6 +24,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-2fa-status]');
     var disabledBlock = root.querySelector('[data-scp-2fa-disabled]');
     var setupBlock = root.querySelector('[data-scp-2fa-setup]');
@@ -52,7 +67,7 @@
     function loadStatus() {
         apiFetch('security/2fa/status').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -63,7 +78,7 @@
     startButton.addEventListener('click', function () {
         apiFetch('security/2fa/setup', { method: 'POST' }).then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.saveError, true);
+                setStatus(scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -82,12 +97,12 @@
             body: JSON.stringify({ code: confirmForm.code.value.trim() })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.twoFactorInvalidCode, true);
+                setStatus(scpPanelTextData.twoFactorInvalidCode, true);
                 return;
             }
 
             confirmForm.reset();
-            setStatus(scpPanelText.twoFactorEnabled);
+            setStatus(scpPanelTextData.twoFactorEnabled);
             showState('enabled');
         });
     });
@@ -100,12 +115,12 @@
             body: JSON.stringify({ password: disableForm.password.value })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.twoFactorWrongPassword, true);
+                setStatus(scpPanelTextData.twoFactorWrongPassword, true);
                 return;
             }
 
             disableForm.reset();
-            setStatus(scpPanelText.twoFactorDisabled);
+            setStatus(scpPanelTextData.twoFactorDisabled);
             showState('disabled');
         });
     });
@@ -124,8 +139,8 @@
                 if (!result.ok) {
                     var reason = result.data && result.data.reason;
                     var message = reason === 'invalid_password'
-                        ? scpPanelText.twoFactorWrongPassword
-                        : (reason === 'weak_password' ? scpPanelText.passwordTooWeak : scpPanelText.saveError);
+                        ? scpPanelTextData.twoFactorWrongPassword
+                        : (reason === 'weak_password' ? scpPanelTextData.passwordTooWeak : scpPanelTextData.saveError);
                     passwordStatusEl.textContent = message;
                     passwordStatusEl.classList.add('scp-status--error');
                     return;
@@ -133,7 +148,7 @@
 
                 passwordForm.reset();
                 passwordStatusEl.classList.remove('scp-status--error');
-                passwordStatusEl.textContent = scpPanelText.passwordChanged;
+                passwordStatusEl.textContent = scpPanelTextData.passwordChanged;
 
                 if (typeof window.scpSuccessPulse === 'function') {
                     window.scpSuccessPulse(passwordStatusEl);

@@ -40,6 +40,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-products-status]');
     var tableBody = root.querySelector('[data-scp-products-body]');
     var apiFetch = scpApiFetch;
@@ -59,7 +74,7 @@
         }
 
         if (!product.price_range) {
-            return scpPanelText.summaryNotSet;
+            return scpPanelTextData.summaryNotSet;
         }
 
         return product.price_range.min === product.price_range.max
@@ -69,16 +84,16 @@
 
     function stockCellText(product) {
         if (product.type === 'variable') {
-            return scpPanelText.variantStock;
+            return scpPanelTextData.variantStock;
         }
 
-        return product.manage_stock ? String(product.stock_quantity) : scpPanelText.summaryNotSet;
+        return product.manage_stock ? String(product.stock_quantity) : scpPanelTextData.summaryNotSet;
     }
 
     function loadProducts() {
         apiFetch('commerce/products').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -93,7 +108,7 @@
     }
 
     function goToEditPage(product) {
-        window.location.href = scpPanel.productsBasePath + '/' + product.id;
+        window.location.href = scpPanelData.productsBasePath + '/' + product.id;
     }
 
     function renderProducts(products) {
@@ -116,10 +131,10 @@
             row.appendChild(textCell(String(product.id)));
             row.appendChild(textCell(product.name));
             row.appendChild(textCell(priceCellText(product)));
-            row.appendChild(textCell(product.category || scpPanelText.summaryNotSet));
+            row.appendChild(textCell(product.category || scpPanelTextData.summaryNotSet));
             row.appendChild(textCell(stockCellText(product)));
 
-            if (scpPanel.canManageProducts) {
+            if (scpPanelData.canManageProducts) {
                 row.appendChild(ownerCell(product));
                 row.appendChild(statusCell(product));
             }
@@ -134,7 +149,7 @@
             // no "blocked" dead end here to special-case - see this file's
             // own docblock. Button clicks inside the row (Şubeler/Durum/
             // Detay) stop propagation so they don't ALSO trigger this.
-            if (scpPanel.canManageProducts || scpPanel.canViewProducts) {
+            if (scpPanelData.canManageProducts || scpPanelData.canViewProducts) {
                 row.classList.add('scp-row--clickable');
                 row.addEventListener('click', function () {
                     goToEditPage(product);
@@ -147,7 +162,7 @@
 
     function ownerCell(product) {
         var cell = document.createElement('td');
-        cell.textContent = product.owner_branch_name || scpPanelText.productOwnerHq;
+        cell.textContent = product.owner_branch_name || scpPanelTextData.productOwnerHq;
 
         return cell;
     }
@@ -155,11 +170,11 @@
     function statusCell(product) {
         var cell = document.createElement('td');
 
-        if (scpPanel.canManageAllBranches) {
+        if (scpPanelData.canManageAllBranches) {
             var branchesButton = document.createElement('button');
             branchesButton.type = 'button';
             branchesButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            branchesButton.textContent = scpPanelText.manageBranches;
+            branchesButton.textContent = scpPanelTextData.manageBranches;
             branchesButton.addEventListener('click', function (event) {
                 event.stopPropagation();
                 openBranchesPanel(product);
@@ -172,7 +187,7 @@
         var toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'scp-badge ' + (product.own_branch_active ? 'scp-badge--active' : 'scp-badge--inactive');
-        toggle.textContent = product.own_branch_active ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        toggle.textContent = product.own_branch_active ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
         toggle.addEventListener('click', function (event) {
             event.stopPropagation();
 
@@ -183,11 +198,11 @@
                 body: JSON.stringify({ status: nextStatus })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.branchStatusSaved);
+                setStatus(scpPanelTextData.branchStatusSaved);
                 loadProducts();
             });
         });
@@ -199,14 +214,14 @@
     function actionsCell(product) {
         var cell = document.createElement('td');
 
-        if (!scpPanel.canManageProducts && !scpPanel.canViewProducts) {
+        if (!scpPanelData.canManageProducts && !scpPanelData.canViewProducts) {
             return cell;
         }
 
         var button = document.createElement('button');
         button.type = 'button';
         button.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        button.textContent = product.can_manage ? scpPanelText.edit : scpPanelText.details;
+        button.textContent = product.can_manage ? scpPanelTextData.edit : scpPanelTextData.details;
         button.addEventListener('click', function (event) {
             event.stopPropagation();
             goToEditPage(product);
@@ -218,7 +233,7 @@
 
     var openBranchesPanel = function () {};
 
-    if (scpPanel.canManageAllBranches) {
+    if (scpPanelData.canManageAllBranches) {
         var branchesPanel = root.querySelector('[data-scp-product-branches-panel]');
         var branchesList = root.querySelector('[data-scp-product-branches-list]');
         var allBranches = null;
@@ -273,7 +288,7 @@
         ['active', 'passive'].forEach(function (value) {
             var option = document.createElement('option');
             option.value = value;
-            option.textContent = value === 'active' ? scpPanelText.statusActive : scpPanelText.statusInactive;
+            option.textContent = value === 'active' ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
             option.selected = value === currentStatus;
             select.appendChild(option);
         });
@@ -282,18 +297,18 @@
         var saveButton = document.createElement('button');
         saveButton.type = 'button';
         saveButton.className = 'scp-btn scp-btn--small';
-        saveButton.textContent = scpPanelText.save;
+        saveButton.textContent = scpPanelTextData.save;
         saveButton.addEventListener('click', function () {
             apiFetch('commerce/products/' + productId + '/branches/' + branch.id, {
                 method: 'PUT',
                 body: JSON.stringify({ status: select.value })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.branchStatusSaved);
+                setStatus(scpPanelTextData.branchStatusSaved);
             });
         });
         item.appendChild(saveButton);

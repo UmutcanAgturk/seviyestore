@@ -3546,6 +3546,90 @@ testler zaten bu sınıfları doğrudan constructor ile kurmuyordu) ve
 yeşil. `seviye-commerce` ve `seviye-notifications` plugin zip'leri VE
 tema zip'i yeniden derlendi.
 
+### 68. Hata düzeltmesi: `scpPanel`/`scpPanelText` global çakışması - hiçbir panelde aksiyon butonu görünmüyordu
+
+Kullanıcı bölüm 67'nin butonlarının (Kargoya Ver/Teslim Edildi) hiç
+görünmediğini bildirdi. Uzun bir teşhis sürecinden sonra (kurulum
+sihirbazı yeniden çalıştırıldı, hesabın şubeye bağlı olduğu doğrulandı,
+tarayıcı konsolunda `scpPanel` yazdırıldı) kök neden bulundu: **bu, yeni
+kargo özelliğine özgü değildi - İptal Et/İade Et gibi ÇOK DAHA ESKİ
+butonlar da aynı şekilde görünmüyordu**, çünkü sorun tamamen farklı bir
+katmandaydı.
+
+**Kök neden**: Her panel script'i `wp_localize_script()` ile AYNI global
+JavaScript değişken adını (`scpPanel`, `scpPanelText`) kullanıyor - bu
+kasıtlı bir kod tekrarı önleme kalıbı (`inc/assets.php`'nin `$localized`/
+`$text` taban dizileri her script için `array_merge()`lenip AYNI isimle
+localize ediliyor). Ancak üç script - `account-security.js`,
+`privacy-requests-panel.js`, `support-tickets-panel.js` - "her sayfada
+kendi kök elemanını arayıp yoksa çık" mantığıyla bilinçli olarak HER
+`/admin`,`/sube` sayfasında KOŞULSUZ enqueue ediliyor (bkz. bu üç
+script'in `inc/assets.php`'deki kendi yorumları). WordPress
+`wp_localize_script()`, her script handle'ı için KENDİ `var scpPanel =
+{...};` satırını, o handle'ın `<script src>` etiketinden hemen önce
+basıyor - yani sayfadaki HER script kendi çalışma anından hemen önce
+`window.scpPanel`'i KENDİ (dar) verisiyle değiştiriyor.
+
+Bu tek başına sorun değildi (her script kendi SENKRON kod bloğunda
+`scpPanel`'i doğru okuyordu) - asıl sorun, `admin-orders-panel.js`'nin
+buton çizme kodunun (`renderOrderActions()`) `loadOrders()`'ın ASENKRON
+`apiFetch().then()` callback'i İÇİNDEN çalışması: bu callback, sayfadaki
+TÜM script'lerin senkron kodu bittikten SONRA (fetch cevabı geldiğinde)
+tetikleniyor - o ana kadar sayfadaki EN SON script (örn.
+`support-tickets-panel.js`, dosyada daha aşağıda enqueue edildiği için)
+zaten kendi (dar, `canCancelOrders`/`canUpdateFulfillment` içermeyen)
+`scpPanel` nesnesiyle global'i ezmiş oluyordu. `renderOrderActions()`
+çalıştığında okuduğu `scpPanel.canCancelOrders` artık YANLIŞ script'in
+verisiydi - `undefined`, yani "false". Aynı asenkron-okuma deseni bu
+platformdaki NEREDEYSE HER panel script'inde vardı (`scpPanel`/
+`scpPanelText`'e sadece ilk `typeof` kontrolünde değil, kodun her
+yerinde, çoğunlukla `.then()` callback'leri içinde referans veriliyordu)
+- yani bu, sadece Sipariş Yönetimi'ni değil, muhtemelen TÜM platformdaki
+her koşullu buton/alan/metni etkileyen, daha önce hiç fark edilmemiş
+(gerçek bir tarayıcıda hiç uçtan uca test edilmediği için) bir hataydı.
+
+**Düzeltme**: WordPress'in script basma sırası aslında her handle için
+"önce o handle'ın kendi localize verisi, hemen ardından o handle'ın
+kendi `<script src>`'i" şeklinde ÇİFTLER hâlinde ilerliyor - yani her
+script'in KENDİ localize verisi, o script'in KENDİ kodu ilk çalıştığı
+anda (senkron olarak) doğru. Çözüm: 26 panel script'inin HER BİRİNİN
+IIFE'sinin başına (`typeof scpPanel === 'undefined'` koruma bloğundan
+hemen sonra), global'i BİR KEZ yerel bir değişkene yakalayan iki satır
+eklendi:
+```js
+var scpPanelData = scpPanel;
+var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+```
+ve dosyanın GERİ KALANINDAKİ (bu satırlardan sonraki) HER `scpPanel.x`/
+`scpPanelText.x` referansı `scpPanelData.x`/`scpPanelTextData.x` olarak
+değiştirildi - artık her script kendi verisini script YÜKLENİRKEN (daha
+sonra başka bir script global'i ezmeden ÖNCE) bir kapanışa (closure)
+sabitliyor, callback ne zaman çalışırsa çalışsın hep DOĞRU, KENDİ
+verisini okuyor. Mekanik bir dönüşüm olduğu için otomatik bir Python
+betiğiyle (aynı `if (...typeof scpPanel === 'undefined'...) { return; }`
+koruma deseni neredeyse tüm dosyalarda birebir aynıydı) uygulanıp her
+dosya `node --check` ile doğrulandı; kalan birkaç eşleşme sadece
+docblock YORUMLARINDA kalan `scpPanel.x` referanslarıydı (kod değil,
+dokunulmadı). `scp-api-fetch.js` (paylaşılan `scpApiFetch()`/
+`scpUploadMedia()` yardımcıları) kasıtlı olarak DEĞİŞTİRİLMEDİ - o sadece
+`scpPanel.nonce`/`restUrl`/`wpRestRoot` okuyor, bu üç alan HER script'in
+localize verisinde birebir AYNI (tek bir `$localized` taban dizisinden
+geliyor), yani hangi script'in "kazandığı" onun için önemsiz.
+
+Neden PHP tarafında (enqueue sırasını değiştirmek gibi) değil de JS
+tarafında düzeltildi: her handle'ın kendi localize+script çifti birlikte
+bastığı için PHP sıralaması ASLA sorunun kaynağı değildi - script'ler
+KENDİ localize verilerini her zaman doğru okuyordu, sorun sadece "daha
+sonra çalışan kod hâlâ geçerli olduğunu SANDIĞI global'e güveniyordu"
+idi; JS tarafındaki yerel yakalama, PHP tarafındaki enqueue sırasından
+tamamen bağımsız, kalıcı bir düzeltme.
+
+**Doğrulama**: 26 dosyanın hepsi `node --check`'ten geçti; `git diff
+--stat` (758 satır eklenme/368 satır silinme) gözden geçirildi,
+`pricing-panel.js`/`admin-orders-panel.js` diff'leri elle örneklendi.
+PHP dosyası değişmedi (sadece tema JS'i), plugin zip'leri yeniden
+derlenmedi - sadece tema zip'i.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

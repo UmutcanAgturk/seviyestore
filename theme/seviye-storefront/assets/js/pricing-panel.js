@@ -26,6 +26,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var lookupForm = root.querySelector('[data-scp-price-lookup-form]');
     var productSearchInput = lookupForm.querySelector('[name="product_search"]');
     var productOptionsList = root.querySelector('#scp-pricing-product-options');
@@ -49,7 +64,7 @@
     var currentProductId = null;
     var productIdsByLabel = {};
 
-    if (!scpPanel.canManageBasePricing) {
+    if (!scpPanelData.canManageBasePricing) {
         var generalOption = scopeSelect.querySelector('[data-scp-scope-general]');
 
         if (generalOption) {
@@ -67,7 +82,7 @@
         var badge = document.createElement('span');
         var isActive = status === 'active';
         badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
-        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        badge.textContent = isActive ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
         cell.appendChild(badge);
         return cell;
     }
@@ -76,20 +91,20 @@
 
     function scopeLabel(scope) {
         if (scope === 'branch') {
-            return scpPanelText.scopeBranch;
+            return scpPanelTextData.scopeBranch;
         }
 
         if (scope === 'student') {
-            return scpPanelText.scopeStudent;
+            return scpPanelTextData.scopeStudent;
         }
 
-        return scpPanelText.scopeGeneral;
+        return scpPanelTextData.scopeGeneral;
     }
 
     function loadPriceRules() {
         apiFetch('pricing/rules?product_id=' + currentProductId).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 resultsBlock.hidden = true;
                 return;
             }
@@ -124,11 +139,11 @@
 
             var actionsCell = document.createElement('td');
 
-            if (rule.scope !== 'general' || scpPanel.canManageBasePricing) {
+            if (rule.scope !== 'general' || scpPanelData.canManageBasePricing) {
                 var editButton = document.createElement('button');
                 editButton.type = 'button';
                 editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                editButton.textContent = scpPanelText.edit;
+                editButton.textContent = scpPanelTextData.edit;
                 editButton.addEventListener('click', function () {
                     openPriceRuleForm(rule);
                 });
@@ -142,7 +157,7 @@
     }
 
     function updateTargetField(scope) {
-        if (scope === 'general' || (scope === 'branch' && !scpPanel.canManageAllBranches)) {
+        if (scope === 'general' || (scope === 'branch' && !scpPanelData.canManageAllBranches)) {
             targetField.hidden = true;
             targetInput.required = false;
             return;
@@ -150,7 +165,7 @@
 
         targetField.hidden = false;
         targetInput.required = true;
-        targetLabel.textContent = scope === 'branch' ? scpPanelText.branchIdLabel : scpPanelText.studentIdLabel;
+        targetLabel.textContent = scope === 'branch' ? scpPanelTextData.branchIdLabel : scpPanelTextData.studentIdLabel;
     }
 
     function openPriceRuleForm(rule) {
@@ -225,7 +240,7 @@
         var productId = resolveProductId(productSearchInput.value.trim());
 
         if (!productId) {
-            setStatus(scpPanelText.pricingProductNotFound, true);
+            setStatus(scpPanelTextData.pricingProductNotFound, true);
             return;
         }
 
@@ -248,17 +263,17 @@
     deleteButton.addEventListener('click', function () {
         var id = form.id.value;
 
-        if (!id || !window.confirm(scpPanelText.confirmDeletePriceRule)) {
+        if (!id || !window.confirm(scpPanelTextData.confirmDeletePriceRule)) {
             return;
         }
 
         apiFetch('pricing/rules/' + id, { method: 'DELETE' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.priceRuleDeleted);
+            setStatus(scpPanelTextData.priceRuleDeleted);
             form.hidden = true;
             loadPriceRules();
         });
@@ -287,11 +302,11 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             form.hidden = true;
             loadPriceRules();
         });
@@ -317,14 +332,14 @@
 
     function renderPriceImportResult(data) {
         importResult.hidden = false;
-        importSummary.textContent = scpPanelText.pricingImportSummary
+        importSummary.textContent = scpPanelTextData.pricingImportSummary
             .replace('%1$d', String(data.imported_count))
             .replace('%2$d', String(data.error_count));
 
         importErrorsList.innerHTML = '';
         (data.errors || []).forEach(function (error) {
             var item = document.createElement('li');
-            item.textContent = scpPanelText.importErrorLine
+            item.textContent = scpPanelTextData.importErrorLine
                 .replace('%1$d', String(error.line))
                 .replace('%2$s', error.message);
             importErrorsList.appendChild(item);
@@ -355,7 +370,7 @@
             body: JSON.stringify(payload)
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -375,7 +390,7 @@
         }
 
         importResult.hidden = true;
-        setStatus(scpPanelText.importing);
+        setStatus(scpPanelTextData.importing);
 
         var isXlsx = /\.xlsx$/i.test(file.name)
             || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';

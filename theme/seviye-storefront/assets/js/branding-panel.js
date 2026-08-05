@@ -18,6 +18,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-branding-status]');
     var preview = root.querySelector('[data-scp-branding-preview]');
     var input = root.querySelector('[data-scp-branding-input]');
@@ -52,11 +67,11 @@
             return;
         }
 
-        setStatus(scpPanelText.uploadingImage);
+        setStatus(scpPanelTextData.uploadingImage);
 
         scpUploadMedia(file).then(function (uploadResult) {
             if (!uploadResult.ok) {
-                setStatus(scpPanelText.imageUploadError, true);
+                setStatus(scpPanelTextData.imageUploadError, true);
                 return;
             }
 
@@ -65,11 +80,11 @@
                 body: JSON.stringify({ logo_attachment_id: uploadResult.data.id })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.brandingSaved);
+                setStatus(scpPanelTextData.brandingSaved);
                 applyLogo(result.data.logo_url);
             });
         });
@@ -81,11 +96,11 @@
             body: JSON.stringify({ logo_attachment_id: 0 })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.brandingRemoved);
+            setStatus(scpPanelTextData.brandingRemoved);
             applyLogo(null);
             input.value = '';
         });

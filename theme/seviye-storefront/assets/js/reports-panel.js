@@ -21,6 +21,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-reports-status]');
     var form = root.querySelector('[data-scp-report-form]');
     var branchField = root.querySelector('[data-scp-report-branch-field]');
@@ -58,7 +73,7 @@
             }
         });
 
-        if (scpPanel.canViewAllBranches && branchSelect.value) {
+        if (scpPanelData.canViewAllBranches && branchSelect.value) {
             params.set('branch_id', branchSelect.value);
         }
 
@@ -73,7 +88,7 @@
 
         var allOption = document.createElement('option');
         allOption.value = '';
-        allOption.textContent = scpPanelText.allBranches;
+        allOption.textContent = scpPanelTextData.allBranches;
         branchSelect.appendChild(allOption);
 
         branches.forEach(function (branch) {
@@ -110,7 +125,7 @@
             tableBody.appendChild(tr);
         });
 
-        setStatus(rows.length === 0 ? scpPanelText.noReportData : '');
+        setStatus(rows.length === 0 ? scpPanelTextData.noReportData : '');
 
         lastReportRows = rows;
         renderComparisonChart();
@@ -212,7 +227,7 @@
 
         apiFetch('reports/sales?' + params.toString()).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -223,9 +238,9 @@
     function downloadReport(format) {
         var params = currentParams();
         params.set('format', format);
-        params.set('_wpnonce', scpPanel.nonce);
+        params.set('_wpnonce', scpPanelData.nonce);
 
-        window.location.href = scpPanel.restUrl + 'reports/sales?' + params.toString();
+        window.location.href = scpPanelData.restUrl + 'reports/sales?' + params.toString();
     }
 
     form.addEventListener('submit', function (event) {
@@ -241,7 +256,7 @@
         downloadReport('xlsx');
     });
 
-    if (scpPanel.canViewAllBranches) {
+    if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {
             if (result.ok) {
                 populateBranchSelect(result.data);
@@ -298,7 +313,7 @@
                 warehouseTableBody.appendChild(tr);
             });
 
-            setStatus(rows.length === 0 ? scpPanelText.noReportData : '');
+            setStatus(rows.length === 0 ? scpPanelTextData.noReportData : '');
         };
 
         var loadWarehouseReport = function () {
@@ -307,7 +322,7 @@
 
             apiFetch('reports/warehouse?' + params.toString()).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
@@ -318,9 +333,9 @@
         var downloadWarehouseReport = function (format) {
             var params = warehouseCurrentParams();
             params.set('format', format);
-            params.set('_wpnonce', scpPanel.nonce);
+            params.set('_wpnonce', scpPanelData.nonce);
 
-            window.location.href = scpPanel.restUrl + 'reports/warehouse?' + params.toString();
+            window.location.href = scpPanelData.restUrl + 'reports/warehouse?' + params.toString();
         };
 
         warehouseForm.addEventListener('submit', function (event) {

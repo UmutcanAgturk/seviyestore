@@ -18,6 +18,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-api-keys-status]');
     var tableBody = root.querySelector('[data-scp-api-keys-body]');
     var newButton = root.querySelector('[data-scp-new-api-key]');
@@ -39,7 +54,7 @@
         var badge = document.createElement('span');
         var isRevoked = Boolean(apiKey.revoked_at);
         badge.className = 'scp-badge ' + (isRevoked ? 'scp-badge--inactive' : 'scp-badge--active');
-        badge.textContent = isRevoked ? scpPanelText.apiKeyRevoked : scpPanelText.apiKeyActive;
+        badge.textContent = isRevoked ? scpPanelTextData.apiKeyRevoked : scpPanelTextData.apiKeyActive;
         cell.appendChild(badge);
         return cell;
     }
@@ -63,7 +78,7 @@
             var revokeButton = document.createElement('button');
             revokeButton.type = 'button';
             revokeButton.className = 'scp-btn scp-btn--danger scp-btn--small';
-            revokeButton.textContent = scpPanelText.apiKeyRevokeAction;
+            revokeButton.textContent = scpPanelTextData.apiKeyRevokeAction;
             revokeButton.addEventListener('click', function () {
                 revoke(apiKey.id);
             });
@@ -78,7 +93,7 @@
     function loadKeys() {
         apiFetch('api-keys').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -90,13 +105,13 @@
     }
 
     function revoke(id) {
-        if (!window.confirm(scpPanelText.confirmRevokeApiKey)) {
+        if (!window.confirm(scpPanelTextData.confirmRevokeApiKey)) {
             return;
         }
 
         apiFetch('api-keys/' + id, { method: 'DELETE' }).then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.saveError, true);
+                setStatus(scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -132,7 +147,7 @@
 
         apiFetch('api-keys', { method: 'POST', body: JSON.stringify(body) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -140,7 +155,7 @@
             form.reset();
             revealValue.textContent = result.data.key;
             reveal.hidden = false;
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             loadKeys();
         });
     });

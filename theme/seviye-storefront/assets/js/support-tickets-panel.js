@@ -18,6 +18,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var apiFetch = scpApiFetch;
 
     function statusLabel(status) {
@@ -46,7 +61,7 @@
 
             var meta = document.createElement('div');
             meta.className = 'scp-support-message__meta';
-            meta.textContent = (message.is_staff ? scpPanelText.supportStaffLabel : scpPanelText.supportVeliLabel)
+            meta.textContent = (message.is_staff ? scpPanelTextData.supportStaffLabel : scpPanelTextData.supportVeliLabel)
                 + ' — ' + message.created_at;
             item.appendChild(meta);
 
@@ -108,7 +123,7 @@
 
             if (tickets.length === 0) {
                 listTable.hidden = true;
-                setStatus(scpPanelText.supportNoTickets);
+                setStatus(scpPanelTextData.supportNoTickets);
                 return;
             }
 
@@ -123,7 +138,7 @@
                 row.appendChild(subjectCell);
 
                 var branchCell = document.createElement('td');
-                branchCell.textContent = ticket.branch_name || scpPanelText.supportGenelMerkezLabel;
+                branchCell.textContent = ticket.branch_name || scpPanelTextData.supportGenelMerkezLabel;
                 row.appendChild(branchCell);
 
                 var statusCell = document.createElement('td');
@@ -141,7 +156,7 @@
                 var detailButton = document.createElement('button');
                 detailButton.type = 'button';
                 detailButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                detailButton.textContent = scpPanelText.details;
+                detailButton.textContent = scpPanelTextData.details;
                 detailButton.addEventListener('click', function () {
                     openDetail(ticket.id);
                 });
@@ -155,7 +170,7 @@
         function loadTickets() {
             apiFetch('destek/tickets/mine').then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
@@ -166,7 +181,7 @@
         function openDetail(id) {
             apiFetch('destek/tickets/' + id).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
@@ -194,12 +209,12 @@
 
             apiFetch('destek/tickets', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
                 newForm.reset();
-                setStatus(scpPanelText.supportTicketCreated);
+                setStatus(scpPanelTextData.supportTicketCreated);
                 loadTickets();
             });
         });
@@ -218,7 +233,7 @@
                 body: JSON.stringify({ message: message }),
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
@@ -233,7 +248,7 @@
     }
 
     function initQueue() {
-        if (!scpPanel.canManageSupportTickets) {
+        if (!scpPanelData.canManageSupportTickets) {
             return;
         }
 
@@ -264,7 +279,7 @@
 
             if (tickets.length === 0) {
                 queueTable.hidden = true;
-                setStatus(scpPanelText.supportNoTickets);
+                setStatus(scpPanelTextData.supportNoTickets);
                 return;
             }
 
@@ -279,7 +294,7 @@
                 row.appendChild(subjectCell);
 
                 var branchCell = document.createElement('td');
-                branchCell.textContent = ticket.branch_name || scpPanelText.supportGenelMerkezLabel;
+                branchCell.textContent = ticket.branch_name || scpPanelTextData.supportGenelMerkezLabel;
                 row.appendChild(branchCell);
 
                 var statusCell = document.createElement('td');
@@ -297,7 +312,7 @@
                 var detailButton = document.createElement('button');
                 detailButton.type = 'button';
                 detailButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                detailButton.textContent = scpPanelText.details;
+                detailButton.textContent = scpPanelTextData.details;
                 detailButton.addEventListener('click', function () {
                     openDetail(ticket.id);
                 });
@@ -311,7 +326,7 @@
         function loadQueue() {
             apiFetch('destek/tickets').then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
@@ -322,7 +337,7 @@
         function openDetail(id) {
             apiFetch('destek/tickets/' + id).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
@@ -353,7 +368,7 @@
                 body: JSON.stringify({ message: message }),
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
@@ -371,13 +386,13 @@
             apiFetch('destek/tickets/' + currentTicketId + '/close', { method: 'POST', body: JSON.stringify({}) }).then(
                 function (result) {
                     if (!result.ok) {
-                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                         return;
                     }
 
                     detail.hidden = true;
                     currentTicketId = null;
-                    setStatus(scpPanelText.supportTicketClosed);
+                    setStatus(scpPanelTextData.supportTicketClosed);
                     loadQueue();
                 }
             );

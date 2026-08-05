@@ -34,6 +34,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var CANCELLABLE_STATUSES = ['pending', 'processing', 'on-hold', 'failed'];
     var FULFILLABLE_STATUSES = ['processing', 'on-hold', 'completed'];
 
@@ -66,7 +81,7 @@
             }
         });
 
-        if (scpPanel.canViewAllBranches && branchSelect.value) {
+        if (scpPanelData.canViewAllBranches && branchSelect.value) {
             params.set('branch_id', branchSelect.value);
         }
 
@@ -81,7 +96,7 @@
 
         var allOption = document.createElement('option');
         allOption.value = '';
-        allOption.textContent = scpPanelText.allBranches;
+        allOption.textContent = scpPanelTextData.allBranches;
         branchSelect.appendChild(allOption);
 
         branches.forEach(function (branch) {
@@ -115,12 +130,12 @@
         var thead = document.createElement('thead');
         var headRow = document.createElement('tr');
         [
-            scpPanelText.orderItemProductLabel,
-            scpPanelText.orderItemStudentLabel,
-            scpPanelText.orderItemQuantityLabel,
-            scpPanelText.orderItemUnitPriceLabel,
-            scpPanelText.orderItemTaxLabel,
-            scpPanelText.orderItemTotalLabel
+            scpPanelTextData.orderItemProductLabel,
+            scpPanelTextData.orderItemStudentLabel,
+            scpPanelTextData.orderItemQuantityLabel,
+            scpPanelTextData.orderItemUnitPriceLabel,
+            scpPanelTextData.orderItemTaxLabel,
+            scpPanelTextData.orderItemTotalLabel
         ].forEach(function (label) {
             var th = document.createElement('th');
             th.textContent = label;
@@ -134,7 +149,7 @@
             var row = document.createElement('tr');
             [
                 item.name,
-                item.student_name || scpPanelText.summaryNotSet,
+                item.student_name || scpPanelTextData.summaryNotSet,
                 String(item.quantity),
                 formatMoney(item.unit_price),
                 formatMoney(item.line_tax),
@@ -153,24 +168,24 @@
     }
 
     function cancelOrder(order) {
-        if (!window.confirm(scpPanelText.confirmCancelOrder)) {
+        if (!window.confirm(scpPanelTextData.confirmCancelOrder)) {
             return;
         }
 
         apiFetch('commerce/orders/' + order.id + '/cancel', { method: 'POST' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.orderCancelled);
+            setStatus(scpPanelTextData.orderCancelled);
             loadOrders();
         });
     }
 
     function refundOrder(order) {
         var remaining = order.total - order.refunded_total;
-        var input = window.prompt(scpPanelText.refundAmountPrompt, remaining.toFixed(2));
+        var input = window.prompt(scpPanelTextData.refundAmountPrompt, remaining.toFixed(2));
 
         if (input === null) {
             return;
@@ -188,17 +203,17 @@
             body: JSON.stringify(body)
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.orderRefunded);
+            setStatus(scpPanelTextData.orderRefunded);
             loadOrders();
         });
     }
 
     function shipOrder(order) {
-        var trackingNumber = window.prompt(scpPanelText.trackingNumberPrompt, '');
+        var trackingNumber = window.prompt(scpPanelTextData.trackingNumberPrompt, '');
 
         if (trackingNumber === null) {
             return;
@@ -209,27 +224,27 @@
             body: JSON.stringify({ tracking_number: trackingNumber.trim() })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.orderShipped);
+            setStatus(scpPanelTextData.orderShipped);
             loadOrders();
         });
     }
 
     function deliverOrder(order) {
-        if (!window.confirm(scpPanelText.confirmDeliverOrder)) {
+        if (!window.confirm(scpPanelTextData.confirmDeliverOrder)) {
             return;
         }
 
         apiFetch('commerce/orders/' + order.id + '/deliver', { method: 'POST' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.orderDelivered);
+            setStatus(scpPanelTextData.orderDelivered);
             loadOrders();
         });
     }
@@ -239,11 +254,11 @@
         actions.className = 'scp-form__actions';
         var hasAction = false;
 
-        if (scpPanel.canCancelOrders && CANCELLABLE_STATUSES.indexOf(order.status) !== -1) {
+        if (scpPanelData.canCancelOrders && CANCELLABLE_STATUSES.indexOf(order.status) !== -1) {
             var cancelButton = document.createElement('button');
             cancelButton.type = 'button';
             cancelButton.className = 'scp-btn scp-btn--danger scp-btn--small';
-            cancelButton.textContent = scpPanelText.cancelOrderAction;
+            cancelButton.textContent = scpPanelTextData.cancelOrderAction;
             cancelButton.addEventListener('click', function () {
                 cancelOrder(order);
             });
@@ -251,11 +266,11 @@
             hasAction = true;
         }
 
-        if (scpPanel.canRefundOrders && order.status === 'completed' && order.total - order.refunded_total > 0) {
+        if (scpPanelData.canRefundOrders && order.status === 'completed' && order.total - order.refunded_total > 0) {
             var refundButton = document.createElement('button');
             refundButton.type = 'button';
             refundButton.className = 'scp-btn scp-btn--danger scp-btn--small';
-            refundButton.textContent = scpPanelText.refundOrderAction;
+            refundButton.textContent = scpPanelTextData.refundOrderAction;
             refundButton.addEventListener('click', function () {
                 refundOrder(order);
             });
@@ -263,14 +278,14 @@
             hasAction = true;
         }
 
-        var canUpdateFulfillment = scpPanel.canUpdateFulfillment && FULFILLABLE_STATUSES.indexOf(order.status) !== -1
+        var canUpdateFulfillment = scpPanelData.canUpdateFulfillment && FULFILLABLE_STATUSES.indexOf(order.status) !== -1
             && order.fulfillment_status !== 'delivered';
 
         if (canUpdateFulfillment) {
             var shipButton = document.createElement('button');
             shipButton.type = 'button';
             shipButton.className = 'scp-btn scp-btn--small';
-            shipButton.textContent = scpPanelText.shipOrderAction;
+            shipButton.textContent = scpPanelTextData.shipOrderAction;
             shipButton.addEventListener('click', function () {
                 shipOrder(order);
             });
@@ -280,7 +295,7 @@
             var deliverButton = document.createElement('button');
             deliverButton.type = 'button';
             deliverButton.className = 'scp-btn scp-btn--small';
-            deliverButton.textContent = scpPanelText.deliverOrderAction;
+            deliverButton.textContent = scpPanelTextData.deliverOrderAction;
             deliverButton.addEventListener('click', function () {
                 deliverOrder(order);
             });
@@ -299,7 +314,7 @@
         header.className = 'scp-card__header';
 
         var title = document.createElement('h3');
-        title.textContent = scpPanelText.orderNumberLabel + ' #' + order.number;
+        title.textContent = scpPanelTextData.orderNumberLabel + ' #' + order.number;
         header.appendChild(title);
 
         var badge = document.createElement('span');
@@ -319,28 +334,28 @@
 
         var meta = document.createElement('dl');
         meta.className = 'scp-summary-list';
-        metaRow(meta, scpPanelText.orderCustomerLabel, order.customer_name || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderCustomerEmailLabel, order.customer_email || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderDateLabel, order.date || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderPaymentMethodLabel, order.payment_method_title || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderSubtotalLabel, formatMoney(order.subtotal));
-        metaRow(meta, scpPanelText.orderTaxLabel, formatMoney(order.total_tax));
-        metaRow(meta, scpPanelText.orderTotalLabel, formatMoney(order.total));
+        metaRow(meta, scpPanelTextData.orderCustomerLabel, order.customer_name || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderCustomerEmailLabel, order.customer_email || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderDateLabel, order.date || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderPaymentMethodLabel, order.payment_method_title || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderSubtotalLabel, formatMoney(order.subtotal));
+        metaRow(meta, scpPanelTextData.orderTaxLabel, formatMoney(order.total_tax));
+        metaRow(meta, scpPanelTextData.orderTotalLabel, formatMoney(order.total));
 
         if (order.refunded_total > 0) {
-            metaRow(meta, scpPanelText.orderRefundedTotalLabel, formatMoney(order.refunded_total));
+            metaRow(meta, scpPanelTextData.orderRefundedTotalLabel, formatMoney(order.refunded_total));
         }
 
         if (order.tracking_number) {
-            metaRow(meta, scpPanelText.orderTrackingNumberLabel, order.tracking_number);
+            metaRow(meta, scpPanelTextData.orderTrackingNumberLabel, order.tracking_number);
         }
 
         if (order.shipped_at) {
-            metaRow(meta, scpPanelText.orderShippedAtLabel, order.shipped_at);
+            metaRow(meta, scpPanelTextData.orderShippedAtLabel, order.shipped_at);
         }
 
         if (order.delivered_at) {
-            metaRow(meta, scpPanelText.orderDeliveredAtLabel, order.delivered_at);
+            metaRow(meta, scpPanelTextData.orderDeliveredAtLabel, order.delivered_at);
         }
 
         card.appendChild(meta);
@@ -361,14 +376,14 @@
 
         apiFetch('commerce/orders?' + params.toString()).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
             listEl.innerHTML = '';
 
             if (result.data.length === 0) {
-                setStatus(scpPanelText.noOrders);
+                setStatus(scpPanelTextData.noOrders);
                 return;
             }
 
@@ -384,7 +399,7 @@
         loadOrders();
     });
 
-    if (scpPanel.canViewAllBranches) {
+    if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {
             if (result.ok) {
                 populateBranchSelect(result.data);

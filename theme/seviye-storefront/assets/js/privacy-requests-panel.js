@@ -23,6 +23,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var apiFetch = scpApiFetch;
 
     function initSelfService() {
@@ -55,7 +70,7 @@
                 result.data.forEach(function (item) {
                     var row = document.createElement('tr');
                     [
-                        item.type === 'export' ? scpPanelText.privacyTypeExport : scpPanelText.privacyTypeDeletion,
+                        item.type === 'export' ? scpPanelTextData.privacyTypeExport : scpPanelTextData.privacyTypeDeletion,
                         scpPanelText['privacyStatus_' + item.status] || item.status,
                         item.requested_at,
                         item.resolution_note || ''
@@ -72,14 +87,14 @@
         exportButton.addEventListener('click', function () {
             setStatus('');
 
-            fetch(scpPanel.restUrl + 'privacy/requests/export', {
+            fetch(scpPanelData.restUrl + 'privacy/requests/export', {
                 method: 'POST',
-                headers: { 'X-WP-Nonce': scpPanel.nonce },
+                headers: { 'X-WP-Nonce': scpPanelData.nonce },
                 credentials: 'same-origin'
             }).then(function (response) {
                 if (!response.ok) {
                     return response.json().then(function (data) {
-                        setStatus((data && data.message) || scpPanelText.loadError, true);
+                        setStatus((data && data.message) || scpPanelTextData.loadError, true);
                     });
                 }
 
@@ -92,7 +107,7 @@
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
-                    setStatus(scpPanelText.privacyExported);
+                    setStatus(scpPanelTextData.privacyExported);
                     loadHistory();
                 });
             });
@@ -101,7 +116,7 @@
         deletionForm.addEventListener('submit', function (event) {
             event.preventDefault();
 
-            if (!window.confirm(scpPanelText.confirmPrivacyDeletion)) {
+            if (!window.confirm(scpPanelTextData.confirmPrivacyDeletion)) {
                 return;
             }
 
@@ -112,12 +127,12 @@
                 body: JSON.stringify({ note: formData.get('note') || '' })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
                 deletionForm.reset();
-                setStatus(scpPanelText.privacyDeletionRequested);
+                setStatus(scpPanelTextData.privacyDeletionRequested);
                 loadHistory();
             });
         });
@@ -128,7 +143,7 @@
     function initAdminQueue() {
         var root = document.getElementById('scp-privacy-requests-queue-panel');
 
-        if (!root || !scpPanel.canManagePrivacyRequests) {
+        if (!root || !scpPanelData.canManagePrivacyRequests) {
             return;
         }
 
@@ -142,18 +157,18 @@
         }
 
         function resolve(id, action) {
-            var resolutionNote = window.prompt(scpPanelText.privacyResolutionNotePrompt, '') || '';
+            var resolutionNote = window.prompt(scpPanelTextData.privacyResolutionNotePrompt, '') || '';
 
             apiFetch('privacy/requests/' + id + '/' + action, {
                 method: 'POST',
                 body: JSON.stringify({ resolution_note: resolutionNote })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.saved);
+                setStatus(scpPanelTextData.saved);
                 load();
             });
         }
@@ -173,9 +188,9 @@
             var approveButton = document.createElement('button');
             approveButton.type = 'button';
             approveButton.className = 'scp-btn scp-btn--small';
-            approveButton.textContent = scpPanelText.privacyApproveAction;
+            approveButton.textContent = scpPanelTextData.privacyApproveAction;
             approveButton.addEventListener('click', function () {
-                if (window.confirm(scpPanelText.confirmPrivacyApprove)) {
+                if (window.confirm(scpPanelTextData.confirmPrivacyApprove)) {
                     resolve(item.id, 'approve');
                 }
             });
@@ -184,7 +199,7 @@
             var rejectButton = document.createElement('button');
             rejectButton.type = 'button';
             rejectButton.className = 'scp-btn scp-btn--danger scp-btn--small';
-            rejectButton.textContent = scpPanelText.privacyRejectAction;
+            rejectButton.textContent = scpPanelTextData.privacyRejectAction;
             rejectButton.addEventListener('click', function () {
                 resolve(item.id, 'reject');
             });
@@ -198,13 +213,13 @@
         function load() {
             apiFetch('privacy/requests').then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                     return;
                 }
 
                 body.innerHTML = '';
                 table.hidden = result.data.length === 0;
-                setStatus(result.data.length === 0 ? scpPanelText.noPrivacyRequests : '');
+                setStatus(result.data.length === 0 ? scpPanelTextData.noPrivacyRequests : '');
                 result.data.forEach(function (item) {
                     body.appendChild(renderRow(item));
                 });

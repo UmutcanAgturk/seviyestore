@@ -17,6 +17,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-students-status]');
     var tableBody = root.querySelector('[data-scp-students-body]');
     var form = root.querySelector('[data-scp-student-form]');
@@ -58,7 +73,7 @@
         var badge = document.createElement('span');
         var isActive = status === 'active';
         badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
-        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        badge.textContent = isActive ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
         cell.appendChild(badge);
         return cell;
     }
@@ -66,7 +81,7 @@
     var apiFetch = scpApiFetch;
 
     function loadBranchesIfNeeded() {
-        if (!scpPanel.canManageAllBranches) {
+        if (!scpPanelData.canManageAllBranches) {
             return;
         }
 
@@ -76,7 +91,7 @@
 
         var allBranchesOption = document.createElement('option');
         allBranchesOption.value = '';
-        allBranchesOption.textContent = scpPanelText.allBranches;
+        allBranchesOption.textContent = scpPanelTextData.allBranches;
         promoteBranchSelect.appendChild(allBranchesOption);
 
         apiFetch('branches').then(function (result) {
@@ -125,7 +140,7 @@
     function loadStudents() {
         apiFetch('students').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -142,7 +157,7 @@
             [
                 student.first_name + ' ' + student.last_name,
                 student.branch_name || '',
-                student.tc_no || scpPanelText.summaryNotSet,
+                student.tc_no || scpPanelTextData.summaryNotSet,
                 student.education_year,
                 student.class_name
             ].forEach(function (text) {
@@ -157,7 +172,7 @@
             var editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelText.edit;
+            editButton.textContent = scpPanelTextData.edit;
             editButton.addEventListener('click', function () {
                 openStudentForm(student);
             });
@@ -166,19 +181,19 @@
             var deleteButton = document.createElement('button');
             deleteButton.type = 'button';
             deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            deleteButton.textContent = scpPanelText.remove;
+            deleteButton.textContent = scpPanelTextData.remove;
             deleteButton.addEventListener('click', function () {
-                if (!window.confirm(scpPanelText.confirmDeleteStudent)) {
+                if (!window.confirm(scpPanelTextData.confirmDeleteStudent)) {
                     return;
                 }
 
                 apiFetch('students/' + student.id, { method: 'DELETE' }).then(function (result) {
                     if (!result.ok) {
-                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                         return;
                     }
 
-                    setStatus(scpPanelText.studentDeleted);
+                    setStatus(scpPanelTextData.studentDeleted);
                     loadStudents();
                 });
             });
@@ -216,7 +231,7 @@
             form.class_name.appendChild(scpLegacyClassOption);
         }
 
-        if (scpPanel.canManageAllBranches && student) {
+        if (scpPanelData.canManageAllBranches && student) {
             branchSelect.value = String(student.branch_id);
         }
 
@@ -237,7 +252,7 @@
     }
 
     function periodLabel(period) {
-        return period === 'term' ? scpPanelText.spendingLimitPeriodTerm : scpPanelText.spendingLimitPeriodMonthly;
+        return period === 'term' ? scpPanelTextData.spendingLimitPeriodTerm : scpPanelTextData.spendingLimitPeriodMonthly;
     }
 
     function formatCurrency(amount) {
@@ -251,22 +266,22 @@
 
         apiFetch('commerce/students/' + studentId + '/spending-limit').then(function (result) {
             if (!result.ok) {
-                spendingLimitStatus.textContent = scpPanelText.spendingLimitLoadError;
+                spendingLimitStatus.textContent = scpPanelTextData.spendingLimitLoadError;
                 return;
             }
 
             var data = result.data;
 
             if (!data.period) {
-                spendingLimitStatus.textContent = scpPanelText.spendingLimitNone;
+                spendingLimitStatus.textContent = scpPanelTextData.spendingLimitNone;
                 return;
             }
 
             spendingLimitPeriodSelect.value = data.period;
             spendingLimitAmountInput.value = data.limit_amount;
             spendingLimitStatus.textContent = periodLabel(data.period) + ' limit: ' + formatCurrency(data.limit_amount)
-                + ' - ' + scpPanelText.spendingLimitSpent + ': ' + formatCurrency(data.spent_amount)
-                + ' - ' + scpPanelText.spendingLimitRemaining + ': ' + formatCurrency(data.remaining_amount);
+                + ' - ' + scpPanelTextData.spendingLimitSpent + ': ' + formatCurrency(data.spent_amount)
+                + ' - ' + scpPanelTextData.spendingLimitRemaining + ': ' + formatCurrency(data.remaining_amount);
         });
     }
 
@@ -290,30 +305,30 @@
     function showRegistrationSummary(payload, branchLabel, parent, tcNo, tcNoError, isExisting) {
         summaryList.innerHTML = '';
 
-        summaryRow(scpPanelText.summaryStudent, payload.first_name + ' ' + payload.last_name, false);
+        summaryRow(scpPanelTextData.summaryStudent, payload.first_name + ' ' + payload.last_name, false);
 
         if (branchLabel) {
-            summaryRow(scpPanelText.summaryBranch, branchLabel, false);
+            summaryRow(scpPanelTextData.summaryBranch, branchLabel, false);
         }
 
         if (payload.tc_no) {
-            summaryRow(scpPanelText.summaryStudentTcNo, payload.tc_no, true);
+            summaryRow(scpPanelTextData.summaryStudentTcNo, payload.tc_no, true);
         }
 
-        summaryRow(scpPanelText.summaryClass, payload.class_name, false);
-        summaryRow(scpPanelText.summaryEducationYear, payload.education_year, false);
-        summaryRow(scpPanelText.summaryParent, parent.name, false);
-        summaryRow(scpPanelText.summaryParentEmail, parent.email, false);
+        summaryRow(scpPanelTextData.summaryClass, payload.class_name, false);
+        summaryRow(scpPanelTextData.summaryEducationYear, payload.education_year, false);
+        summaryRow(scpPanelTextData.summaryParent, parent.name, false);
+        summaryRow(scpPanelTextData.summaryParentEmail, parent.email, false);
 
         if (isExisting) {
-            summaryRow('', scpPanelText.summaryLinkedExistingNote, false);
+            summaryRow('', scpPanelTextData.summaryLinkedExistingNote, false);
         } else {
-            summaryRow(scpPanelText.summaryTcNo, tcNo || scpPanelText.summaryNotSet, true);
-            summaryRow(scpPanelText.summaryPassword, parent.password, true);
+            summaryRow(scpPanelTextData.summaryTcNo, tcNo || scpPanelTextData.summaryNotSet, true);
+            summaryRow(scpPanelTextData.summaryPassword, parent.password, true);
         }
 
         if (tcNoError) {
-            summaryRow(scpPanelText.summaryTcNoError, tcNoError, false);
+            summaryRow(scpPanelTextData.summaryTcNoError, tcNoError, false);
         }
 
         summaryCard.hidden = false;
@@ -343,7 +358,7 @@
         var editButton = document.createElement('button');
         editButton.type = 'button';
         editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        editButton.textContent = scpPanelText.edit;
+        editButton.textContent = scpPanelTextData.edit;
         editButton.addEventListener('click', function () {
             item.replaceWith(renderParentEditForm(studentId, parent));
         });
@@ -352,7 +367,7 @@
         var removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        removeButton.textContent = scpPanelText.remove;
+        removeButton.textContent = scpPanelTextData.remove;
         removeButton.addEventListener('click', function () {
             apiFetch('students/' + studentId + '/parents/' + parent.id, { method: 'DELETE' })
                 .then(function (removeResult) {
@@ -383,18 +398,18 @@
         var saveButton = document.createElement('button');
         saveButton.type = 'button';
         saveButton.className = 'scp-btn scp-btn--small';
-        saveButton.textContent = scpPanelText.save;
+        saveButton.textContent = scpPanelTextData.save;
         saveButton.addEventListener('click', function () {
             apiFetch('students/' + studentId + '/parents/' + parent.id, {
                 method: 'PUT',
                 body: JSON.stringify({ display_name: nameInput.value, email: emailInput.value })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.parentUpdated);
+                setStatus(scpPanelTextData.parentUpdated);
                 loadParents(studentId);
             });
         });
@@ -403,7 +418,7 @@
         var cancelButton = document.createElement('button');
         cancelButton.type = 'button';
         cancelButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        cancelButton.textContent = scpPanelText.cancel;
+        cancelButton.textContent = scpPanelTextData.cancel;
         cancelButton.addEventListener('click', function () {
             loadParents(studentId);
         });
@@ -435,11 +450,11 @@
             })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.parentLinked);
+            setStatus(scpPanelTextData.parentLinked);
             parentUserIdInput.value = '';
             loadParents(studentId);
         });
@@ -464,11 +479,11 @@
             })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.spendingLimitSaved);
+            setStatus(scpPanelTextData.spendingLimitSaved);
             loadSpendingLimit(studentId);
         });
     });
@@ -482,11 +497,11 @@
 
         apiFetch('commerce/students/' + studentId + '/spending-limit', { method: 'DELETE' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.spendingLimitRemoved);
+            setStatus(scpPanelTextData.spendingLimitRemoved);
             loadSpendingLimit(studentId);
         });
     });
@@ -505,7 +520,7 @@
 
         var branchLabel = '';
 
-        if (scpPanel.canManageAllBranches) {
+        if (scpPanelData.canManageAllBranches) {
             payload.branch_id = parseInt(branchSelect.value, 10);
             branchLabel = branchSelect.selectedOptions.length ? branchSelect.selectedOptions[0].textContent : '';
         }
@@ -525,7 +540,7 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -534,9 +549,9 @@
 
             function finish(tcNoError) {
                 if (result.data && result.data.parent_error) {
-                    setStatus(scpPanelText.saved + ' ' + result.data.parent_error, true);
+                    setStatus(scpPanelTextData.saved + ' ' + result.data.parent_error, true);
                 } else {
-                    setStatus(scpPanelText.saved);
+                    setStatus(scpPanelTextData.saved);
                 }
 
                 if (credentials) {
@@ -554,7 +569,7 @@
                     method: 'POST',
                     body: JSON.stringify({ tc_no: tcNo })
                 }).then(function (tcResult) {
-                    finish(tcResult.ok ? '' : ((tcResult.data && tcResult.data.message) || scpPanelText.saveError));
+                    finish(tcResult.ok ? '' : ((tcResult.data && tcResult.data.message) || scpPanelTextData.saveError));
                 });
             } else {
                 finish('');
@@ -582,14 +597,14 @@
 
     function renderImportResult(data) {
         importResult.hidden = false;
-        importSummary.textContent = scpPanelText.importSummary
+        importSummary.textContent = scpPanelTextData.importSummary
             .replace('%1$d', String(data.imported_count))
             .replace('%2$d', String(data.error_count));
 
         importErrorsList.innerHTML = '';
         (data.errors || []).forEach(function (error) {
             var item = document.createElement('li');
-            item.textContent = scpPanelText.importErrorLine
+            item.textContent = scpPanelTextData.importErrorLine
                 .replace('%1$d', String(error.line))
                 .replace('%2$s', error.message);
             importErrorsList.appendChild(item);
@@ -606,19 +621,19 @@
         }
 
         importResult.hidden = true;
-        setStatus(scpPanelText.importing);
+        setStatus(scpPanelTextData.importing);
 
         var reader = new FileReader();
         reader.onload = function () {
             var payload = { csv: String(reader.result) };
 
-            if (scpPanel.canManageAllBranches) {
+            if (scpPanelData.canManageAllBranches) {
                 payload.branch_id = parseInt(importBranchSelect.value, 10);
             }
 
             apiFetch('students/import', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
@@ -638,8 +653,8 @@
 
         // phpcs is not relevant to JS, but the confirm() copy mirrors this
         // codebase's other irreversible-bulk-action confirmations (e.g.
-        // confirmDeleteStudent) - see inc/assets.php's scpPanelText.
-        if (!window.confirm(scpPanelText.confirmPromoteStudents.replace('%s', fromEducationYear))) {
+        // confirmDeleteStudent) - see inc/assets.php's scpPanelTextData.
+        if (!window.confirm(scpPanelTextData.confirmPromoteStudents.replace('%s', fromEducationYear))) {
             return;
         }
 
@@ -650,21 +665,21 @@
             payload.class_name_map = classNameMap;
         }
 
-        if (scpPanel.canManageAllBranches && promoteBranchSelect.value !== '') {
+        if (scpPanelData.canManageAllBranches && promoteBranchSelect.value !== '') {
             payload.branch_id = parseInt(promoteBranchSelect.value, 10);
         }
 
         promoteResult.hidden = true;
-        setStatus(scpPanelText.promoting);
+        setStatus(scpPanelTextData.promoting);
 
         apiFetch('students/promote', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
             setStatus('');
-            promoteSummary.textContent = scpPanelText.promoteSummary
+            promoteSummary.textContent = scpPanelTextData.promoteSummary
                 .replace('%1$d', String(result.data.promoted_count))
                 .replace('%2$s', result.data.to_education_year);
             promoteResult.hidden = false;

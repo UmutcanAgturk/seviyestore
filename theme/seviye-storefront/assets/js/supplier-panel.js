@@ -18,6 +18,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-supplier-status]');
     var tableBody = root.querySelector('[data-scp-supplier-orders-body]');
     var apiFetch = scpApiFetch;
@@ -52,8 +67,8 @@
             return sum + item.quantity_ordered;
         }, 0);
 
-        return items.length + ' ' + scpPanelText.supplierItemsLabel + ' (' + totalOrdered + ' '
-            + scpPanelText.supplierUnitsLabel + ')';
+        return items.length + ' ' + scpPanelTextData.supplierItemsLabel + ' (' + totalOrdered + ' '
+            + scpPanelTextData.supplierUnitsLabel + ')';
     }
 
     function canMarkShipped(order) {
@@ -64,7 +79,7 @@
         tableBody.innerHTML = '';
 
         if (orders.length === 0) {
-            setStatus(scpPanelText.supplierNoOrders);
+            setStatus(scpPanelTextData.supplierNoOrders);
             return;
         }
 
@@ -102,7 +117,7 @@
                 var shipButton = document.createElement('button');
                 shipButton.type = 'button';
                 shipButton.className = 'scp-btn scp-btn--small';
-                shipButton.textContent = scpPanelText.supplierMarkShippedAction;
+                shipButton.textContent = scpPanelTextData.supplierMarkShippedAction;
                 shipButton.addEventListener('click', function () {
                     markShipped(order.id, shipButton);
                 });
@@ -122,11 +137,11 @@
             button.disabled = false;
 
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.supplierMarkedShipped);
+            setStatus(scpPanelTextData.supplierMarkedShipped);
             loadOrders();
         });
     }
@@ -134,7 +149,7 @@
     function loadOrders() {
         apiFetch('depo/purchase-orders/mine').then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 

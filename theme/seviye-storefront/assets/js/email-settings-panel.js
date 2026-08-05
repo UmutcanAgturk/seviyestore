@@ -19,6 +19,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-email-settings-status]');
     var form = root.querySelector('[data-scp-email-settings-form]');
 
@@ -32,13 +47,13 @@
     function applySettings(settings) {
         form.email.value = settings.email;
         form.app_password.value = '';
-        setStatus(settings.configured ? scpPanelText.emailConfigured : scpPanelText.emailNotConfigured);
+        setStatus(settings.configured ? scpPanelTextData.emailConfigured : scpPanelTextData.emailNotConfigured);
     }
 
     function loadSettings() {
         apiFetch('notifications/email-settings').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -59,12 +74,12 @@
             })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
             applySettings(result.data);
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
         });
     });
 

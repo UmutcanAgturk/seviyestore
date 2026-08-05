@@ -16,6 +16,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-branches-status]');
     var tableBody = root.querySelector('[data-scp-branches-body]');
     var form = root.querySelector('[data-scp-branch-form]');
@@ -31,7 +46,7 @@
         var badge = document.createElement('span');
         var isActive = status === 'active';
         badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
-        badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+        badge.textContent = isActive ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
         cell.appendChild(badge);
         return cell;
     }
@@ -41,7 +56,7 @@
     function loadBranches() {
         apiFetch('branches').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -72,7 +87,7 @@
             var editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelText.edit;
+            editButton.textContent = scpPanelTextData.edit;
             editButton.addEventListener('click', function () {
                 openBranchForm(branch);
             });
@@ -129,11 +144,11 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             form.hidden = true;
             loadBranches();
         });

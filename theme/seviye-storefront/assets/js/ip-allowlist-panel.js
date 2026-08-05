@@ -18,6 +18,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-ip-allowlist-status]');
     var form = root.querySelector('[data-scp-ip-allowlist-form]');
     var textarea = form.querySelector('textarea[name="entries"]');
@@ -32,7 +47,7 @@
     function loadEntries() {
         apiFetch('security/ip-allowlist').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -50,12 +65,12 @@
             body: JSON.stringify({ entries: entries })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.saveError, true);
+                setStatus(scpPanelTextData.saveError, true);
                 return;
             }
 
             textarea.value = result.data.entries.join('\n');
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
         });
     });
 

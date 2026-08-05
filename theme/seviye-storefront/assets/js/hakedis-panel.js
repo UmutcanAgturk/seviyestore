@@ -26,6 +26,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-hakedis-status]');
     var ownBlock = root.querySelector('[data-scp-hakedis-own]');
     var ownAccruedEl = root.querySelector('[data-scp-hakedis-own-accrued]');
@@ -59,14 +74,14 @@
 
     function methodLabel(method) {
         if (method === 'bank_transfer') {
-            return scpPanelText.methodBankTransfer;
+            return scpPanelTextData.methodBankTransfer;
         }
 
         if (method === 'cash') {
-            return scpPanelText.methodCash;
+            return scpPanelTextData.methodCash;
         }
 
-        return scpPanelText.methodOther;
+        return scpPanelTextData.methodOther;
     }
 
     function loadOwnBalance() {
@@ -74,7 +89,7 @@
 
         apiFetch('finance/hakedis/balance/me').then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -92,7 +107,7 @@
 
         apiFetch('branches').then(function (branchesResult) {
             if (!branchesResult.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -154,7 +169,7 @@
     }
 
     function currentBranchId() {
-        return scpPanel.canViewAllBranches ? Number(branchSelect.value) : ownBranchId;
+        return scpPanelData.canViewAllBranches ? Number(branchSelect.value) : ownBranchId;
     }
 
     function loadSettlements(branchId) {
@@ -163,12 +178,12 @@
 
         apiFetch('finance/hakedis/settlements/' + branchId).then(function (result) {
             if (!result.ok) {
-                setSettlementsStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setSettlementsStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
             if (result.data.length === 0) {
-                setSettlementsStatus(scpPanelText.noSettlements);
+                setSettlementsStatus(scpPanelTextData.noSettlements);
                 return;
             }
 
@@ -190,7 +205,7 @@
     }
 
     function initSettlementForm() {
-        if (!scpPanel.canRecordSettlement) {
+        if (!scpPanelData.canRecordSettlement) {
             return;
         }
 
@@ -217,14 +232,14 @@
                 })
             }).then(function (result) {
                 if (!result.ok) {
-                    setSettlementsStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setSettlementsStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
                 settlementForm.reset();
-                setStatus(scpPanelText.settlementRecorded);
+                setStatus(scpPanelTextData.settlementRecorded);
 
-                if (scpPanel.canViewAllBranches) {
+                if (scpPanelData.canViewAllBranches) {
                     loadAllBalances();
                 } else {
                     loadOwnBalance();
@@ -233,7 +248,7 @@
         });
     }
 
-    if (scpPanel.canViewAllBranches) {
+    if (scpPanelData.canViewAllBranches) {
         branchSelect.addEventListener('change', function () {
             loadSettlements(Number(branchSelect.value));
         });

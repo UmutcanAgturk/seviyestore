@@ -19,6 +19,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-coupons-status]');
     var tableBody = root.querySelector('[data-scp-coupons-body]');
     var form = root.querySelector('[data-scp-coupon-form]');
@@ -47,7 +62,7 @@
     function loadCoupons() {
         apiFetch('commerce/coupons').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -74,7 +89,7 @@
             var editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelText.edit;
+            editButton.textContent = scpPanelTextData.edit;
             editButton.addEventListener('click', function () {
                 openCouponForm(coupon);
             });
@@ -83,19 +98,19 @@
             var deleteButton = document.createElement('button');
             deleteButton.type = 'button';
             deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            deleteButton.textContent = scpPanelText.remove;
+            deleteButton.textContent = scpPanelTextData.remove;
             deleteButton.addEventListener('click', function () {
-                if (!window.confirm(scpPanelText.confirmDeleteCoupon)) {
+                if (!window.confirm(scpPanelTextData.confirmDeleteCoupon)) {
                     return;
                 }
 
                 apiFetch('commerce/coupons/' + coupon.id, { method: 'DELETE' }).then(function (result) {
                     if (!result.ok) {
-                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                         return;
                     }
 
-                    setStatus(scpPanelText.couponDeleted);
+                    setStatus(scpPanelTextData.couponDeleted);
                     loadCoupons();
                 });
             });
@@ -145,11 +160,11 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.couponSaved);
+            setStatus(scpPanelTextData.couponSaved);
             form.hidden = true;
             loadCoupons();
         });

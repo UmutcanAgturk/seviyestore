@@ -20,6 +20,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-overview-status]');
     var statsEl = root.querySelector('[data-scp-overview-stats]');
     var productsTable = root.querySelector('[data-scp-overview-products-table]');
@@ -51,12 +66,12 @@
 
         if (typeof window.scpAnimateCounter === 'function') {
             window.scpAnimateCounter(countEl, period.order_count, function (value) {
-                return Math.round(value) + ' ' + scpPanelText.overviewOrdersLabel;
+                return Math.round(value) + ' ' + scpPanelTextData.overviewOrdersLabel;
             });
             return;
         }
 
-        countEl.textContent = period.order_count + ' ' + scpPanelText.overviewOrdersLabel;
+        countEl.textContent = period.order_count + ' ' + scpPanelTextData.overviewOrdersLabel;
     }
 
     function renderProducts(products) {
@@ -156,7 +171,7 @@
         svg.setAttribute('preserveAspectRatio', 'none');
         svg.setAttribute('class', 'scp-trend-chart__svg');
         svg.setAttribute('role', 'img');
-        svg.setAttribute('aria-label', scpPanelText.trendChartLabel);
+        svg.setAttribute('aria-label', scpPanelTextData.trendChartLabel);
 
         var area = document.createElementNS(svgNs, 'path');
         area.setAttribute('d', areaPath);
@@ -255,7 +270,7 @@
             dateEl.textContent = formatShortDate(coord.point.date);
             var detailEl = document.createElement('span');
             detailEl.textContent = formatMoney(coord.point.total)
-                + ' – ' + coord.point.order_count + ' ' + scpPanelText.overviewOrdersLabel;
+                + ' – ' + coord.point.order_count + ' ' + scpPanelTextData.overviewOrdersLabel;
             tooltip.appendChild(dateEl);
             tooltip.appendChild(detailEl);
             tooltip.hidden = false;
@@ -296,7 +311,7 @@
     function load() {
         apiFetch('reports/overview').then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 

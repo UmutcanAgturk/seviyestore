@@ -26,6 +26,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-activity-log-status]');
     var form = root.querySelector('[data-scp-activity-log-form]');
     var table = root.querySelector('[data-scp-activity-log-table]');
@@ -95,7 +110,7 @@
 
             [
                 entry.created_at,
-                entry.user_name || (entry.user_id ? '#' + entry.user_id : scpPanelText.summaryNotSet),
+                entry.user_name || (entry.user_id ? '#' + entry.user_id : scpPanelTextData.summaryNotSet),
                 entry.channel,
                 entry.level,
                 describe(entry.message),
@@ -109,13 +124,13 @@
             tableBody.appendChild(tr);
         });
 
-        setStatus(entries.length === 0 ? scpPanelText.noActivityLogData : '');
+        setStatus(entries.length === 0 ? scpPanelTextData.noActivityLogData : '');
     }
 
     function loadEntries() {
         apiFetch('core/activity-log?' + currentParams().toString()).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 

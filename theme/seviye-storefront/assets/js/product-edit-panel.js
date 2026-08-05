@@ -47,6 +47,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var apiFetch = scpApiFetch;
     var statusEl = root.querySelector('[data-scp-product-edit-status]');
     var form = root.querySelector('[data-scp-product-form]');
@@ -91,7 +106,7 @@
         });
     }
 
-    if (pricingPanel && !scpPanel.canManageBasePricing) {
+    if (pricingPanel && !scpPanelData.canManageBasePricing) {
         var generalOption = priceScopeSelect.querySelector('[data-scp-product-scope-general]');
 
         if (generalOption) {
@@ -101,20 +116,20 @@
 
     function priceScopeLabel(scope) {
         if (scope === 'branch') {
-            return scpPanelText.scopeBranch;
+            return scpPanelTextData.scopeBranch;
         }
 
         if (scope === 'student') {
-            return scpPanelText.scopeStudent;
+            return scpPanelTextData.scopeStudent;
         }
 
-        return scpPanelText.scopeGeneral;
+        return scpPanelTextData.scopeGeneral;
     }
 
     function loadProductPriceRules(id) {
         apiFetch('pricing/rules?product_id=' + id).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -146,17 +161,17 @@
             var badge = document.createElement('span');
             var isActive = rule.status === 'active';
             badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
-            badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+            badge.textContent = isActive ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
             statusCellEl.appendChild(badge);
             row.appendChild(statusCellEl);
 
             var ruleActionsCell = document.createElement('td');
 
-            if (currentProduct && currentProduct.can_manage && (rule.scope !== 'general' || scpPanel.canManageBasePricing)) {
+            if (currentProduct && currentProduct.can_manage && (rule.scope !== 'general' || scpPanelData.canManageBasePricing)) {
                 var editRuleButton = document.createElement('button');
                 editRuleButton.type = 'button';
                 editRuleButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                editRuleButton.textContent = scpPanelText.edit;
+                editRuleButton.textContent = scpPanelTextData.edit;
                 editRuleButton.addEventListener('click', function () {
                     openProductPriceRuleForm(rule);
                 });
@@ -169,7 +184,7 @@
     }
 
     function updatePriceTargetField(scope) {
-        if (scope === 'general' || (scope === 'branch' && !scpPanel.canManageAllBranches)) {
+        if (scope === 'general' || (scope === 'branch' && !scpPanelData.canManageAllBranches)) {
             priceTargetField.hidden = true;
             priceTargetInput.required = false;
             return;
@@ -177,7 +192,7 @@
 
         priceTargetField.hidden = false;
         priceTargetInput.required = true;
-        priceTargetLabel.textContent = scope === 'branch' ? scpPanelText.branchIdLabel : scpPanelText.studentIdLabel;
+        priceTargetLabel.textContent = scope === 'branch' ? scpPanelTextData.branchIdLabel : scpPanelTextData.studentIdLabel;
     }
 
     function openProductPriceRuleForm(rule) {
@@ -217,17 +232,17 @@
         deletePriceRuleButton.addEventListener('click', function () {
             var id = priceRuleForm.id.value;
 
-            if (!id || !window.confirm(scpPanelText.confirmDeletePriceRule)) {
+            if (!id || !window.confirm(scpPanelTextData.confirmDeletePriceRule)) {
                 return;
             }
 
             apiFetch('pricing/rules/' + id, { method: 'DELETE' }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.priceRuleDeleted);
+                setStatus(scpPanelTextData.priceRuleDeleted);
                 priceRuleForm.hidden = true;
                 loadProductPriceRules(currentProduct.id);
             });
@@ -256,11 +271,11 @@
 
             apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.saved);
+                setStatus(scpPanelTextData.saved);
                 priceRuleForm.hidden = true;
                 loadProductPriceRules(currentProduct.id);
             });
@@ -305,7 +320,7 @@
 
         apiFetch('commerce/products/' + id + '/variations').then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -336,11 +351,11 @@
                 body: JSON.stringify({ variations: rows })
             }).then(function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.productSaved);
+                setStatus(scpPanelTextData.productSaved);
             });
         });
     }
@@ -411,8 +426,8 @@
 
         if (product && !canManage) {
             setFormDisabled(true);
-            var owner = product.owner_branch_name || scpPanelText.productOwnerHq;
-            setStatus(scpPanelText.productNotManageable.replace('%s', owner), true);
+            var owner = product.owner_branch_name || scpPanelTextData.productOwnerHq;
+            setStatus(scpPanelTextData.productNotManageable.replace('%s', owner), true);
         }
     }
 
@@ -428,11 +443,11 @@
             return;
         }
 
-        imageStatus.textContent = scpPanelText.uploadingImage;
+        imageStatus.textContent = scpPanelTextData.uploadingImage;
 
         scpUploadMedia(file).then(function (result) {
             if (!result.ok) {
-                imageStatus.textContent = scpPanelText.imageUploadError;
+                imageStatus.textContent = scpPanelTextData.imageUploadError;
                 return;
             }
 
@@ -446,17 +461,17 @@
     deleteButton.addEventListener('click', function () {
         var id = form.id.value;
 
-        if (!id || !window.confirm(scpPanelText.confirmDeleteProduct)) {
+        if (!id || !window.confirm(scpPanelTextData.confirmDeleteProduct)) {
             return;
         }
 
         apiFetch('commerce/products/' + id, { method: 'DELETE' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            window.location.href = scpPanel.productsBasePath;
+            window.location.href = scpPanelData.productsBasePath;
         });
     });
 
@@ -500,12 +515,12 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
             if (id) {
-                setStatus(scpPanelText.productSaved);
+                setStatus(scpPanelTextData.productSaved);
                 populateForm(result.data);
                 return;
             }
@@ -513,14 +528,14 @@
             // Just-created product - move to its own edit page (URL now
             // carries a real id), where variants/price rules become
             // available.
-            window.location.href = scpPanel.productsBasePath + '/' + result.data.id;
+            window.location.href = scpPanelData.productsBasePath + '/' + result.data.id;
         });
     });
 
     if (productId) {
         apiFetch('commerce/products/' + productId).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 

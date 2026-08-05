@@ -22,6 +22,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-depo-status]');
     var apiFetch = scpApiFetch;
 
@@ -41,7 +56,7 @@
     function loadSuppliers() {
         return apiFetch('depo/suppliers').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return [];
             }
 
@@ -77,7 +92,7 @@
             portalBadge.className = 'scp-badge ' + (isLinked ? 'scp-badge--active' : 'scp-badge--inactive');
             portalBadge.textContent = isLinked
                 ? supplier.portal_user_email
-                : scpPanelText.supplierPortalNotLinked;
+                : scpPanelTextData.supplierPortalNotLinked;
             portalCell.appendChild(portalBadge);
             row.appendChild(portalCell);
 
@@ -85,7 +100,7 @@
             var badge = document.createElement('span');
             var isActive = supplier.status === 'active';
             badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
-            badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+            badge.textContent = isActive ? scpPanelTextData.statusActive : scpPanelTextData.statusInactive;
             statusCell.appendChild(badge);
             row.appendChild(statusCell);
 
@@ -93,7 +108,7 @@
             var editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelText.edit;
+            editButton.textContent = scpPanelTextData.edit;
             editButton.addEventListener('click', function () {
                 openSupplierForm(supplier);
             });
@@ -151,17 +166,17 @@
     deleteSupplierButton.addEventListener('click', function () {
         var id = supplierForm.id.value;
 
-        if (!id || !window.confirm(scpPanelText.confirmDeleteSupplier)) {
+        if (!id || !window.confirm(scpPanelTextData.confirmDeleteSupplier)) {
             return;
         }
 
         apiFetch('depo/suppliers/' + id, { method: 'DELETE' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.supplierDeleted);
+            setStatus(scpPanelTextData.supplierDeleted);
             supplierForm.hidden = true;
             loadSuppliers();
         });
@@ -190,11 +205,11 @@
 
         apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             supplierForm.hidden = true;
             loadSuppliers();
         });
@@ -237,7 +252,7 @@
     function loadPurchaseOrders() {
         apiFetch('depo/purchase-orders').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -275,7 +290,7 @@
             var detailButton = document.createElement('button');
             detailButton.type = 'button';
             detailButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            detailButton.textContent = scpPanelText.details;
+            detailButton.textContent = scpPanelTextData.details;
             detailButton.addEventListener('click', function () {
                 openPurchaseOrderDetail(order.id);
             });
@@ -320,7 +335,7 @@
         var removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        removeButton.textContent = scpPanelText.remove;
+        removeButton.textContent = scpPanelTextData.remove;
         removeButton.addEventListener('click', function () {
             row.remove();
         });
@@ -376,11 +391,11 @@
 
         apiFetch('depo/purchase-orders', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             purchaseOrderForm.hidden = true;
             loadPurchaseOrders();
         });
@@ -389,7 +404,7 @@
     function openPurchaseOrderDetail(id) {
         apiFetch('depo/purchase-orders/' + id).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -457,11 +472,11 @@
         apiFetch('depo/purchase-orders/' + currentPurchaseOrderId + '/send', { method: 'POST' }).then(
             function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.saved);
+                setStatus(scpPanelTextData.saved);
                 renderPurchaseOrderDetail(result.data);
                 loadPurchaseOrders();
             }
@@ -469,18 +484,18 @@
     });
 
     poCancelButton.addEventListener('click', function () {
-        if (!currentPurchaseOrderId || !window.confirm(scpPanelText.confirmCancelPurchaseOrder)) {
+        if (!currentPurchaseOrderId || !window.confirm(scpPanelTextData.confirmCancelPurchaseOrder)) {
             return;
         }
 
         apiFetch('depo/purchase-orders/' + currentPurchaseOrderId + '/cancel', { method: 'POST' }).then(
             function (result) {
                 if (!result.ok) {
-                    setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                    setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                     return;
                 }
 
-                setStatus(scpPanelText.saved);
+                setStatus(scpPanelTextData.saved);
                 renderPurchaseOrderDetail(result.data);
                 loadPurchaseOrders();
             }
@@ -515,11 +530,11 @@
             body: JSON.stringify({ items: items })
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.stockReceived);
+            setStatus(scpPanelTextData.stockReceived);
             renderPurchaseOrderDetail(result.data);
             loadPurchaseOrders();
         });
@@ -542,7 +557,7 @@
     function loadStockCounts() {
         apiFetch('depo/stock-counts').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -568,7 +583,7 @@
             var detailButton = document.createElement('button');
             detailButton.type = 'button';
             detailButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            detailButton.textContent = scpPanelText.details;
+            detailButton.textContent = scpPanelTextData.details;
             detailButton.addEventListener('click', function () {
                 openStockCountDetail(count.id);
             });
@@ -582,11 +597,11 @@
     root.querySelector('[data-scp-new-stock-count]').addEventListener('click', function () {
         apiFetch('depo/stock-counts', { method: 'POST' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.saved);
+            setStatus(scpPanelTextData.saved);
             loadStockCounts();
             renderStockCountDetail(result.data);
         });
@@ -595,7 +610,7 @@
     function openStockCountDetail(id) {
         apiFetch('depo/stock-counts/' + id).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -640,12 +655,12 @@
                         body: JSON.stringify({ counted_quantity: parseInt(input.value, 10) })
                     }).then(function (result) {
                         if (!result.ok) {
-                            setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                            setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                             return;
                         }
 
                         varianceCell.textContent = String(result.data.variance);
-                        setStatus(scpPanelText.saved);
+                        setStatus(scpPanelTextData.saved);
                     });
                 });
                 countedCell.appendChild(input);
@@ -669,17 +684,17 @@
     });
 
     stockCountCompleteButton.addEventListener('click', function () {
-        if (!currentStockCountId || !window.confirm(scpPanelText.confirmCompleteStockCount)) {
+        if (!currentStockCountId || !window.confirm(scpPanelTextData.confirmCompleteStockCount)) {
             return;
         }
 
         apiFetch('depo/stock-counts/' + currentStockCountId + '/complete', { method: 'POST' }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.stockCountCompleted);
+            setStatus(scpPanelTextData.stockCountCompleted);
             renderStockCountDetail(result.data);
             loadStockCounts();
         });
@@ -697,7 +712,7 @@
     function loadPurchaseSuggestions() {
         apiFetch('depo/purchase-suggestions').then(function (result) {
             if (!result.ok) {
-                setStatus(scpPanelText.loadError, true);
+                setStatus(scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -728,7 +743,7 @@
                 var convertButton = document.createElement('button');
                 convertButton.type = 'button';
                 convertButton.className = 'scp-btn scp-btn--small';
-                convertButton.textContent = scpPanelText.convertToOrder;
+                convertButton.textContent = scpPanelTextData.convertToOrder;
                 convertButton.addEventListener('click', function () {
                     openConvertSuggestionForm(suggestion);
                 });
@@ -737,20 +752,20 @@
                 var dismissButton = document.createElement('button');
                 dismissButton.type = 'button';
                 dismissButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                dismissButton.textContent = scpPanelText.dismiss;
+                dismissButton.textContent = scpPanelTextData.dismiss;
                 dismissButton.addEventListener('click', function () {
-                    if (!window.confirm(scpPanelText.confirmDismissSuggestion)) {
+                    if (!window.confirm(scpPanelTextData.confirmDismissSuggestion)) {
                         return;
                     }
 
                     apiFetch('depo/purchase-suggestions/' + suggestion.id + '/dismiss', { method: 'POST' }).then(
                         function (result) {
                             if (!result.ok) {
-                                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                                 return;
                             }
 
-                            setStatus(scpPanelText.suggestionDismissed);
+                            setStatus(scpPanelTextData.suggestionDismissed);
                             loadPurchaseSuggestions();
                         }
                     );
@@ -804,11 +819,11 @@
             body: JSON.stringify(payload)
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
-            setStatus(scpPanelText.suggestionConverted);
+            setStatus(scpPanelTextData.suggestionConverted);
             convertSuggestionForm.hidden = true;
             loadPurchaseSuggestions();
             loadPurchaseOrders();

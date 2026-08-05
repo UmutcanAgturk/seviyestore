@@ -15,6 +15,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var apiFetch = scpApiFetch;
 
     function initChildren() {
@@ -27,13 +42,13 @@
 
         apiFetch('students/mine').then(function (result) {
             if (!result.ok) {
-                status.textContent = scpPanelText.loadError;
+                status.textContent = scpPanelTextData.loadError;
                 status.classList.add('scp-status--error');
                 return;
             }
 
             if (result.data.length === 0) {
-                status.textContent = scpPanelText.noChildren;
+                status.textContent = scpPanelTextData.noChildren;
                 return;
             }
 
@@ -84,13 +99,13 @@
                 })
             }).then(function (result) {
                 if (!result.ok) {
-                    status.textContent = (result.data && result.data.message) || scpPanelText.saveError;
+                    status.textContent = (result.data && result.data.message) || scpPanelTextData.saveError;
                     status.classList.add('scp-status--error');
                     return;
                 }
 
                 status.classList.remove('scp-status--error');
-                status.textContent = scpPanelText.profileSaved;
+                status.textContent = scpPanelTextData.profileSaved;
                 applyProfile(result.data);
             });
         });
@@ -136,13 +151,13 @@
                 body: JSON.stringify({ billing: billing, shipping: shipping })
             }).then(function (result) {
                 if (!result.ok) {
-                    status.textContent = scpPanelText.saveError;
+                    status.textContent = scpPanelTextData.saveError;
                     status.classList.add('scp-status--error');
                     return;
                 }
 
                 status.classList.remove('scp-status--error');
-                status.textContent = scpPanelText.addressSaved;
+                status.textContent = scpPanelTextData.addressSaved;
                 applyAddress(result.data);
             });
         });

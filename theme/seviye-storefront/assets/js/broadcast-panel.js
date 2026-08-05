@@ -19,6 +19,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-broadcast-status]');
     var form = root.querySelector('[data-scp-broadcast-form]');
     var branchField = root.querySelector('[data-scp-broadcast-branch-field]');
@@ -45,7 +60,7 @@
 
         var allOption = document.createElement('option');
         allOption.value = '';
-        allOption.textContent = scpPanelText.allBranches;
+        allOption.textContent = scpPanelTextData.allBranches;
         branchSelect.appendChild(allOption);
 
         branches.forEach(function (branch) {
@@ -96,7 +111,7 @@
 
         if (broadcasts.length === 0) {
             scheduledTable.hidden = true;
-            setScheduledStatus(scpPanelText.broadcastNoScheduled);
+            setScheduledStatus(scpPanelTextData.broadcastNoScheduled);
             return;
         }
 
@@ -113,7 +128,7 @@
             var branchCell = document.createElement('td');
             branchCell.textContent = broadcast.branch_id
                 ? (branchNames[broadcast.branch_id] || String(broadcast.branch_id))
-                : scpPanelText.allBranches;
+                : scpPanelTextData.allBranches;
             row.appendChild(branchCell);
 
             var scheduledAtCell = document.createElement('td');
@@ -133,12 +148,12 @@
                 var cancelButton = document.createElement('button');
                 cancelButton.type = 'button';
                 cancelButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-                cancelButton.textContent = scpPanelText.broadcastCancelScheduled;
+                cancelButton.textContent = scpPanelTextData.broadcastCancelScheduled;
                 cancelButton.addEventListener('click', function () {
                     apiFetch('notifications/broadcast/scheduled/' + broadcast.id, { method: 'DELETE' }).then(
                         function (result) {
                             if (!result.ok) {
-                                setScheduledStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                                setScheduledStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                                 return;
                             }
 
@@ -157,7 +172,7 @@
     function loadScheduled() {
         apiFetch('notifications/broadcast/scheduled').then(function (result) {
             if (!result.ok) {
-                setScheduledStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setScheduledStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
@@ -174,7 +189,7 @@
             channels: selectedChannels()
         };
 
-        if (scpPanel.canViewAllBranches && branchSelect.value) {
+        if (scpPanelData.canViewAllBranches && branchSelect.value) {
             payload.branch_id = Number(branchSelect.value);
         }
 
@@ -187,7 +202,7 @@
             body: JSON.stringify(payload)
         }).then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
             }
 
@@ -196,19 +211,19 @@
             form.channel_panel.checked = true;
 
             if (result.data.scheduled_at) {
-                setStatus(scpPanelText.broadcastScheduled);
+                setStatus(scpPanelTextData.broadcastScheduled);
                 loadScheduled();
                 return;
             }
 
             setStatus(
                 result.data.recipient_count
-                    + ' ' + scpPanelText.broadcastSentSuffix
+                    + ' ' + scpPanelTextData.broadcastSentSuffix
             );
         });
     });
 
-    if (scpPanel.canViewAllBranches) {
+    if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {
             if (result.ok) {
                 populateBranchSelect(result.data);

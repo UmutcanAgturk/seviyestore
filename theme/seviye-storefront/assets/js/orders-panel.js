@@ -17,6 +17,21 @@
         return;
     }
 
+    // Captured once, synchronously, at script load - NOT re-read later
+    // via the bare `scpPanel`/`scpPanelText` globals, which several
+    // OTHER scripts on this same page (account-security.js,
+    // privacy-requests-panel.js, support-tickets-panel.js - all
+    // unconditionally enqueued on every admin/sube page) also localize
+    // under the SAME global variable names. Whichever of those loads
+    // LAST overwrites `window.scpPanel`/`window.scpPanelText` for the
+    // whole page; code that reads the bare global later (inside an
+    // apiFetch().then() callback, a click handler, ...) would silently
+    // see THAT other script's narrower data instead of this page's own
+    // - capturing a local reference immediately, before any later
+    // script's localize tag runs, avoids that.
+    var scpPanelData = scpPanel;
+    var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
     var statusEl = root.querySelector('[data-scp-orders-status]');
     var listEl = root.querySelector('[data-scp-orders-list]');
     var apiFetch = scpApiFetch;
@@ -50,12 +65,12 @@
         var thead = document.createElement('thead');
         var headRow = document.createElement('tr');
         [
-            scpPanelText.orderItemProductLabel,
-            scpPanelText.orderItemStudentLabel,
-            scpPanelText.orderItemQuantityLabel,
-            scpPanelText.orderItemUnitPriceLabel,
-            scpPanelText.orderItemTaxLabel,
-            scpPanelText.orderItemTotalLabel
+            scpPanelTextData.orderItemProductLabel,
+            scpPanelTextData.orderItemStudentLabel,
+            scpPanelTextData.orderItemQuantityLabel,
+            scpPanelTextData.orderItemUnitPriceLabel,
+            scpPanelTextData.orderItemTaxLabel,
+            scpPanelTextData.orderItemTotalLabel
         ].forEach(function (label) {
             var th = document.createElement('th');
             th.textContent = label;
@@ -69,7 +84,7 @@
             var row = document.createElement('tr');
             [
                 item.name,
-                item.student_name || scpPanelText.summaryNotSet,
+                item.student_name || scpPanelTextData.summaryNotSet,
                 String(item.quantity),
                 formatMoney(item.unit_price),
                 formatMoney(item.line_tax),
@@ -95,7 +110,7 @@
         header.className = 'scp-card__header';
 
         var title = document.createElement('h3');
-        title.textContent = scpPanelText.orderNumberLabel + ' #' + order.number;
+        title.textContent = scpPanelTextData.orderNumberLabel + ' #' + order.number;
         header.appendChild(title);
 
         var badge = document.createElement('span');
@@ -115,22 +130,22 @@
 
         var meta = document.createElement('dl');
         meta.className = 'scp-summary-list';
-        metaRow(meta, scpPanelText.orderDateLabel, order.date || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderPaymentMethodLabel, order.payment_method_title || scpPanelText.summaryNotSet);
-        metaRow(meta, scpPanelText.orderSubtotalLabel, formatMoney(order.subtotal));
-        metaRow(meta, scpPanelText.orderTaxLabel, formatMoney(order.total_tax));
-        metaRow(meta, scpPanelText.orderTotalLabel, formatMoney(order.total));
+        metaRow(meta, scpPanelTextData.orderDateLabel, order.date || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderPaymentMethodLabel, order.payment_method_title || scpPanelTextData.summaryNotSet);
+        metaRow(meta, scpPanelTextData.orderSubtotalLabel, formatMoney(order.subtotal));
+        metaRow(meta, scpPanelTextData.orderTaxLabel, formatMoney(order.total_tax));
+        metaRow(meta, scpPanelTextData.orderTotalLabel, formatMoney(order.total));
 
         if (order.tracking_number) {
-            metaRow(meta, scpPanelText.orderTrackingNumberLabel, order.tracking_number);
+            metaRow(meta, scpPanelTextData.orderTrackingNumberLabel, order.tracking_number);
         }
 
         if (order.shipped_at) {
-            metaRow(meta, scpPanelText.orderShippedAtLabel, order.shipped_at);
+            metaRow(meta, scpPanelTextData.orderShippedAtLabel, order.shipped_at);
         }
 
         if (order.delivered_at) {
-            metaRow(meta, scpPanelText.orderDeliveredAtLabel, order.delivered_at);
+            metaRow(meta, scpPanelTextData.orderDeliveredAtLabel, order.delivered_at);
         }
 
         card.appendChild(meta);
@@ -143,14 +158,14 @@
     function loadOrders() {
         apiFetch('commerce/orders/mine').then(function (result) {
             if (!result.ok) {
-                setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                setStatus((result.data && result.data.message) || scpPanelTextData.loadError, true);
                 return;
             }
 
             listEl.innerHTML = '';
 
             if (result.data.length === 0) {
-                setStatus(scpPanelText.noOrders);
+                setStatus(scpPanelTextData.noOrders);
                 return;
             }
 
