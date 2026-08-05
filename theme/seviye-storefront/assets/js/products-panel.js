@@ -7,8 +7,10 @@
  *     see ProductsRestController::serialize()) edit/delete/variant editing -
  *     Genel Merkez/Bölge Müdürü always, a Şube Müdürü only for a product
  *     THEY THEMSELVES created (never a Genel Merkez product, never another
- *     branch's - see Support\ProductOwnership). Clicking a manageable row
- *     (or its "Düzenle" button) opens the same edit structure. The
+ *     branch's - see Support\ProductOwnership). Every row is clickable: a
+ *     manageable one opens the same edit structure the "Düzenle" button
+ *     does; a non-manageable one shows WHO owns it instead of silently
+ *     doing nothing (see the row click handler in renderProducts()). The
  *     "Şubeler" per-branch active/passive grid stays canManageAllBranches
  *     (HQ) only regardless of ownership - a Şube Müdürü instead gets a
  *     single toggle for their OWN branch's status on ANY product (see
@@ -126,13 +128,20 @@
                 // a Şube Müdürü only for a product they created themselves -
                 // see ProductsRestController::canManageProductFully()).
                 // Button clicks inside the row (Şubeler/Durum/Düzenle) stop
-                // propagation so they don't ALSO trigger this.
-                if (product.can_manage) {
-                    row.classList.add('scp-row--clickable');
-                    row.addEventListener('click', function () {
-                        openProductForm(product);
-                    });
-                }
+                // propagation so they don't ALSO trigger this. A row the
+                // user can't manage is still clickable - it shows WHY
+                // instead of doing nothing, so "I clicked and nothing
+                // happened" never looks like a broken feature.
+                row.classList.add('scp-row--clickable');
+                row.addEventListener('click', function () {
+                    if (!product.can_manage) {
+                        var owner = product.owner_branch_name || scpPanelText.productOwnerHq;
+                        setStatus(scpPanelText.productNotManageable.replace('%s', owner), true);
+                        return;
+                    }
+
+                    openProductForm(product);
+                });
             }
 
             tableBody.appendChild(row);
