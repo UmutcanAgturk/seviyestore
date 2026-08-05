@@ -3169,6 +3169,61 @@ gösteriyor - bir PUT/DELETE'in sessizce 403 dönmesini beklemek yerine.
 PHP'si) bu turda HİÇ değişmedi - yalnızca tema; bu yüzden plugin zip'leri
 yeniden derlenmedi, yalnızca tema zip'i.
 
+### 64. Quicknav gruplandırması + tasarımda "daha canlı/zengin" tur
+
+"Genel menü yapısı daha anlaşılır bir yapıda olsun. Kullanıcı odaklı. UI
+Tasarımı daha çok güzel yap." isteğinin iki parçası, kullanıcıyla
+netleştirilen kapsamla:
+
+**1. Quicknav gruplandırması** (`templates/zone.php`). `$scp_sections`
+artık tek düz `href => label` listesi değil, yedi mantıksal kümeye ayrılmış
+bir yapı (`$scp_sections[$grup][$href] = $label`): `genel` (Genel Bakış,
+başlıksız - tek öğeye başlık koymak gürültü olurdu), `katalog` (Ürünler,
+Fiyat Kuralları, Kampanya Kodları), `operasyon` (Siparişler, Depo),
+`kisiler` (Öğrenciler, Şubeler), `finans` (Cari Bakiye, Raporlar),
+`iletisim` (Toplu Duyuru, Destek Talepleri), `hesap` (Hesap Güvenliği,
+KVKK, IP Kısıtlaması, SMS/E-posta Ayarları, API Anahtarları, Görünüm,
+Aktivite Günlüğü). `$scp_group_labels` her grubun başlığını taşıyor.
+Genel Merkez gibi çoğu capability'ye sahip bir rol artık kayıt sırasına
+göre dizilmiş bir düzine aynı görünen pil yerine ilişkili girdileri bir
+arada görüyor.
+
+Gruplama SALT görsel: `.scp-quicknav__group-label` bir `<span>`, `<a>`
+etiketlerinin arasına serpiştirilmiş bir başlık - HER `<a>` hâlâ
+`.scp-quicknav`'ın DOĞRUDAN çocuğu (kendi sarmalayıcı `<div>`'i yok). Bu
+bilinçli bir tercih: `scpQuicknavReorder()`'ın (assets/js/scp-ui-kit.js)
+sürükle-bırak mantığı `nav.querySelectorAll('a')`/`nav.insertBefore(dragged,
+...)` ile çalışıyor - `<a>`'ları başka bir `<div>` grubunun içine
+sarmalasaydık bu kod ya kırılırdı ya da yeniden yazılması gerekirdi.
+Grup başlığı bir `<span>` olduğu için hem sürükle-bırak'ın hem de komut
+paletinin (`document.querySelectorAll('.scp-quicknav a')`) tarama mantığı
+DEĞİŞMEDEN çalışmaya devam ediyor - bir kullanıcı bir linki sürükleyip
+başka bir grubun yanına bırakırsa (kozmetik bir kenar durumu, zaten
+"yalnızca istemci tarafında kalıcı" bir kişiselleştirme) görsel olarak o
+gruba "taşınmış" görünür, işlevsel bir sorun değil.
+
+CSS: `.scp-quicknav__group-label` `flex-basis: 100%` ile flex-wrap satırını
+zorla kırıp kendi satırına geçiyor - küçük, büyük harf, soluk renkli bir
+küme başlığı.
+
+**2. "Daha canlı/zengin görünüm"** - kullanıcı, bölüm 59'un "tek vurgu
+rengi, gradyansız" sadeleştirmesini KISMEN geri almayı seçti (bölüm
+165-176'nın zengin tasarım sistemine daha yakın bir görünüm). Bölüm 59
+commit'inin (`43f714c`) module-tile/header/auth/woocommerce hunk'ları
+`git apply -R` ile TERSİNE çevrilip aynen eski haline döndürüldü (10 farklı
+modül rengi `.scp-module-tile--{variant} .scp-module-tile__icon`'a geri
+geldi, header marka işareti ve giriş ekranı logosu gradyan+gölgeye geri
+döndü, header'ın altındaki 2 renkli gradyan çizgi geri geldi, modül
+karosu/ürün kartı hover'ındaki hafif kaldırma (`translateY`) animasyonu
+geri geldi, bildirim panelinin gölgesi `--scp-shadow-3`'e geri döndü) -
+YALNIZCA `.scp-status--error`'ın `var(--scp-danger)` token'ı KORUNDU (o
+hunk bir tasarım-token temizliğiydi, "sade/zengin" ekseniyle ilgisizdi,
+geri almanın bir anlamı yoktu).
+
+**Doğrulama**: `php -l`/`vendor/bin/phpcs` (repo geneli, 0 hata) temiz;
+dokunulan CSS dosyalarının `{`/`}` sayıları eşit. Yalnızca tema (zone.php +
+4 CSS dosyası) - plugin zip'leri yeniden derlenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

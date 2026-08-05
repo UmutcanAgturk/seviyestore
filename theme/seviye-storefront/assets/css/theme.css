@@ -175,6 +175,17 @@ body {
   box-shadow: var(--scp-shadow);
 }
 
+.scp-site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--scp-primary) 0%, var(--scp-accent) 100%);
+  opacity: 0.9;
+}
+
 .scp-site-header__brand {
   display: flex;
   align-items: center;
@@ -199,11 +210,12 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: var(--scp-primary);
+  background: linear-gradient(135deg, var(--scp-primary) 0%, var(--scp-primary-dark) 100%);
   color: #fff;
   font-size: 0.9375rem;
   font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(20, 50, 107, 0.35);
 }
 
 /*
@@ -332,7 +344,7 @@ body {
   background: var(--scp-surface);
   border: 1px solid var(--scp-border);
   border-radius: var(--scp-radius);
-  box-shadow: var(--scp-shadow-2);
+  box-shadow: var(--scp-shadow-3);
   z-index: 20;
   animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
 }
@@ -433,6 +445,25 @@ body {
     color var(--scp-duration-base) var(--scp-ease),
     border-color var(--scp-duration-base) var(--scp-ease),
     background var(--scp-duration-base) var(--scp-ease);
+}
+
+/* Cluster headings between groups of quicknav links (see zone.php's
+   $scp_sections/$scp_group_labels - bölüm 64) - forced onto its own row via
+   flex-basis so it reads as a section break in the wrapping flex row, not
+   another pill. Not an <a>, so scpQuicknavReorder() (scp-ui-kit.js) never
+   makes it draggable and drops never land on it. */
+.scp-quicknav__group-label {
+  flex-basis: 100%;
+  margin: 10px 0 -2px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--scp-text-muted);
+}
+
+.scp-quicknav__group-label:first-child {
+  margin-top: 0;
 }
 
 .scp-quicknav a:hover {

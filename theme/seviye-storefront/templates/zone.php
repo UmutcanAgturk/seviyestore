@@ -81,12 +81,23 @@
  * -prefixed locals, computed once before get_header()) - it never invents a
  * link a section wouldn't actually render, and only appears once there is
  * more than one section to jump between. Every entry is an in-page anchor
- * (`#scp-x-panel`) EXCEPT "Siparişler", whose value is a real URL
- * (scp_admin_orders_path(), `/admin/siparisler` or `/sube/siparisler`) -
- * Sipariş Yönetimi is its own standalone page, not a section on this one
- * (see inc/zones.php, templates/orders-admin.php), so esc_url() (not
- * esc_attr()) is used on every $scp_href below to render both kinds
+ * (`#scp-x-panel`) EXCEPT "Siparişler" and "Ürünler", whose values are real
+ * URLs (scp_admin_orders_path()/scp_admin_products_path()) - both are their
+ * own standalone pages, not a section on this one (see inc/zones.php,
+ * templates/orders-admin.php, templates/products-admin.php), so esc_url()
+ * (not esc_attr()) is used on every $scp_href below to render both kinds
  * correctly.
+ *
+ * "Genel menü yapısı daha anlaşılır bir yapıda olsun. Kullanıcı odaklı."
+ * (bölüm 64) - $scp_sections is grouped (genel/katalog/operasyon/kisiler/
+ * finans/iletisim/hesap) instead of one flat list, so a role with many
+ * capabilities (Genel Merkez) sees related entries clustered together
+ * instead of a dozen same-looking pills in registration order. Grouping is
+ * PURELY presentational (a heading between clusters of already-existing
+ * `<a>` tags, still direct children of `.scp-quicknav`) - it doesn't touch
+ * scpQuicknavReorder()'s drag logic (assets/js/scp-ui-kit.js), which only
+ * ever moves `<a>` elements and ignores the group-label `<span>`s, nor the
+ * command palette's `.scp-quicknav a` scrape.
  */
 
 declare(strict_types=1);
@@ -100,84 +111,109 @@ if (!defined('ABSPATH')) {
  * checks each section below already gates on - it never invents a link a
  * section wouldn't actually render. Only shown when there is more than one
  * section to jump between; a single-section page gains nothing from it.
+ *
+ * Grouped ($scp_sections[$group][$href] = $label) rather than one flat list -
+ * see this file's own docblock (bölüm 64). $scp_group_labels gives each
+ * group its heading; 'genel' has none (Genel Bakış stands alone at the top,
+ * a heading over a single item would be noise).
  */
-$scp_sections = [];
+$scp_sections = [
+    'genel' => [],
+    'katalog' => [],
+    'operasyon' => [],
+    'kisiler' => [],
+    'finans' => [],
+    'iletisim' => [],
+    'hesap' => [],
+];
+
+$scp_group_labels = [
+    'genel' => null,
+    'katalog' => __('Katalog', 'seviye-storefront'),
+    'operasyon' => __('Operasyon', 'seviye-storefront'),
+    'kisiler' => __('Kişiler', 'seviye-storefront'),
+    'finans' => __('Finans', 'seviye-storefront'),
+    'iletisim' => __('İletişim', 'seviye-storefront'),
+    'hesap' => __('Hesap ve Sistem', 'seviye-storefront'),
+];
 
 if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) {
-    $scp_sections['#scp-overview-panel'] = __('Genel Bakış', 'seviye-storefront');
+    $scp_sections['genel']['#scp-overview-panel'] = __('Genel Bakış', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_students')) {
-    $scp_sections['#scp-students-panel'] = __('Öğrenciler', 'seviye-storefront');
+    $scp_sections['kisiler']['#scp-students-panel'] = __('Öğrenciler', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_branches')) {
-    $scp_sections['#scp-branches-panel'] = __('Şubeler', 'seviye-storefront');
+    $scp_sections['kisiler']['#scp-branches-panel'] = __('Şubeler', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_products') || current_user_can('scp_view_products')) {
-    $scp_sections[scp_admin_products_path()] = __('Ürünler', 'seviye-storefront');
+    $scp_sections['katalog'][scp_admin_products_path()] = __('Ürünler', 'seviye-storefront');
 }
 
 if (current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders')) {
-    $scp_sections[scp_admin_orders_path()] = __('Siparişler', 'seviye-storefront');
+    $scp_sections['operasyon'][scp_admin_orders_path()] = __('Siparişler', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_pricing')) {
-    $scp_sections['#scp-pricing-panel'] = __('Fiyat Kuralları', 'seviye-storefront');
+    $scp_sections['katalog']['#scp-pricing-panel'] = __('Fiyat Kuralları', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_coupons')) {
-    $scp_sections['#scp-coupons-panel'] = __('Kampanya Kodları', 'seviye-storefront');
+    $scp_sections['katalog']['#scp-coupons-panel'] = __('Kampanya Kodları', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_purchase_orders')) {
-    $scp_sections['#scp-depo-panel'] = __('Depo', 'seviye-storefront');
+    $scp_sections['operasyon']['#scp-depo-panel'] = __('Depo', 'seviye-storefront');
 }
 
 if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
-    $scp_sections['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
+    $scp_sections['finans']['#scp-hakedis-panel'] = __('Cari Bakiye', 'seviye-storefront');
 }
 
 if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) {
-    $scp_sections['#scp-reports-panel'] = __('Raporlar', 'seviye-storefront');
+    $scp_sections['finans']['#scp-reports-panel'] = __('Raporlar', 'seviye-storefront');
 }
 
 if (current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_branch_broadcast')) {
-    $scp_sections['#scp-broadcast-panel'] = __('Toplu Duyuru', 'seviye-storefront');
+    $scp_sections['iletisim']['#scp-broadcast-panel'] = __('Toplu Duyuru', 'seviye-storefront');
 }
 
 if (current_user_can('scp_manage_support_tickets')) {
-    $scp_sections['#scp-support-tickets-queue-panel'] = __('Destek Talepleri', 'seviye-storefront');
+    $scp_sections['iletisim']['#scp-support-tickets-queue-panel'] = __('Destek Talepleri', 'seviye-storefront');
 }
 
-$scp_sections['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
-$scp_sections['#scp-privacy-requests-panel'] = __('Verilerim (KVKK)', 'seviye-storefront');
+$scp_sections['hesap']['#scp-account-security-panel'] = __('Hesap Güvenliği', 'seviye-storefront');
+$scp_sections['hesap']['#scp-privacy-requests-panel'] = __('Verilerim (KVKK)', 'seviye-storefront');
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_privacy_requests')) {
-    $scp_sections['#scp-privacy-requests-queue-panel'] = __('KVKK Talepleri', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-privacy-requests-queue-panel'] = __('KVKK Talepleri', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_security_settings')) {
-    $scp_sections['#scp-ip-allowlist-panel'] = __('IP Kısıtlaması', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-ip-allowlist-panel'] = __('IP Kısıtlaması', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) {
-    $scp_sections['#scp-sms-settings-panel'] = __('SMS Ayarları', 'seviye-storefront');
-    $scp_sections['#scp-email-settings-panel'] = __('E-posta Ayarları', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-sms-settings-panel'] = __('SMS Ayarları', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-email-settings-panel'] = __('E-posta Ayarları', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_api_keys')) {
-    $scp_sections['#scp-api-keys-panel'] = __('API Anahtarları', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-api-keys-panel'] = __('API Anahtarları', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_manage_core_settings')) {
-    $scp_sections['#scp-branding-panel'] = __('Görünüm', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-branding-panel'] = __('Görünüm', 'seviye-storefront');
 }
 
 if (scp_current_zone() === 'admin' && current_user_can('scp_view_audit_logs')) {
-    $scp_sections['#scp-activity-log-panel'] = __('Aktivite Günlüğü', 'seviye-storefront');
+    $scp_sections['hesap']['#scp-activity-log-panel'] = __('Aktivite Günlüğü', 'seviye-storefront');
 }
+
+$scp_sections_total = array_sum(array_map('count', $scp_sections));
 
 /*
  * Module-identity tiles (.scp-module-tile in panel.css) only exist for the
@@ -216,22 +252,31 @@ get_header();
         ));
         ?></p>
 
-    <?php if (count($scp_sections) > 1) : ?>
+    <?php if ($scp_sections_total > 1) : ?>
         <nav class="scp-quicknav" aria-label="<?php esc_attr_e('Bölüm kısayolları', 'seviye-storefront'); ?>">
-            <?php foreach ($scp_sections as $scp_href => $scp_label) :
-                $scp_variant = $scp_section_variants[$scp_href] ?? null;
+            <?php foreach ($scp_sections as $scp_group_key => $scp_group_items) :
+                if (empty($scp_group_items)) {
+                    continue;
+                }
                 ?>
-                <?php if ($scp_variant) : ?>
-                    <a href="<?php echo esc_url($scp_href); ?>" class="scp-module-tile scp-module-tile--<?php echo esc_attr($scp_variant); ?>">
-                        <span class="scp-module-tile__icon"><?php
-                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it.
-                            echo scp_module_icon_svg($scp_variant);
-                        ?></span>
-                        <span class="scp-module-tile__label"><?php echo esc_html($scp_label); ?></span>
-                    </a>
-                <?php else : ?>
-                    <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+                <?php if (!empty($scp_group_labels[$scp_group_key])) : ?>
+                    <span class="scp-quicknav__group-label"><?php echo esc_html($scp_group_labels[$scp_group_key]); ?></span>
                 <?php endif; ?>
+                <?php foreach ($scp_group_items as $scp_href => $scp_label) :
+                    $scp_variant = $scp_section_variants[$scp_href] ?? null;
+                    ?>
+                    <?php if ($scp_variant) : ?>
+                        <a href="<?php echo esc_url($scp_href); ?>" class="scp-module-tile scp-module-tile--<?php echo esc_attr($scp_variant); ?>">
+                            <span class="scp-module-tile__icon"><?php
+                                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it.
+                                echo scp_module_icon_svg($scp_variant);
+                            ?></span>
+                            <span class="scp-module-tile__label"><?php echo esc_html($scp_label); ?></span>
+                        </a>
+                    <?php else : ?>
+                        <a href="<?php echo esc_url($scp_href); ?>"><?php echo esc_html($scp_label); ?></a>
+                    <?php endif; ?>
+                <?php endforeach; ?>
             <?php endforeach; ?>
         </nav>
     <?php endif; ?>

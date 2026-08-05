@@ -43,7 +43,10 @@ body.scp-auth-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--scp-bg);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(20, 50, 107, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(15, 157, 99, 0.07), transparent 45%),
+    var(--scp-bg);
   color: var(--scp-text);
   font-family: var(--scp-font);
   padding: 24px;
@@ -73,10 +76,11 @@ body.scp-auth-body {
   height: 44px;
   margin: 0 auto 16px;
   border-radius: 12px;
-  background: var(--scp-primary);
+  background: linear-gradient(135deg, var(--scp-primary) 0%, var(--scp-primary-dark) 100%);
   color: #fff;
   font-size: 1.125rem;
   font-weight: 800;
+  box-shadow: 0 4px 12px rgba(20, 50, 107, 0.3);
 }
 
 .scp-auth-logo {
