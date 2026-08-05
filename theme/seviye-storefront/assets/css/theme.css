@@ -418,13 +418,28 @@ body {
    horizontal-pill .scp-quicknav usage that no longer exists anywhere but
    would still be safe to have elsewhere. ---- */
 
+/* No height/overflow-y here on purpose - a scrollable sidebar sounds
+   right for a nav column, but CSS coerces overflow-x to 'auto' the
+   instant overflow-y isn't 'visible' (the "used value" pairing rule in
+   the CSS Overflow spec), which silently clips the flyout submenu's
+   content since it renders to the RIGHT of this box via
+   `left: 100%` (see .scp-sidebar-nav__submenu below) - the submenu's own
+   background/border/shadow still painted (they're the flyout <ul>'s own
+   box, clipped at a different edge than its children), but every child
+   inside it (icon, label) fell inside the clipped region and simply
+   never painted - "alt menüler görünmüyor" bug report, reproduced with a
+   static HTML fixture before landing this fix. .scp-layout's own
+   align-items: flex-start (above) already stops this sticky column from
+   stretching to <main>'s height, so no explicit height is needed for
+   correct sizing; the sidebar's item count is small enough that letting
+   the whole page scroll (standard `position: sticky` behavior once
+   content exceeds the viewport) is a fine trade for keeping the flyout
+   intact. */
 .scp-sidebar {
   position: sticky;
   top: var(--scp-header-height);
   flex: 0 0 232px;
   width: 232px;
-  height: calc(100vh - var(--scp-header-height));
-  overflow-y: auto;
   padding: 20px 12px;
   border-right: 1px solid var(--scp-border);
   background: var(--scp-surface);
