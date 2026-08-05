@@ -353,11 +353,19 @@ function scp_enqueue_panel_assets(): void
     // Ürünler is its own page now (/admin/urunler, /sube/urunler - see
     // inc/zones.php), the same "own page, not a dashboard section" split
     // templates/orders-admin.php already got - so this only needs to
-    // enqueue there, mirroring $isAdminOrdersPage below exactly.
-    $isProductsPage = in_array($zone, ['admin', 'sube'], true)
-        && rtrim((string) get_query_var('scp_zone_path'), '/') === 'urunler';
+    // enqueue there, mirroring $isAdminOrdersPage below exactly. A
+    // per-product edit/create page lives one level under it
+    // (/urunler/{id}, /urunler/yeni - see templates/product-edit.php) with
+    // its own script, since the list and the edit form no longer share one
+    // DOM/one script (see products-panel.js's and product-edit-panel.js's
+    // own docblocks for why the split happened).
+    $productsZonePath = rtrim((string) get_query_var('scp_zone_path'), '/');
+    $isProductsPath = in_array($zone, ['admin', 'sube'], true)
+        && ($productsZonePath === 'urunler' || str_starts_with($productsZonePath, 'urunler/'));
+    $isProductsListPage = $isProductsPath && $productsZonePath === 'urunler';
+    $isProductEditPage = $isProductsPath && $productsZonePath !== 'urunler';
 
-    if ($isProductsPage && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))) {
+    if ($isProductsListPage && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))) {
         $handle = 'scp-products-panel';
         wp_enqueue_script(
             $handle,
@@ -369,12 +377,32 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageProducts' => current_user_can('scp_manage_products'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
+            'productsBasePath' => scp_admin_products_path(),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    // Reached at all already implies scp_manage_products (see
+    // inc/zones.php's own capability check on this sub-path - a
+    // VIEW_PRODUCTS-only role never gets here).
+    if ($isProductEditPage && current_user_can('scp_manage_products')) {
+        $handle = 'scp-product-edit-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/product-edit-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/product-edit-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageAllBranches' => current_user_can('scp_manage_branches'),
             // "Bir ürün seçilince o ürünün fiyat değişiklikleri de aynı
-            // yapıda yapılsın" - the product edit form embeds a per-product
-            // price-rules editor (see products-panel.js), gated on these
-            // two exactly like the standalone "Fiyat Kuralları" panel below.
+            // yapıda yapılsın" - the edit page embeds a per-product
+            // price-rules editor, gated on these two exactly like the
+            // standalone "Fiyat Kuralları" admin panel below.
             'canManagePricing' => current_user_can('scp_manage_pricing'),
             'canManageBasePricing' => current_user_can('scp_manage_base_pricing'),
+            'productsBasePath' => scp_admin_products_path(),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

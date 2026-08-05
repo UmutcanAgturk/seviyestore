@@ -155,14 +155,54 @@ function scp_render_zone_template(): void
     // or /sube dashboard, the exact same split-out templates/orders-admin.php
     // got above ("Sipariş Yönetimi") and for the same reason: a catalog
     // with create/edit/variant/price-rule sub-structures needs real room.
-    if (in_array($zone, ['admin', 'sube'], true) && $zonePath === 'urunler') {
+    //
+    // Three sub-paths under the same `urunler` prefix, still riding the one
+    // `^admin/(.+)/?$` / `^sube/(.+)/?$` capture - no new rewrite rule:
+    //   /urunler        -> the list (templates/products-admin.php)
+    //   /urunler/yeni   -> blank create form (templates/product-edit.php)
+    //   /urunler/{id}   -> that product's own edit page (same template) -
+    //                      "ürüne tıklandığında o ürünün düzenleme sayfası
+    //                      gelsin, tüm düzenlemeler orada yapılabilsin".
+    $isProductsPath = $zonePath === 'urunler' || str_starts_with($zonePath, 'urunler/');
+
+    if (in_array($zone, ['admin', 'sube'], true) && $isProductsPath) {
         if (!current_user_can('scp_manage_products') && !current_user_can('scp_view_products')) {
             wp_safe_redirect(home_url('/' . $zone));
             exit;
         }
 
+        $productSubPath = trim(substr($zonePath, strlen('urunler')), '/');
+
+        if ($productSubPath === '') {
+            get_header();
+            include SCP_THEME_DIR . '/templates/products-admin.php';
+            get_footer();
+            exit;
+        }
+
+        // The edit/create page writes to the catalog - only a
+        // scp_manage_products holder may reach it, never a VIEW_PRODUCTS-only
+        // read-only role (Muhasebe/Depo/Sistem), who gets bounced back to
+        // the list instead of a raw 403.
+        if (!current_user_can('scp_manage_products')) {
+            wp_safe_redirect(scp_admin_products_path());
+            exit;
+        }
+
+        if ($productSubPath === 'yeni') {
+            $scp_product_id = null;
+        } elseif (ctype_digit($productSubPath) && (int) $productSubPath > 0) {
+            $scp_product_id = (int) $productSubPath;
+        } else {
+            // Neither "yeni" nor a clean positive integer (e.g. a
+            // typo'd/garbage path) - bounce to the list rather than
+            // rendering an edit page for a nonsensical id.
+            wp_safe_redirect(scp_admin_products_path());
+            exit;
+        }
+
         get_header();
-        include SCP_THEME_DIR . '/templates/products-admin.php';
+        include SCP_THEME_DIR . '/templates/product-edit.php';
         get_footer();
         exit;
     }
@@ -212,6 +252,23 @@ function scp_admin_orders_path(): string
 function scp_admin_products_path(): string
 {
     return home_url('/' . scp_current_zone() . '/urunler');
+}
+
+/**
+ * The blank "yeni ürün" create-page URL for the CURRENT zone.
+ */
+function scp_admin_product_new_path(): string
+{
+    return home_url('/' . scp_current_zone() . '/urunler/yeni');
+}
+
+/**
+ * A specific product's own edit-page URL for the CURRENT zone -
+ * "ürüne tıklandığında o ürünün düzenleme sayfası gelsin".
+ */
+function scp_admin_product_edit_path(int $productId): string
+{
+    return home_url('/' . scp_current_zone() . '/urunler/' . $productId);
 }
 
 /**

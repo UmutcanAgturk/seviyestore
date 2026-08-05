@@ -3090,6 +3090,85 @@ karakter kaybı/değişikliği olmadığından emin olmak için. Yalnızca tema
 değişti, plugin dosyası yok; `php -l`/`vendor/bin/phpcs` (repo geneli,
 0 hata) temiz.
 
+### 63. Ürünün kendi ayrı düzenleme sayfası (`/urunler/{id}`, `/urunler/yeni`)
+
+"Ürünün üzerine tıklandığında o ürünün düzenleme sayfası gelsin. Ürün
+düzenlenme aşamasında tüm düzenlemeler yapılabilsin." isteği - bölüm 61'in
+gömülü/inline formu (liste sayfasının İÇİNDE açılıp kapanan bir form) bir
+adım öteye taşınıyor: artık gerçek, kendi URL'i olan bir sayfa. Liste
+(`templates/products-admin.php`) ve düzenleme artık iki ayrı sayfa, iki
+ayrı script.
+
+**Yeni rotalar** (`inc/zones.php`, hâlâ `siparisler`/`urunler` rotalarının
+kullandığı `^admin/(.+)/?$`/`^sube/(.+)/?$` yakalamasını paylaşıyor, yeni
+bir üst düzey rewrite kuralı yok):
+- `/admin/urunler`, `/sube/urunler` → liste (değişmedi)
+- `/admin/urunler/yeni`, `/sube/urunler/yeni` → boş oluşturma formu
+- `/admin/urunler/{id}`, `/sube/urunler/{id}` → o ürünün kendi düzenleme
+  sayfası
+
+Üç alt yol da tek bir `urunler` ön ekinin altında, `scp_zone_path`'in
+`urunler` sonrasındaki kısmı (`$productSubPath`) ayrıştırılarak
+yönlendiriliyor. Düzenleme/oluşturma sayfası YAZAR - `scp_view_products`
+sahibi salt-okunur bir rol (Muhasebe/Depo/Sistem) buraya hiç giremiyor,
+`scp_manage_products` yoksa listeye geri yönlendiriliyor; `yeni` de doğru
+bir pozitif tamsayı da olmayan bir alt yol (bozuk/typo bir URL) aynı
+şekilde listeye geri düşüyor. `scp_admin_product_new_path()` ve
+`scp_admin_product_edit_path(int $productId)` yeni yardımcı fonksiyonlar,
+`scp_admin_products_path()`'in yanında.
+
+**Liste artık sadece liste**: `templates/products-admin.php`'den ürün
+formu, varyant paneli ve gömülü fiyat kuralı düzenleyici (bölüm 61)
+tamamen kaldırıldı - yalnızca tablo ve HQ'nun şube-bazlı durum grid'i
+(`data-scp-product-branches-panel`) kaldı. "Yeni Ürün" artık bir JS
+düğmesi değil, doğrudan `scp_admin_product_new_path()`'e giden bir link.
+
+**Düzenleme sayfası** (`templates/product-edit.php`, yeni): ürünün kendi
+formu (ad/fiyat/açıklama/kategori/stok/görsel), varyant paneli ve (
+`scp_manage_pricing` sahibiyse) fiyat kuralları paneli - hepsi TEK sayfada,
+"Vazgeç" düğmesi yok (sayfanın kendisi zaten "düzenleme hâli", inline
+formdan çıkmaya gerek yok) ve varyant paneli artık bir düğmeyle açılan bir
+şey değil, ürünün tipine göre script'in kendisi gösterip/gizliyor.
+
+**Script ikiye bölündü**:
+- `products-panel.js` (liste) - form/fiyat-kuralı/varyant mantığının HEPSİ
+  kaldırıldı; satır tıklaması artık inline form açmak yerine
+  `scpPanel.productsBasePath + '/' + product.id`'ye (yeni localize edilen
+  `productsBasePath`, `scp_admin_products_path()`'ten) yönlendiriyor -
+  `can_manage=false` olan bir satır hâlâ bölüm 60'takiyle aynı "Bu ürünü
+  yalnızca X düzenleyebilir" mesajını gösterip yönlendirmiyor. Şubeler
+  paneli/durum değiştirme mantığı (HQ'nun grid'i + Şube Müdürü'nün kendi
+  şubesi için tek buton) AYNEN kaldı, çünkü bu ikisi listede kalmaya devam
+  ediyor.
+- `product-edit-panel.js` (yeni) - bölüm 61'in inline form/varyant/fiyat
+  kuralı mantığının BİREBİR taşınmış hâli, artık `openProductForm()`
+  kapatma/açma yerine sayfa yüklendiğinde tek seferlik çalışıyor: DOM'daki
+  `#scp-product-edit-panel[data-scp-product-id]`'den id'yi okuyor, id
+  varsa `GET commerce/products/{id}` ile ürünü çekip formu dolduruyor, id
+  yoksa boş oluşturma formuyla başlıyor. Yeni ürün kaydedilince
+  `scpPanel.productsBasePath + '/' + result.data.id`'ye yönlendiriyor
+  (varyant/fiyat kuralı düzenlemesi gerçek bir id ister). Silme başarılı
+  olunca listeye (`scpPanel.productsBasePath`) yönlendiriyor.
+
+**Sahiplik yeniden kontrolü, ikinci bir savunma katmanı olarak**:
+`inc/zones.php`'nin düzenleme sayfası rotası yalnızca genel
+`scp_manage_products` capability'sini kontrol ediyor - ÜRÜN BAZLI sahiplik
+kontrolü değil (bunu yapmak, sadece yönlendirme kararı için tema rotalama
+kodundan Commerce'e girmek anlamına gelirdi - REST katmanı zaten bunu
+güvenli şekilde reddediyor). Yani bir Şube Müdürü, kendi oluşturmadığı bir
+ürünün `/urunler/{id}` linkine (ör. eski bir link, elle yazılmış bir URL)
+YİNE DE ulaşabilir. `product-edit-panel.js` bu durumu backend'in
+`serialize()`'ının hesapladığı `can_manage` bayrağıyla ele alıyor: `false`
+ise formun tüm alanlarını `disabled`, "Ürünü Sil" düğmesini gizli, varyant
+girişlerini salt-okunur, fiyat kuralları panelini tamamen gizli yapıp
+bölüm 59'daki AYNI "Bu ürünü yalnızca X düzenleyebilir" mesajını
+gösteriyor - bir PUT/DELETE'in sessizce 403 dönmesini beklemek yerine.
+
+**Doğrulama**: `php -l`/`vendor/bin/phpcs` (repo geneli, 0 hata) ve
+`node --check` (her iki script) temiz. Backend (Commerce/Pricing plugin
+PHP'si) bu turda HİÇ değişmedi - yalnızca tema; bu yüzden plugin zip'leri
+yeniden derlenmedi, yalnızca tema zip'i.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
