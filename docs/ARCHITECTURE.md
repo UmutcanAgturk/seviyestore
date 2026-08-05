@@ -3224,6 +3224,95 @@ geri almanın bir anlamı yoktu).
 dokunulan CSS dosyalarının `{`/`}` sayıları eşit. Yalnızca tema (zone.php +
 4 CSS dosyası) - plugin zip'leri yeniden derlenmedi.
 
+### 65. "Burada her bir menü için ayrı bir sayfa yap" - /admin, /sube panosunun tamamı bağımsız sayfalara ayrıldı
+
+Bölüm 35 (Sipariş Yönetimi) ve bölüm 62 (Ürünler) daha önce tek tek
+standalone sayfaya taşınmıştı; bu turda AYNI dönüşüm `templates/zone.php`
+panosunda kalan HER BÖLÜME uygulandı: Öğrenciler, Şubeler, Fiyat
+Kuralları, Kampanya Kodları, Depo, Cari Bakiye, Raporlar, Toplu Duyuru,
+Destek Talepleri (personel kuyruğu), Hesap Güvenliği, Verilerim (KVKK),
+KVKK Talepleri (personel kuyruğu), IP Kısıtlaması, SMS Ayarları, E-posta
+Ayarları, API Anahtarları, Görünüm, Aktivite Günlüğü - 18 bölüm.
+
+**"Genel Bakış" bilinçli olarak taşınmadı**: `/admin`/`/sube` KÖKÜ hâlâ
+bu bölümün kendi içeriği - sadece bir quicknav gösteren boş bir kök sayfa,
+üzerine bir tık daha eklemeden bir şey gösteren bir panodan daha kötü bir
+kullanıcı deneyimi olurdu. Kökte Genel Bakış'a erişimi olmayan bir rol
+(nadiren) artık "Yukarıdaki menüden bir bölüm seçin." boş durumu görüyor
+- eskiden Öğrenciler bölümünün `else` dalındaki (artık anlamsız kalacak)
+"Bu panelin içeriği... burada yer alacak" yer tutucusunun yerini alıyor.
+
+**Tek bir paylaşılan rota tablosu, 17 neredeyse özdeş dal yerine**:
+`inc/zones.php`'ye yeni `scp_menu_pages(): array` fonksiyonu eklendi -
+slug => `{zones, capability (closure), template}` eşlemesi. Sipariş
+Yönetimi/Ürünler'in ayrı ayrı yazılmış yönlendirme bloklarının aksine, 17
+bölümün HEPSİ `scp_render_zone_template()`'deki TEK bir döngüden geçiyor:
+`$scp_menu_pages[$zonePath]` varsa capability kontrol edilip (başarısızsa
+`/admin` ya da `/sube`'ye geri yönlendirme) ilgili template include
+ediliyor. 17 kez tekrar eden "capability kontrolü + zone kısıtlaması +
+template include" kalıbı için bu tekrar sayısı bir tabloyu haklı
+çıkarıyor - kod tabanının genelindeki "üç benzer satır bir soyutlamadan
+iyidir" ilkesinin istisnası, çünkü burada 17 benzer BLOK var.
+`scp_menu_page_path(string $slug): string` yardımcı fonksiyonu her
+slug'ın CURRENT zone'daki URL'ini (`/admin/{slug}` ya da `/sube/{slug}`)
+üretiyor - `scp_admin_products_path()` ailesiyle aynı desen.
+
+**Markup birebir taşındı, değiştirilmedi**: her bölümün `id`/`data-scp-*`
+seçicileri AYNEN korunarak kendi `templates/{slug}-admin.php` dosyasına
+taşındı, bu yüzden ilgili JS dosyaları (`students-panel.js`,
+`branches-panel.js`, `pricing-panel.js`, `coupons-panel.js`,
+`depo-panel.js`, `hakedis-panel.js`, `reports-panel.js`,
+`broadcast-panel.js`, `support-tickets-panel.js`,
+`account-security.js`, `privacy-requests-panel.js`,
+`ip-allowlist-panel.js`, `notifications-settings-panel.js`,
+`email-settings-panel.js`, `api-keys-panel.js`, `branding-panel.js`,
+`activity-log-panel.js`) HİÇBİRİ değiştirilmedi - `getElementById` artık
+farklı bir sayfada bulduğu elemente bağlanıyor olsa da script'in kendisi
+bunu bilmiyor/bilmesine gerek yok, bölüm 62'nin Ürünler dönüşümündeki
+AYNI ilke.
+
+**İki paylaşılan partial, iki ince "kabuk" sayfa**: "Hesap Güvenliği" ve
+"Verilerim (KVKK)" `templates/partials/account-security.php` ve
+`templates/partials/privacy-requests.php` partial'larını hem
+`templates/zone.php`'den (artık kaldırıldı) HEM DE
+`templates/parent-dashboard.php`'den (/profilim, DOKUNULMADI)
+paylaşıyordu. Bu ikisi için yeni `templates/account-security-admin.php`/
+`templates/privacy-requests-admin.php` sadece standart sayfa kabuğunu
+(`<h1>` + "Panele Dön" linki) sarıp AYNI partial'ı include ediyor -
+partial'ın kendisi (ve onu bağlayan script) değişmedi, /profilim hâlâ
+aynı partial'ı kullanmaya devam ediyor.
+
+**İkinci bir savunma katmanı, Ürünler dönüşümündeki AYNI ilke**:
+`scp_menu_pages()`'in yönlendirme döngüsü yalnızca capability +
+zone'u kontrol ediyor, URL'i elle yazan/eski bir linki tıklayan bir
+kullanıcı için ekstra bir state kontrolü yok - REST katmanı zaten her
+şeyi kendi başına doğru şekilde reddediyor, sayfanın kendisi sadece
+"buraya hiç girmemeliydin" durumunu 403 yerine düzgün bir yönlendirmeye
+çeviriyor.
+
+**`inc/assets.php`: 17 script artık HER `/admin`/`/sube` yüklemesinde
+değil, yalnızca KENDİ sayfasında yükleniyor**. Paylaşılan
+`$zonePath = rtrim((string) get_query_var('scp_zone_path'), '/');`
+fonksiyonun başında bir kez hesaplanıyor (önceden Ürünler/Siparişler
+blokları kendi yerel kopyalarını hesaplıyordu, şimdi hepsi bunu paylaşıyor)
+ve her script'in koşuluna `$zonePath === '{slug}'` eklendi. "Genel Bakış"ın
+scripti (`overview-panel.js`) İSTİSNA - kökte kaldığı için
+`$zonePath === ''`e bağlı. Üç script BİLİNÇLİ OLARAK KOŞULSUZ kaldı
+(`account-security.js`, `privacy-requests-panel.js`,
+`support-tickets-panel.js`) - bunlar zaten ÜÇ farklı sayfada (iki yeni
+`/admin`, `/sube` sayfası + `/profilim`, ya da self-service+personel
+kuyruğu farklı sayfalarda) DOM elemanına bağlanıyor, script'in kendisi
+her elementin varlığını kontrol ediyor - bu, `scp-privacy-requests-panel`/
+`scp-support-tickets-panel` için turdan ÖNCE de zaten belgelenmiş bir
+kalıptı, yeni bir istisna değil.
+
+**Doğrulama**: `php -l` (repo geneli, dokunulan/yeni her PHP dosyası) ve
+`vendor/bin/phpcs` (repo geneli, 0 hata - yeni satırların ikisi 120
+karakteri aştığı için `if (\n ... \n)` şeklinde satırlara bölündü) temiz.
+Eski `#scp-*-panel` çapa referanslarının hiçbiri (tema genelinde `grep`
+ile doğrulandı) kalmadı. Yalnızca tema değişti, plugin dosyası yok - plugin
+zip'leri yeniden derlenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -207,6 +207,35 @@ function scp_render_zone_template(): void
         exit;
     }
 
+    /*
+     * "Burada her bir menü için ayrı bir sayfa yap" - every remaining
+     * zone.php dashboard SECTION (bkz. bölüm 64'ün quicknav gruplaması)
+     * becomes its own /admin/{slug} or /sube/{slug} page here, the exact
+     * same conversion Sipariş Yönetimi/Ürünler already got above, done once
+     * for ALL the rest via one shared table (scp_menu_pages()) instead of
+     * ~17 nearly identical branches (each: capability check, zone
+     * restriction, template include). "Genel Bakış" is deliberately NOT in
+     * this table - it stays the /admin, /sube ROOT's own content (an empty
+     * landing page with only a quicknav and no actual content would be
+     * worse UX than a dashboard that shows something the moment you land
+     * on it) - see templates/zone.php and its own docblock.
+     */
+    $scp_menu_pages = scp_menu_pages();
+
+    if (in_array($zone, ['admin', 'sube'], true) && isset($scp_menu_pages[$zonePath])) {
+        $scp_page = $scp_menu_pages[$zonePath];
+
+        if (!in_array($zone, $scp_page['zones'], true) || !($scp_page['capability'])()) {
+            wp_safe_redirect(home_url('/' . $zone));
+            exit;
+        }
+
+        get_header();
+        include SCP_THEME_DIR . '/templates/' . $scp_page['template'];
+        get_footer();
+        exit;
+    }
+
     $labels = [
         'admin' => __('Genel Merkez', 'seviye-storefront'),
         'sube' => __('Şube', 'seviye-storefront'),
@@ -269,6 +298,131 @@ function scp_admin_product_new_path(): string
 function scp_admin_product_edit_path(int $productId): string
 {
     return home_url('/' . scp_current_zone() . '/urunler/' . $productId);
+}
+
+/**
+ * The route table scp_render_zone_template()'s "her bir menü için ayrı bir
+ * sayfa" dispatch above reads: slug => zones/capability/template. A
+ * function (not a bare constant) because the capability closures call
+ * current_user_can(), which needs the request's logged-in user to already
+ * be resolved - safe here since this is only ever called from inside
+ * template_redirect (scp_render_zone_template() itself, or
+ * scp_menu_page_path() below, both well after `init`).
+ *
+ * @return array<string, array{zones: list<string>, capability: callable(): bool, template: string}>
+ */
+function scp_menu_pages(): array
+{
+    return [
+        'ogrenciler' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_students'),
+            'template' => 'students-admin.php',
+        ],
+        'subeler' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_branches'),
+            'template' => 'branches-admin.php',
+        ],
+        'fiyatlandirma' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_pricing'),
+            'template' => 'pricing-admin.php',
+        ],
+        'kampanyalar' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_coupons'),
+            'template' => 'coupons-admin.php',
+        ],
+        'depo' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_purchase_orders'),
+            'template' => 'depo-admin.php',
+        ],
+        'cari-bakiye' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_view_hakedis')
+                || current_user_can('scp_view_own_hakedis'),
+            'template' => 'hakedis-admin.php',
+        ],
+        'raporlar' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_view_reports')
+                || current_user_can('scp_view_own_reports'),
+            'template' => 'reports-admin.php',
+        ],
+        'duyuru' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_send_broadcast')
+                || current_user_can('scp_send_own_branch_broadcast'),
+            'template' => 'broadcast-admin.php',
+        ],
+        'destek-talepleri' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_support_tickets'),
+            'template' => 'support-queue-admin.php',
+        ],
+        // "Hesap Güvenliği"/"Verilerim (KVKK)" manage the CURRENT user's own
+        // account, not a permission-scoped resource - no capability check,
+        // same as their shared partials (templates/partials/account-security.php,
+        // templates/partials/privacy-requests.php) always had.
+        'hesap-guvenligi' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => true,
+            'template' => 'account-security-admin.php',
+        ],
+        'kvkk' => [
+            'zones' => ['admin', 'sube'],
+            'capability' => static fn (): bool => true,
+            'template' => 'privacy-requests-admin.php',
+        ],
+        'kvkk-talepleri' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_privacy_requests'),
+            'template' => 'privacy-queue-admin.php',
+        ],
+        'ip-kisitlamasi' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_security_settings'),
+            'template' => 'ip-allowlist-admin.php',
+        ],
+        'sms-ayarlari' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_notification_settings'),
+            'template' => 'sms-settings-admin.php',
+        ],
+        'eposta-ayarlari' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_notification_settings'),
+            'template' => 'email-settings-admin.php',
+        ],
+        'api-anahtarlari' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_api_keys'),
+            'template' => 'api-keys-admin.php',
+        ],
+        'gorunum' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_core_settings'),
+            'template' => 'branding-admin.php',
+        ],
+        'aktivite-gunlugu' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_view_audit_logs'),
+            'template' => 'activity-log-admin.php',
+        ],
+    ];
+}
+
+/**
+ * A scp_menu_pages() entry's URL for the CURRENT zone - /admin/{slug} or
+ * /sube/{slug}. Only meaningful for a slug whose 'zones' includes the
+ * current zone (every call site below already only reaches for a slug it
+ * itself gated on, same as scp_admin_products_path() etc. above).
+ */
+function scp_menu_page_path(string $slug): string
+{
+    return home_url('/' . scp_current_zone() . '/' . $slug);
 }
 
 /**

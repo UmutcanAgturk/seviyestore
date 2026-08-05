@@ -53,6 +53,15 @@ function scp_enqueue_panel_assets(): void
 {
     $zone = (string) get_query_var('scp_zone');
 
+    // "Burada her bir menü için ayrı bir sayfa yap" (bölüm 65) - every
+    // /admin, /sube dashboard section now lives on its own scp_zone_path
+    // sub-path (see inc/zones.php's scp_menu_pages()) instead of always
+    // rendering inline on the root, so each section's own script below is
+    // gated on ITS sub-path too, not just the zone - a script that no
+    // longer has a DOM element to bind to on most pages has no reason to
+    // load there.
+    $zonePath = rtrim((string) get_query_var('scp_zone_path'), '/');
+
     // Shared by every panel script below (see assets/js/scp-api-fetch.js) -
     // registered once here rather than re-declared identically in all 11 of
     // them, and the one place that recognizes a stale X-WP-Nonce
@@ -322,7 +331,11 @@ function scp_enqueue_panel_assets(): void
         'openCommandPalette' => __('Bul', 'seviye-storefront'),
     ];
 
-    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_students')) {
+    if (
+        $zonePath === 'ogrenciler'
+        && in_array($zone, ['admin', 'sube'], true)
+        && current_user_can('scp_manage_students')
+    ) {
         $handle = 'scp-students-panel';
         wp_enqueue_script(
             $handle,
@@ -337,7 +350,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_branches')) {
+    if ($zone === 'admin' && $zonePath === 'subeler' && current_user_can('scp_manage_branches')) {
         $handle = 'scp-branches-panel';
         wp_enqueue_script(
             $handle,
@@ -359,11 +372,10 @@ function scp_enqueue_panel_assets(): void
     // its own script, since the list and the edit form no longer share one
     // DOM/one script (see products-panel.js's and product-edit-panel.js's
     // own docblocks for why the split happened).
-    $productsZonePath = rtrim((string) get_query_var('scp_zone_path'), '/');
     $isProductsPath = in_array($zone, ['admin', 'sube'], true)
-        && ($productsZonePath === 'urunler' || str_starts_with($productsZonePath, 'urunler/'));
-    $isProductsListPage = $isProductsPath && $productsZonePath === 'urunler';
-    $isProductEditPage = $isProductsPath && $productsZonePath !== 'urunler';
+        && ($zonePath === 'urunler' || str_starts_with($zonePath, 'urunler/'));
+    $isProductsListPage = $isProductsPath && $zonePath === 'urunler';
+    $isProductEditPage = $isProductsPath && $zonePath !== 'urunler';
 
     if ($isProductsListPage && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))) {
         $handle = 'scp-products-panel';
@@ -408,8 +420,7 @@ function scp_enqueue_panel_assets(): void
     }
 
     $canViewOrders = current_user_can('scp_view_orders') || current_user_can('scp_view_own_branch_orders');
-    $isAdminOrdersPage = in_array($zone, ['admin', 'sube'], true)
-        && rtrim((string) get_query_var('scp_zone_path'), '/') === 'siparisler';
+    $isAdminOrdersPage = in_array($zone, ['admin', 'sube'], true) && $zonePath === 'siparisler';
 
     if ($isAdminOrdersPage && $canViewOrders) {
         $handle = 'scp-admin-orders-panel';
@@ -430,7 +441,11 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_pricing')) {
+    if (
+        $zonePath === 'fiyatlandirma'
+        && in_array($zone, ['admin', 'sube'], true)
+        && current_user_can('scp_manage_pricing')
+    ) {
         $handle = 'scp-pricing-panel';
         wp_enqueue_script(
             $handle,
@@ -446,7 +461,11 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (in_array($zone, ['admin', 'sube'], true) && current_user_can('scp_manage_purchase_orders')) {
+    if (
+        $zonePath === 'depo'
+        && in_array($zone, ['admin', 'sube'], true)
+        && current_user_can('scp_manage_purchase_orders')
+    ) {
         $handle = 'scp-depo-panel';
         wp_enqueue_script(
             $handle,
@@ -459,7 +478,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_coupons')) {
+    if ($zone === 'admin' && $zonePath === 'kampanyalar' && current_user_can('scp_manage_coupons')) {
         $handle = 'scp-coupons-panel';
         wp_enqueue_script(
             $handle,
@@ -519,7 +538,7 @@ function scp_enqueue_panel_assets(): void
 
     $canViewHakedis = current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis');
 
-    if (in_array($zone, ['admin', 'sube'], true) && $canViewHakedis) {
+    if ($zonePath === 'cari-bakiye' && in_array($zone, ['admin', 'sube'], true) && $canViewHakedis) {
         $handle = 'scp-hakedis-panel';
         wp_enqueue_script(
             $handle,
@@ -537,7 +556,11 @@ function scp_enqueue_panel_assets(): void
 
     $canViewReports = current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports');
 
-    if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
+    // Genel Bakış stays on the /admin, /sube ROOT (bölüm 65 deliberately
+    // did not move it to its own sub-page - see templates/zone.php's own
+    // docblock), so its script is gated on an EMPTY sub-path instead of a
+    // named one like every other script below.
+    if ($zonePath === '' && in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
         $handle = 'scp-overview-panel';
         wp_enqueue_script(
             $handle,
@@ -550,7 +573,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
+    if ($zonePath === 'raporlar' && in_array($zone, ['admin', 'sube'], true) && $canViewReports) {
         $handle = 'scp-reports-panel';
         wp_enqueue_script(
             $handle,
@@ -567,7 +590,7 @@ function scp_enqueue_panel_assets(): void
 
     $canSendBroadcast = current_user_can('scp_send_broadcast') || current_user_can('scp_send_own_branch_broadcast');
 
-    if (in_array($zone, ['admin', 'sube'], true) && $canSendBroadcast) {
+    if ($zonePath === 'duyuru' && in_array($zone, ['admin', 'sube'], true) && $canSendBroadcast) {
         $handle = 'scp-broadcast-panel';
         wp_enqueue_script(
             $handle,
@@ -584,6 +607,10 @@ function scp_enqueue_panel_assets(): void
 
     // Every logged-in user manages their own account's 2FA, in every zone -
     // unlike every other script above, this one is never capability-gated.
+    // Binds on THREE pages (/admin/hesap-guvenligi, /sube/hesap-guvenligi -
+    // see templates/account-security-admin.php and inc/zones.php's
+    // scp_menu_pages() - and /profilim), so it stays enqueued
+    // unconditionally rather than gated on one scp_zone_path.
     $handle = 'scp-account-security';
     wp_enqueue_script(
         $handle,
@@ -597,10 +624,14 @@ function scp_enqueue_panel_assets(): void
 
     // "KVKK: veri ihracı/silme talebi" - self-service, same "never
     // capability-gated" reasoning as account-security.js above; the admin
-    // review queue this same script also binds (only rendered in zone.php
-    // when scp_manage_privacy_requests is granted) needs the capability
-    // flag regardless of zone/page, so it is localized here too rather
-    // than only alongside the admin-only queue markup.
+    // review queue this same script also binds (its own
+    // /admin/kvkk-talepleri page now, see templates/privacy-queue-admin.php
+    // and inc/zones.php's scp_menu_pages() - was inline in zone.php before
+    // bölüm 65) needs the capability flag regardless of zone/page, so it is
+    // localized here too rather than only alongside the admin-only queue
+    // markup. Kept enqueued unconditionally (not gated on a single
+    // scp_zone_path) since the self-service card alone already spans THREE
+    // different pages (/admin/kvkk, /sube/kvkk, /profilim).
     $handle = 'scp-privacy-requests-panel';
     wp_enqueue_script(
         $handle,
@@ -616,10 +647,11 @@ function scp_enqueue_panel_assets(): void
 
     // "Destek Talepleri" - self-service card (scp_submit_support_ticket,
     // only rendered when that capability is held - see
-    // templates/partials/support-tickets.php) + staff queue (only when
-    // scpPanel.canManageSupportTickets, see templates/zone.php). Enqueued
-    // unconditionally like scp-privacy-requests-panel above; the script
-    // itself checks for each root element's presence.
+    // templates/partials/support-tickets.php) + staff queue (its own
+    // /admin/destek-talepleri, /sube/destek-talepleri page now, see
+    // templates/support-queue-admin.php - was inline in zone.php before
+    // bölüm 65). Enqueued unconditionally like scp-privacy-requests-panel
+    // above; the script itself checks for each root element's presence.
     $handle = 'scp-support-tickets-panel';
     wp_enqueue_script(
         $handle,
@@ -633,7 +665,7 @@ function scp_enqueue_panel_assets(): void
     ]));
     wp_localize_script($handle, 'scpPanelText', $text);
 
-    if ($zone === 'admin' && current_user_can('scp_manage_security_settings')) {
+    if ($zone === 'admin' && $zonePath === 'ip-kisitlamasi' && current_user_can('scp_manage_security_settings')) {
         $handle = 'scp-ip-allowlist-panel';
         wp_enqueue_script(
             $handle,
@@ -646,7 +678,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_notification_settings')) {
+    if ($zone === 'admin' && $zonePath === 'sms-ayarlari' && current_user_can('scp_manage_notification_settings')) {
         $handle = 'scp-notifications-settings-panel';
         wp_enqueue_script(
             $handle,
@@ -659,7 +691,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_notification_settings')) {
+    if ($zone === 'admin' && $zonePath === 'eposta-ayarlari' && current_user_can('scp_manage_notification_settings')) {
         $handle = 'scp-email-settings-panel';
         wp_enqueue_script(
             $handle,
@@ -672,7 +704,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_api_keys')) {
+    if ($zone === 'admin' && $zonePath === 'api-anahtarlari' && current_user_can('scp_manage_api_keys')) {
         $handle = 'scp-api-keys-panel';
         wp_enqueue_script(
             $handle,
@@ -685,7 +717,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_manage_core_settings')) {
+    if ($zone === 'admin' && $zonePath === 'gorunum' && current_user_can('scp_manage_core_settings')) {
         $handle = 'scp-branding-panel';
         wp_enqueue_script(
             $handle,
@@ -698,7 +730,7 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if ($zone === 'admin' && current_user_can('scp_view_audit_logs')) {
+    if ($zone === 'admin' && $zonePath === 'aktivite-gunlugu' && current_user_can('scp_view_audit_logs')) {
         $handle = 'scp-activity-log-panel';
         wp_enqueue_script(
             $handle,
