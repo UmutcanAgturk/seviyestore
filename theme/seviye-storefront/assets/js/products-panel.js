@@ -28,8 +28,19 @@
  * per-product can_manage-gated edit form as everything else. See
  * plugin/seviye-commerce/src/Http/ProductsRestController.php.
  *
+ * Editing an EXISTING product also loads an embedded "Fiyat Kuralları"
+ * sub-panel (gated on scpPanel.canManagePricing, a DIFFERENT capability
+ * than canManageProducts - see inc/assets.php) so a product's own price
+ * rules (general/branch/student, see plugin/seviye-pricing) are managed
+ * right there instead of requiring a separate manual product-id lookup.
+ * Talks to seviye/v1/pricing/rules/* directly - a plain cross-plugin REST
+ * call from the theme, not a PHP dependency between Commerce and Pricing.
+ * Hidden entirely for a brand-new (not yet saved) product, since a price
+ * rule needs a real product id to attach to.
+ *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, wpRestRoot, nonce, canManageProducts, canManageAllBranches }
+ *   scpPanel     { restUrl, wpRestRoot, nonce, canManageProducts,
+ *                  canManageAllBranches, canManagePricing, canManageBasePricing }
  *   scpPanelText { ...translated UI strings }
  */
 (function () {
@@ -243,10 +254,216 @@
         var allBranches = null;
         var currentProduct = null;
 
+        // "Bir ürün seçilince o ürünün fiyat değişiklikleri de aynı yapıda
+        // yapılsın" - a per-product price-rules editor embedded directly in
+        // the product edit structure, so managing a product's price rules
+        // no longer requires leaving here and typing its id into the
+        // separate "Fiyat Kuralları" panel by hand. That standalone panel
+        // stays exactly as it was (manual lookup + CSV bulk import) - this
+        // is purely additive, and the only path available to a
+        // scp_manage_pricing holder who lacks scp_manage_products (Sistem).
+        var pricingPanel = root.querySelector('[data-scp-product-pricing-panel]');
+        var priceRuleForm = pricingPanel ? pricingPanel.querySelector('[data-scp-product-price-rule-form]') : null;
+        var priceRulesBody = pricingPanel ? pricingPanel.querySelector('[data-scp-product-price-rules-body]') : null;
+        var priceScopeSelect = priceRuleForm ? priceRuleForm.querySelector('[name="scope"]') : null;
+        var priceTargetField = pricingPanel ? pricingPanel.querySelector('[data-scp-product-price-target-field]') : null;
+        var priceTargetLabel = pricingPanel ? pricingPanel.querySelector('[data-scp-product-price-target-label]') : null;
+        var priceTargetInput = priceTargetField ? priceTargetField.querySelector('input') : null;
+        var priceStatusField = pricingPanel ? pricingPanel.querySelector('[data-scp-product-price-status-field]') : null;
+        var deletePriceRuleButton = pricingPanel
+            ? pricingPanel.querySelector('[data-scp-delete-product-price-rule]')
+            : null;
+
+        if (pricingPanel && !scpPanel.canManageBasePricing) {
+            var generalOption = priceScopeSelect.querySelector('[data-scp-product-scope-general]');
+
+            if (generalOption) {
+                generalOption.remove();
+            }
+        }
+
+        function priceScopeLabel(scope) {
+            if (scope === 'branch') {
+                return scpPanelText.scopeBranch;
+            }
+
+            if (scope === 'student') {
+                return scpPanelText.scopeStudent;
+            }
+
+            return scpPanelText.scopeGeneral;
+        }
+
+        function loadProductPriceRules(productId) {
+            apiFetch('pricing/rules?product_id=' + productId).then(function (result) {
+                if (!result.ok) {
+                    setStatus((result.data && result.data.message) || scpPanelText.loadError, true);
+                    return;
+                }
+
+                priceRuleForm.hidden = true;
+                renderProductPriceRules(result.data);
+            });
+        }
+
+        function renderProductPriceRules(rules) {
+            priceRulesBody.innerHTML = '';
+
+            rules.forEach(function (rule) {
+                var row = document.createElement('tr');
+
+                var scopeCell = document.createElement('td');
+                scopeCell.textContent = priceScopeLabel(rule.scope);
+                row.appendChild(scopeCell);
+
+                var targetCell = document.createElement('td');
+                var targetId = rule.branch_id !== null ? rule.branch_id : rule.student_id;
+                targetCell.textContent = targetId !== null ? String(targetId) : '';
+                row.appendChild(targetCell);
+
+                var priceCell = document.createElement('td');
+                priceCell.textContent = String(rule.price);
+                row.appendChild(priceCell);
+
+                var statusCellEl = document.createElement('td');
+                var badge = document.createElement('span');
+                var isActive = rule.status === 'active';
+                badge.className = 'scp-badge ' + (isActive ? 'scp-badge--active' : 'scp-badge--inactive');
+                badge.textContent = isActive ? scpPanelText.statusActive : scpPanelText.statusInactive;
+                statusCellEl.appendChild(badge);
+                row.appendChild(statusCellEl);
+
+                var ruleActionsCell = document.createElement('td');
+
+                if (rule.scope !== 'general' || scpPanel.canManageBasePricing) {
+                    var editRuleButton = document.createElement('button');
+                    editRuleButton.type = 'button';
+                    editRuleButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                    editRuleButton.textContent = scpPanelText.edit;
+                    editRuleButton.addEventListener('click', function () {
+                        openProductPriceRuleForm(rule);
+                    });
+                    ruleActionsCell.appendChild(editRuleButton);
+                }
+
+                row.appendChild(ruleActionsCell);
+                priceRulesBody.appendChild(row);
+            });
+        }
+
+        function updatePriceTargetField(scope) {
+            if (scope === 'general' || (scope === 'branch' && !scpPanel.canManageAllBranches)) {
+                priceTargetField.hidden = true;
+                priceTargetInput.required = false;
+                return;
+            }
+
+            priceTargetField.hidden = false;
+            priceTargetInput.required = true;
+            priceTargetLabel.textContent = scope === 'branch' ? scpPanelText.branchIdLabel : scpPanelText.studentIdLabel;
+        }
+
+        function openProductPriceRuleForm(rule) {
+            priceRuleForm.hidden = false;
+            setStatus('');
+            priceRuleForm.reset();
+            priceRuleForm.id.value = rule ? rule.id : '';
+            priceRuleForm.price.value = rule ? String(rule.price) : '';
+            priceScopeSelect.disabled = Boolean(rule);
+            priceStatusField.hidden = !rule;
+            deletePriceRuleButton.hidden = !rule;
+
+            if (rule) {
+                priceScopeSelect.value = rule.scope;
+                priceRuleForm.status.value = rule.status;
+                priceTargetInput.value = String(rule.branch_id !== null ? rule.branch_id : (rule.student_id || ''));
+            } else {
+                priceTargetInput.value = '';
+            }
+
+            updatePriceTargetField(priceScopeSelect.value);
+        }
+
+        if (pricingPanel) {
+            priceScopeSelect.addEventListener('change', function () {
+                updatePriceTargetField(priceScopeSelect.value);
+            });
+
+            pricingPanel.querySelector('[data-scp-new-product-price-rule]').addEventListener('click', function () {
+                openProductPriceRuleForm(null);
+            });
+
+            pricingPanel.querySelector('[data-scp-cancel-product-price-rule]').addEventListener('click', function () {
+                priceRuleForm.hidden = true;
+            });
+
+            deletePriceRuleButton.addEventListener('click', function () {
+                var id = priceRuleForm.id.value;
+
+                if (!id || !window.confirm(scpPanelText.confirmDeletePriceRule)) {
+                    return;
+                }
+
+                apiFetch('pricing/rules/' + id, { method: 'DELETE' }).then(function (result) {
+                    if (!result.ok) {
+                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        return;
+                    }
+
+                    setStatus(scpPanelText.priceRuleDeleted);
+                    priceRuleForm.hidden = true;
+                    loadProductPriceRules(currentProduct.id);
+                });
+            });
+
+            priceRuleForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                var id = priceRuleForm.id.value;
+                var payload = { price: parseFloat(priceRuleForm.price.value) };
+                var path = 'pricing/rules';
+                var method = 'POST';
+
+                if (id) {
+                    payload.status = priceRuleForm.status.value;
+                    path = 'pricing/rules/' + id;
+                    method = 'PUT';
+                } else {
+                    payload.product_id = currentProduct.id;
+                    payload.scope = priceScopeSelect.value;
+
+                    if (priceTargetInput.value) {
+                        payload.target_id = parseInt(priceTargetInput.value, 10);
+                    }
+                }
+
+                apiFetch(path, { method: method, body: JSON.stringify(payload) }).then(function (result) {
+                    if (!result.ok) {
+                        setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                        return;
+                    }
+
+                    setStatus(scpPanelText.saved);
+                    priceRuleForm.hidden = true;
+                    loadProductPriceRules(currentProduct.id);
+                });
+            });
+        }
+
         openProductForm = function (product) {
             form.hidden = false;
             branchesPanel.hidden = true;
             variationsPanel.hidden = true;
+
+            if (pricingPanel) {
+                pricingPanel.hidden = !product;
+                priceRuleForm.hidden = true;
+
+                if (product) {
+                    loadProductPriceRules(product.id);
+                }
+            }
+
             setStatus('');
             form.reset();
             currentProduct = product;

@@ -365,6 +365,12 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canManageProducts' => current_user_can('scp_manage_products'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
+            // "Bir ürün seçilince o ürünün fiyat değişiklikleri de aynı
+            // yapıda yapılsın" - the product edit form embeds a per-product
+            // price-rules editor (see products-panel.js), gated on these
+            // two exactly like the standalone "Fiyat Kuralları" panel below.
+            'canManagePricing' => current_user_can('scp_manage_pricing'),
+            'canManageBasePricing' => current_user_can('scp_manage_base_pricing'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

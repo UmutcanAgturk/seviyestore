@@ -3005,6 +3005,47 @@ bu kod tabanında zaten hiç birim testli değil, bkz. "Test stratejisi");
 repo geneli phpcs 0 hata. Görsel/işlevsel tarayıcı testi bu ortamda yine
 mümkün değil (bölüm 58'deki aynı kısıt).
 
+### 61. Ürünler panelinde gömülü fiyat kuralı düzenleyici + tıklanamayan satır geri bildirimi
+
+İki küçük ama doğrudan kullanıcı geri bildirimine dayanan düzeltme.
+
+**Tıklanamayan satır artık sessiz değil**: bölüm 60'ta `can_manage=false`
+olan bir satıra tıklamak hiçbir şey yapmıyordu - "tıkladım ama açılmadı"
+ile "bu ürünü düzenleme yetkim yok" birbirinden ayırt edilemiyordu. Artık
+HER satır tıklanabilir: yönetilebiliyorsa aynı düzenleme yapısını açıyor,
+yönetilemiyorsa `data-scp-products-status` alanında hangi şubenin (ya da
+Genel Merkez'in) sahibi olduğunu gösteriyor.
+
+**Fiyat kuralları artık Ürünler panelinin içinde**: önceden bir ürünün
+fiyat kuralını (genel/şube/öğrenci) düzenlemek için ayrı bir "Fiyat
+Kuralları" bölümüne gidip ürün ID'sini elle yazıp "Fiyatları Getir"
+demek gerekiyordu. Artık mevcut bir ürünü düzenlemek için tıklandığında,
+aynı yapının içinde o ürüne ait fiyat kuralları da otomatik yükleniyor -
+elle ID girmeye gerek yok. Bu saf bir tema/JS birleştirmesi -
+`products-panel.js` `seviye/v1/pricing/rules/*`'a doğrudan bir REST
+çağrısıyla konuşuyor (Commerce ile Pricing arasında PHP bağımlılığı
+YOK, iki eklenti birbirinden habersiz kalmaya devam ediyor). Yeni
+localize edilen `scpPanel.canManagePricing`/`canManageBasePricing`
+bayrakları (`scp_manage_pricing`/`scp_manage_base_pricing`) gömülü
+düzenleyicinin görünürlüğünü/GENEL kapsam seçeneğini, standalone Fiyat
+Kuralları panelininkiyle BİREBİR aynı kurallarla kontrol ediyor.
+
+Standalone "Fiyat Kuralları" bölümü (elle ID arama + CSV toplu içe
+aktarma) BİLİNÇLİ OLARAK olduğu gibi bırakıldı, kaldırılmadı - şu iki
+sebep: (1) CSV toplu içe aktarma tek bir ürünle ilgili değil, mantıklı
+bir "ürün düzenleme yapısı" yeri yok; (2) `scp_manage_pricing`'i olup
+`scp_manage_products`'ı OLMAYAN tek rol (Sistem) Ürünler panelinin
+düzenleme yapısına hiç erişemiyor (salt-okunur ürün listesi görüyor) -
+onlar için tek yol hâlâ bu standalone panel. Yani bu tur saf katkı
+(additive): var olan hiçbir yetki/akış kaldırılmadı, yalnızca
+Commerce+Pricing'e aynı anda erişimi olan roller için daha hızlı bir
+yol eklendi.
+
+**Doğrulama**: yalnızca tema (JS/PHP) değişti, hiçbir plugin dosyası
+dokunulmadı - bu yüzden plugin PHPUnit paketlerinin yeniden çalıştırılmasına
+gerek yoktu. `node --check`/`php -l`/`vendor/bin/phpcs` hepsi temiz (0
+hata, yalnızca önceden var olan kabul edilmiş bir satır-uzunluğu uyarısı).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
