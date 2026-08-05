@@ -350,10 +350,14 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (
-        in_array($zone, ['admin', 'sube'], true)
-        && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))
-    ) {
+    // Ürünler is its own page now (/admin/urunler, /sube/urunler - see
+    // inc/zones.php), the same "own page, not a dashboard section" split
+    // templates/orders-admin.php already got - so this only needs to
+    // enqueue there, mirroring $isAdminOrdersPage below exactly.
+    $isProductsPage = in_array($zone, ['admin', 'sube'], true)
+        && rtrim((string) get_query_var('scp_zone_path'), '/') === 'urunler';
+
+    if ($isProductsPage && (current_user_can('scp_manage_products') || current_user_can('scp_view_products'))) {
         $handle = 'scp-products-panel';
         wp_enqueue_script(
             $handle,

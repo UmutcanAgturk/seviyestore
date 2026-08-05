@@ -3046,6 +3046,50 @@ dokunulmadı - bu yüzden plugin PHPUnit paketlerinin yeniden çalıştırılmas
 gerek yoktu. `node --check`/`php -l`/`vendor/bin/phpcs` hepsi temiz (0
 hata, yalnızca önceden var olan kabul edilmiş bir satır-uzunluğu uyarısı).
 
+### 62. Ürünler bağımsız bir sayfaya taşındı
+
+"Ürünler için ayrı bir sayfa yapıp dinamik bir şekilde ürünleri
+geliştirebilecek bir yapı" isteği - bölüm 35'in Sipariş Yönetimi'ni
+`/admin`/`/sube` panosunun içindeki bir bölümden `/admin/siparisler` +
+`/sube/siparisler` bağımsız bir sayfaya taşıdığı DEĞİŞİKLİĞİN birebir
+aynısı, aynı gerekçeyle: oluşturma/düzenleme/varyant/fiyat-kuralı gibi
+alt yapıları olan bir katalog, panodaki bir düzine diğer kartla yer
+paylaşan bir kart yerine gerçek bir sayfaya ihtiyaç duyuyor.
+
+**Yeni rota**: `/admin/urunler`, `/sube/urunler` (yeni
+`scp_admin_products_path()`, `inc/zones.php`) - `siparisler` rotasının
+zaten kayıtlı `^admin/(.+)/?$`/`^sube/(.+)/?$` rewrite kurallarını (
+`scp_zone_path`'e yakalanan) yeniden kullanıyor, YENİ bir üst düzey
+rewrite kuralı eklemeye gerek yok. Erişim `scp_manage_products`/
+`scp_view_products`'a bağlı, aksi halde `/admin` ya da `/sube`'ye geri
+yönlendiriliyor - `siparisler` rotasının izin kontrolüyle birebir aynı
+desen.
+
+**Taşıma, kopyalama değil**: `zone.php`'nin eski `#scp-products-panel`
+bölümünün TAMAMI (249 satır - ürün formu, gömülü fiyat kuralı düzenleyici
+bölüm 61, varyant paneli, şube durumu paneli) `zone.php`'den silinip
+yeni `templates/products-admin.php`'ye taşındı; `id="scp-products-panel"`
+ve tüm `data-scp-*` seçiciler AYNEN korundu, bu yüzden `assets/js/
+products-panel.js` hiç değişmeden çalışmaya devam ediyor -
+`getElementById('scp-products-panel')` artık farklı bir sayfada bulunuyor
+olsa da script'in kendisi bunu bilmiyor/bilmesine gerek yok.
+`inc/assets.php`'nin script enqueue koşulu da `admin-orders-panel.js`'in
+zaten kullandığı `$isAdminOrdersPage` desenini birebir taklit eden yeni
+bir `$isProductsPage` koşuluna (`scp_zone_path === 'urunler'`) geçirildi -
+artık yalnızca bu yeni sayfada yükleniyor, önceden olduğu gibi HER
+`/admin`/`/sube` sayfa yüklemesinde değil.
+
+Quicknav'daki "Ürünler" girdisi ve modül-kimliği karo eşlemesi
+(`$scp_section_variants`) `#scp-products-panel` yerine artık
+`scp_admin_products_path()`'e işaret ediyor - Siparişler girdisinin
+`scp_admin_orders_path()`'i kullanmasıyla birebir aynı desen.
+
+**Doğrulama**: `diff` ile eski/yeni `zone.php` karşılaştırılıp SİLİNEN
+blok satır satır (249 satır) doğrulandı - taşınan içerikte hiçbir
+karakter kaybı/değişikliği olmadığından emin olmak için. Yalnızca tema
+değişti, plugin dosyası yok; `php -l`/`vendor/bin/phpcs` (repo geneli,
+0 hata) temiz.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

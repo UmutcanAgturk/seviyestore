@@ -150,6 +150,23 @@ function scp_render_zone_template(): void
         exit;
     }
 
+    // /admin/urunler and /sube/urunler - "Ürünler için ayrı bir sayfa" -
+    // Ürünler as its own page rather than a section inside the big /admin
+    // or /sube dashboard, the exact same split-out templates/orders-admin.php
+    // got above ("Sipariş Yönetimi") and for the same reason: a catalog
+    // with create/edit/variant/price-rule sub-structures needs real room.
+    if (in_array($zone, ['admin', 'sube'], true) && $zonePath === 'urunler') {
+        if (!current_user_can('scp_manage_products') && !current_user_can('scp_view_products')) {
+            wp_safe_redirect(home_url('/' . $zone));
+            exit;
+        }
+
+        get_header();
+        include SCP_THEME_DIR . '/templates/products-admin.php';
+        get_footer();
+        exit;
+    }
+
     $labels = [
         'admin' => __('Genel Merkez', 'seviye-storefront'),
         'sube' => __('Şube', 'seviye-storefront'),
@@ -184,6 +201,17 @@ function scp_current_zone(): string
 function scp_admin_orders_path(): string
 {
     return home_url('/' . scp_current_zone() . '/siparisler');
+}
+
+/**
+ * The Ürünler page's URL for the CURRENT zone - /admin/urunler inside
+ * /admin, /sube/urunler inside /sube. Only meaningful from within one of
+ * those two zones (see scp_render_zone_template()'s /admin/urunler
+ * /sube/urunler branch above).
+ */
+function scp_admin_products_path(): string
+{
+    return home_url('/' . scp_current_zone() . '/urunler');
 }
 
 /**
