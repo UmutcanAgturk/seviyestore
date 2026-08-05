@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Seviye\Commerce\Http\Support;
 
+use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WC_Order;
 use WC_Order_Item_Product;
@@ -16,13 +17,20 @@ use WC_Order_Item_Product;
  * since both need identical date/money formatting and `_scp_student_id`
  * -> StudentLookupInterface resolution; only the visible-items scope and
  * whether the buyer's own identity is included differ between the two.
+ *
+ * Also merges in the order's shipment/delivery sub-state (see
+ * {@see OrderFulfillment}) - both the veli's own order history AND the
+ * admin listing need to show "kargoya verildi/teslim edildi", not just
+ * admin, so it lives here rather than being bolted onto only one caller.
  */
 final class OrderPresenter
 {
     private const STUDENT_META_KEY = '_scp_student_id';
 
-    public function __construct(private readonly StudentLookupInterface $students)
-    {
+    public function __construct(
+        private readonly StudentLookupInterface $students,
+        private readonly OrderFulfillment $fulfillment
+    ) {
     }
 
     /**
@@ -66,6 +74,8 @@ final class OrderPresenter
             'refunded_total' => (float) $order->get_total_refunded(),
             'items' => array_values($items),
         ];
+
+        $presented = array_merge($presented, $this->fulfillment->present($order));
 
         if ($includeCustomer) {
             $name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());

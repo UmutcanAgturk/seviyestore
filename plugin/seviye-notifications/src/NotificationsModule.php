@@ -155,6 +155,19 @@ final class NotificationsModule implements ModuleInterface
                 [$orderStatusListener, 'onOrderRefunded']
             );
 
+            // "Kargoya verildi/teslim edildi" - see
+            // AdminOrdersRestController::ship()/deliver(), which fire these
+            // two events. Same deferred-to-`init` reasoning as the
+            // listeners above.
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.order_shipped',
+                [$orderStatusListener, 'onOrderShipped']
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.order_delivered',
+                [$orderStatusListener, 'onOrderDelivered']
+            );
+
             // "Düşük stok uyarısı" - see LowStockNotificationListener and
             // Seviye\Commerce\Http\LowStockNotificationHooks, which fires
             // this event. Same deferred-to-`init` reasoning as the

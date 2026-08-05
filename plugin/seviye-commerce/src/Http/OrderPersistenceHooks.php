@@ -7,6 +7,7 @@ namespace Seviye\Commerce\Http;
 use Seviye\Branches\Contracts\BranchLookupInterface;
 use Seviye\Commerce\Domain\OrderLineItem;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
+use Seviye\Commerce\Support\OrderPayloadBuilder;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Core\Events\Event;
 use Seviye\Core\Events\EventBusInterface;
@@ -34,9 +35,13 @@ use WC_Order_Refund;
  * The payload carries everything a notification needs to compose an email
  * (order number/total/items) so Seviye Notifications' listener never has to
  * touch WC_Order itself, the same "payload is self-contained" rule
- * hakedisPayload() already follows for Finance.
+ * hakedisPayload() already follows for Finance - built via the injected
+ * {@see \Seviye\Commerce\Support\OrderPayloadBuilder} rather than a private
+ * method of this class, since AdminOrdersRestController's ship()/deliver()
+ * actions (`commerce.order_shipped`/`commerce.order_delivered` - "kargoya
+ * verildi/teslim edildi") need the identical shape without duplicating it.
  *
- * "İade/iptal akışı": the same `orderPayload()` shape also backs
+ * "İade/iptal akışı": the same payload shape also backs
  * `commerce.order_cancelled` (fired here, from the same status-changed hook
  * that already reverses hakediş - see AdminOrdersRestController::cancel())
  * and `commerce.order_refunded` (fired from WooCommerce's own
@@ -71,7 +76,8 @@ final class OrderPersistenceHooks
         private readonly StudentLookupInterface $students,
         private readonly BranchLookupInterface $branches,
         private readonly SplitPaymentCalculator $splitPaymentCalculator,
-        private readonly EventBusInterface $eventBus
+        private readonly EventBusInterface $eventBus,
+        private readonly OrderPayloadBuilder $payloadBuilder
     ) {
     }
 
@@ -128,38 +134,8 @@ final class OrderPersistenceHooks
         }
 
         if ($persistedAny) {
-            $this->eventBus->dispatch(new Event('commerce.order_placed', $this->orderPayload($order)));
+            $this->eventBus->dispatch(new Event('commerce.order_placed', $this->payloadBuilder->build($order)));
         }
-    }
-
-    /**
-     * Shared payload shape for every order-lifecycle notification event
-     * (`commerce.order_placed`/`commerce.order_cancelled`/`commerce.order_refunded`)
-     * - self-contained (order number/total/items), the same rule
-     * hakedisPayload() follows for Finance, so Seviye Notifications' listener
-     * never has to touch WC_Order itself.
-     *
-     * @return array<string, mixed>
-     */
-    private function orderPayload(WC_Order $order): array
-    {
-        return [
-            'order_id' => $order->get_id(),
-            'customer_id' => $order->get_customer_id(),
-            'order_number' => $order->get_order_number(),
-            'total' => (float) $order->get_total(),
-            'items' => array_values(array_map(
-                static fn (WC_Order_Item_Product $item): array => [
-                    'name' => $item->get_name(),
-                    'quantity' => max(1, $item->get_quantity()),
-                    'line_total' => (float) $item->get_total(),
-                ],
-                array_filter(
-                    $order->get_items(),
-                    static fn ($item): bool => $item instanceof WC_Order_Item_Product
-                )
-            )),
-        ];
     }
 
     public function syncOrderStatus(int $orderId, string $oldStatus, string $newStatus, WC_Order $order): void
@@ -180,7 +156,7 @@ final class OrderPersistenceHooks
         }
 
         if ($newStatus === 'cancelled') {
-            $this->eventBus->dispatch(new Event('commerce.order_cancelled', $this->orderPayload($order)));
+            $this->eventBus->dispatch(new Event('commerce.order_cancelled', $this->payloadBuilder->build($order)));
         }
     }
 
@@ -212,7 +188,7 @@ final class OrderPersistenceHooks
             return;
         }
 
-        $payload = $this->orderPayload($order);
+        $payload = $this->payloadBuilder->build($order);
         $payload['refunded_amount'] = (float) $refund->get_amount();
         $payload['reason'] = $refund->get_reason();
 

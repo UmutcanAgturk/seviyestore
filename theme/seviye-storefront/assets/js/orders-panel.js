@@ -103,6 +103,14 @@
         badge.textContent = order.status_label;
         header.appendChild(badge);
 
+        if (order.fulfillment_status !== 'preparing') {
+            var fulfillmentBadge = document.createElement('span');
+            fulfillmentBadge.className = 'scp-badge '
+                + (order.fulfillment_status === 'delivered' ? 'scp-badge--active' : 'scp-badge--info');
+            fulfillmentBadge.textContent = order.fulfillment_status_label;
+            header.appendChild(fulfillmentBadge);
+        }
+
         card.appendChild(header);
 
         var meta = document.createElement('dl');
@@ -112,6 +120,19 @@
         metaRow(meta, scpPanelText.orderSubtotalLabel, formatMoney(order.subtotal));
         metaRow(meta, scpPanelText.orderTaxLabel, formatMoney(order.total_tax));
         metaRow(meta, scpPanelText.orderTotalLabel, formatMoney(order.total));
+
+        if (order.tracking_number) {
+            metaRow(meta, scpPanelText.orderTrackingNumberLabel, order.tracking_number);
+        }
+
+        if (order.shipped_at) {
+            metaRow(meta, scpPanelText.orderShippedAtLabel, order.shipped_at);
+        }
+
+        if (order.delivered_at) {
+            metaRow(meta, scpPanelText.orderDeliveredAtLabel, order.delivered_at);
+        }
+
         card.appendChild(meta);
 
         card.appendChild(renderItemsTable(order.items));

@@ -9,13 +9,16 @@ use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
 
 /**
- * Listens for `commerce.order_cancelled`/`commerce.order_refunded`, both
- * dispatched by Seviye\Commerce\Http\OrderPersistenceHooks - this module
- * never depends on Seviye Commerce's classes or Contracts, only on those
+ * Listens for `commerce.order_cancelled`/`commerce.order_refunded`/
+ * `commerce.order_shipped`/`commerce.order_delivered`, all dispatched by
+ * Seviye\Commerce\Http\OrderPersistenceHooks or
+ * Seviye\Commerce\Http\AdminOrdersRestController - this module never
+ * depends on Seviye Commerce's classes or Contracts, only on those
  * documented event names/payload shapes, exactly mirroring
  * OrderPlacedNotificationListener's relationship to `commerce.order_placed`
  * (same self-contained payload: `customer_id`, `order_number`, `total`,
- * `items`, plus `refunded_amount`/`reason` on the refund event only).
+ * `items`, plus `refunded_amount`/`reason` on the refund event and
+ * `tracking_number` on the shipped event).
  */
 final class OrderStatusNotificationListener
 {
@@ -53,13 +56,59 @@ final class OrderStatusNotificationListener
     }
 
     /**
+     * "Kargoya verildi/teslim edildi" - reuses notify()'s existing
+     * `reason` line for the tracking number too (same "empty means omit
+     * the line" behavior), rather than adding a second special-cased
+     * field, since exactly one of the two ever applies per event.
+     */
+    public function onOrderShipped(Event $event): void
+    {
+        $subject = function_exists('__')
+            ? __('Siparişiniz Kargoya Verildi', 'seviye-notifications')
+            : 'Siparişiniz Kargoya Verildi';
+
+        $intro = function_exists('__')
+            ? __('Siparişiniz kargoya verilmiştir.', 'seviye-notifications')
+            : 'Siparişiniz kargoya verilmiştir.';
+
+        $trackingNumber = trim((string) $event->get('tracking_number'));
+        $noteLabel = function_exists('__')
+            ? __('Kargo Takip No', 'seviye-notifications')
+            : 'Kargo Takip No';
+
+        $this->notify($event, $subject, $intro, $trackingNumber, $noteLabel);
+    }
+
+    public function onOrderDelivered(Event $event): void
+    {
+        $subject = function_exists('__')
+            ? __('Siparişiniz Teslim Edildi', 'seviye-notifications')
+            : 'Siparişiniz Teslim Edildi';
+
+        $intro = function_exists('__')
+            ? __('Siparişiniz teslim edilmiştir.', 'seviye-notifications')
+            : 'Siparişiniz teslim edilmiştir.';
+
+        $this->notify($event, $subject, $intro);
+    }
+
+    /**
      * __()'s $text argument must stay a literal string (see
      * PasswordResetNotificationListener's identical docblock note) - this
      * class's own tests run outside a WordPress runtime, where __() is
      * undefined, so every call site above guards it individually.
+     *
+     * $note/$noteLabel default to the cancel/refund events' own `reason`
+     * field - onOrderShipped() passes the tracking number/its own label
+     * explicitly instead, since that value doesn't live under `reason`.
      */
-    private function notify(Event $event, string $subject, string $intro): void
-    {
+    private function notify(
+        Event $event,
+        string $subject,
+        string $intro,
+        ?string $note = null,
+        ?string $noteLabel = null
+    ): void {
         $customerId = (int) $event->get('customer_id');
 
         if ($customerId <= 0) {
@@ -70,12 +119,12 @@ final class OrderStatusNotificationListener
         $subjectLine = $subject . ' - #' . $orderNumber;
         $lines = [$intro];
 
-        $reason = trim((string) $event->get('reason'));
+        $note ??= trim((string) $event->get('reason'));
+        $noteLabel ??= function_exists('__') ? __('Not', 'seviye-notifications') : 'Not';
 
-        if ($reason !== '') {
-            $noteLabel = function_exists('__') ? __('Not', 'seviye-notifications') : 'Not';
+        if ($note !== '') {
             $lines[] = '';
-            $lines[] = $noteLabel . ': ' . $reason;
+            $lines[] = $noteLabel . ': ' . $note;
         }
 
         $this->dispatcher->dispatch(

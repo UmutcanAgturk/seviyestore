@@ -81,4 +81,60 @@ final class OrderStatusNotificationListenerTest extends TestCase
 
         self::assertCount(0, $dispatcher->calls);
     }
+
+    public function testShippedOrderDispatchesAnEmailWithTheTrackingNumber(): void
+    {
+        $dispatcher = new FakeNotificationDispatcher();
+        $listener = new OrderStatusNotificationListener($dispatcher);
+
+        $listener->onOrderShipped(new Event('commerce.order_shipped', [
+            'customer_id' => 12,
+            'order_number' => '1042',
+            'total' => 150.0,
+            'items' => [],
+            'tracking_number' => 'TRK-987',
+        ]));
+
+        self::assertCount(1, $dispatcher->calls);
+        $call = $dispatcher->calls[0];
+        self::assertSame(NotificationChannel::EMAIL, $call['channel']);
+        self::assertSame('commerce.order_shipped', $call['eventName']);
+        self::assertStringContainsString('#1042', $call['subject']);
+        self::assertStringContainsString('kargoya verilmiştir', $call['body']);
+        self::assertStringContainsString('TRK-987', $call['body']);
+    }
+
+    public function testShippedOrderWithoutATrackingNumberOmitsTheNoteLine(): void
+    {
+        $dispatcher = new FakeNotificationDispatcher();
+        $listener = new OrderStatusNotificationListener($dispatcher);
+
+        $listener->onOrderShipped(new Event('commerce.order_shipped', [
+            'customer_id' => 12,
+            'order_number' => '1042',
+            'total' => 150.0,
+            'items' => [],
+        ]));
+
+        self::assertStringNotContainsString('Kargo Takip No', $dispatcher->calls[0]['body']);
+    }
+
+    public function testDeliveredOrderDispatchesAnEmailNotification(): void
+    {
+        $dispatcher = new FakeNotificationDispatcher();
+        $listener = new OrderStatusNotificationListener($dispatcher);
+
+        $listener->onOrderDelivered(new Event('commerce.order_delivered', [
+            'customer_id' => 12,
+            'order_number' => '1042',
+            'total' => 150.0,
+            'items' => [],
+        ]));
+
+        self::assertCount(1, $dispatcher->calls);
+        $call = $dispatcher->calls[0];
+        self::assertSame('commerce.order_delivered', $call['eventName']);
+        self::assertStringContainsString('#1042', $call['subject']);
+        self::assertStringContainsString('teslim edilmiştir', $call['body']);
+    }
 }

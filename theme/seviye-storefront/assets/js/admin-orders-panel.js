@@ -9,7 +9,7 @@
  * seviye/v1/commerce/orders endpoint.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, nonce, canViewAllBranches, canCancelOrders, canRefundOrders }
+ *   scpPanel     { restUrl, nonce, canViewAllBranches, canCancelOrders, canRefundOrders, canUpdateFulfillment }
  *   scpPanelText { ...translated UI strings }
  *
  * "İade/iptal akışı": cancel/refund buttons call
@@ -18,6 +18,12 @@
  * `completed`-only rule exactly (see CANCELLABLE_STATUSES below); the
  * server re-checks both the capability AND the status regardless of what
  * this file shows/hides, so a stale client can never bypass either rule.
+ *
+ * "Kargoya verildi/teslim edildi": ship/deliver buttons call
+ * AdminOrdersRestController::ship()/deliver() - mirrors
+ * FULFILLABLE_STATUSES the same way; the fulfillment badge/meta rows come
+ * from OrderPresenter merging in OrderFulfillment::present() (see
+ * `order.fulfillment_status`/`tracking_number`/`shipped_at`/`delivered_at`).
  */
 (function () {
     'use strict';
@@ -29,6 +35,7 @@
     }
 
     var CANCELLABLE_STATUSES = ['pending', 'processing', 'on-hold', 'failed'];
+    var FULFILLABLE_STATUSES = ['processing', 'on-hold', 'completed'];
 
     var statusEl = root.querySelector('[data-scp-admin-orders-status]');
     var form = root.querySelector('[data-scp-admin-orders-form]');
@@ -190,6 +197,43 @@
         });
     }
 
+    function shipOrder(order) {
+        var trackingNumber = window.prompt(scpPanelText.trackingNumberPrompt, '');
+
+        if (trackingNumber === null) {
+            return;
+        }
+
+        apiFetch('commerce/orders/' + order.id + '/ship', {
+            method: 'POST',
+            body: JSON.stringify({ tracking_number: trackingNumber.trim() })
+        }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.orderShipped);
+            loadOrders();
+        });
+    }
+
+    function deliverOrder(order) {
+        if (!window.confirm(scpPanelText.confirmDeliverOrder)) {
+            return;
+        }
+
+        apiFetch('commerce/orders/' + order.id + '/deliver', { method: 'POST' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelText.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelText.orderDelivered);
+            loadOrders();
+        });
+    }
+
     function renderOrderActions(order) {
         var actions = document.createElement('div');
         actions.className = 'scp-form__actions';
@@ -219,6 +263,31 @@
             hasAction = true;
         }
 
+        var canUpdateFulfillment = scpPanel.canUpdateFulfillment && FULFILLABLE_STATUSES.indexOf(order.status) !== -1
+            && order.fulfillment_status !== 'delivered';
+
+        if (canUpdateFulfillment) {
+            var shipButton = document.createElement('button');
+            shipButton.type = 'button';
+            shipButton.className = 'scp-btn scp-btn--small';
+            shipButton.textContent = scpPanelText.shipOrderAction;
+            shipButton.addEventListener('click', function () {
+                shipOrder(order);
+            });
+            actions.appendChild(shipButton);
+            hasAction = true;
+
+            var deliverButton = document.createElement('button');
+            deliverButton.type = 'button';
+            deliverButton.className = 'scp-btn scp-btn--small';
+            deliverButton.textContent = scpPanelText.deliverOrderAction;
+            deliverButton.addEventListener('click', function () {
+                deliverOrder(order);
+            });
+            actions.appendChild(deliverButton);
+            hasAction = true;
+        }
+
         return hasAction ? actions : null;
     }
 
@@ -238,6 +307,14 @@
         badge.textContent = order.status_label;
         header.appendChild(badge);
 
+        if (order.fulfillment_status !== 'preparing') {
+            var fulfillmentBadge = document.createElement('span');
+            fulfillmentBadge.className = 'scp-badge '
+                + (order.fulfillment_status === 'delivered' ? 'scp-badge--active' : 'scp-badge--info');
+            fulfillmentBadge.textContent = order.fulfillment_status_label;
+            header.appendChild(fulfillmentBadge);
+        }
+
         card.appendChild(header);
 
         var meta = document.createElement('dl');
@@ -252,6 +329,18 @@
 
         if (order.refunded_total > 0) {
             metaRow(meta, scpPanelText.orderRefundedTotalLabel, formatMoney(order.refunded_total));
+        }
+
+        if (order.tracking_number) {
+            metaRow(meta, scpPanelText.orderTrackingNumberLabel, order.tracking_number);
+        }
+
+        if (order.shipped_at) {
+            metaRow(meta, scpPanelText.orderShippedAtLabel, order.shipped_at);
+        }
+
+        if (order.delivered_at) {
+            metaRow(meta, scpPanelText.orderDeliveredAtLabel, order.delivered_at);
         }
 
         card.appendChild(meta);

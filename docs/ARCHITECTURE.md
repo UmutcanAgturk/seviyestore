@@ -3453,6 +3453,99 @@ dahil, hepsi yeşil) temiz. `seviye-students`, `seviye-commerce`,
 (hepsi PHP değişikliği içeriyor, ilk üçü plugin dosyalarında, tema ise
 tüm 5 alt-özellik için).
 
+**Ek düzeltme (aynı tur, teslimattan sonra bulundu)**: "alt menüler
+görünmüyor" - `.scp-sidebar`'daki `overflow-y: auto`, CSS'in "bir eksen
+`visible` değilse diğeri de `auto`'ya zorlanır" kuralı yüzünden
+`overflow-x`'i de `auto`'ya çeviriyordu; bu da sağa doğru açılan flyout
+alt menünün İÇERİĞİNİ (ikon/etiket - kutunun kendisi değil, o hâlâ
+görünüyordu) kırpıyordu. Gerçek `theme.css`/`panel.css` dosyalarıyla
+statik bir HTML test sayfası kurulup Playwright'ta hem hata yeniden
+üretildi hem de düzeltme (sidebar'dan sabit `height`/`overflow-y`
+kaldırıldı - `.scp-layout`'un zaten var olan `align-items: flex-start`'ı
+sidebar'ın `<main>`'in yüksekliğine gerilmesini önlemeye yetiyor, sayfa
+kendisi gerekirse kayar) doğrulandı.
+
+### 67. Sipariş kargo durumu: "kargoya verildi/teslim edildi"
+
+"Hem şubede hem genel merkezde sipariş hazırlanıyor diyor ama kargoya
+verildi ve teslim edildi gibi bir özellik göremiyorum" - araştırma
+sonucu: panel WooCommerce'in 6 yerleşik durumunu (Ödeme Bekliyor,
+Hazırlanıyor, Beklemede, Tamamlandı, İptal Edildi, İade Edildi)
+Türkçeleştirip gösteriyordu, personelin elindeki tek aksiyon iptal/iade
+idi - kargo/teslimat kavramı hiç yoktu.
+
+**Yeni bir WC sipariş durumu DEĞİL, ayrı bir "fulfillment" katmanı**:
+`status` zaten hakediş tetiklemesini (`OrderPersistenceHooks::HAKEDIS_TRIGGER_STATUS
+= 'completed'`), Reports'un ciro sorgularını, haftalık özeti ve
+refund()'un `completed`-only kapısını yönetiyor. "Kargoya
+verildi"/"teslim edildi"yi YENİ WC durumları yapmak, bir sipariş
+kargoya verildiğinde artık `completed` OLMAMASI anlamına gelir ve
+yukarıdakilerin hepsini bozardı. Bunun yerine yeni
+`plugin/seviye-commerce/src/Support/OrderFulfillment.php` sınıfı,
+sipariş meta'sında (`_scp_shipped_at`, `_scp_delivered_at`,
+`_scp_tracking_number` - `WC_Order`'ın kendi `get_meta()`/
+`update_meta_data()`/`save()` API'si üzerinden, HPOS-güvenli, order
+ITEM meta'sı için zaten kullanılan aynı desen) `status`'tan TAMAMEN
+BAĞIMSIZ bir kargo alt durumu tutuyor - aşama (`preparing`/`shipped`/
+`delivered`) ayrı bir alan olarak SAKLANMIYOR, hangi zaman damgalarının
+dolu olduğundan TÜRETİLİYOR, böylece ikisi asla birbirinden
+sapamaz. "Teslim edildi" "kargoya verildi"yi ÖNCEDEN gerektirmiyor - bir
+şube, kargo şirketi/takip numarası hiç devreye girmeden bir siparişi
+veliye elden teslim edebilir.
+
+**REST**: `AdminOrdersRestController`'a `ship()`/`deliver()` eklendi
+(`POST commerce/orders/{id}/ship` + isteğe bağlı `tracking_number`,
+`POST commerce/orders/{id}/deliver`) - her ikisi de `cancel()`/`refund()`
+ile AYNI iki katmanlı HQ/kendi-şubesi yetki kontrolünü kullanıyor (yeni
+`OrderCapability::UPDATE_ORDER_FULFILLMENT`/
+`UPDATE_OWN_BRANCH_ORDER_FULFILLMENT` - REFUND_ORDERS'ın aksine bu bir
+para hareketi değil, lojistik bir güncelleme, o yüzden Şube Müdürü'nün
+de kendi şubesi için bir katmanı var). Yalnızca "kabul edilmiş" bir
+sipariş (`FULFILLABLE_STATUSES = processing/on-hold/completed`) kargoya
+verilebilir/teslim edilebilir olarak işaretlenebiliyor; zaten teslim
+edilmiş bir siparişte her iki aksiyon da 422 döndürüyor (idempotency).
+`OrderPresenter` artık `OrderFulfillment::present()`'i sonuca
+birleştiriyor (`fulfillment_status`, `fulfillment_status_label`,
+`shipped_at`, `delivered_at`, `tracking_number`) - hem admin listesi HEM
+DE velinin kendi `/mine` geçmişi AYNI presenter'dan geçtiği için ikisi
+de otomatik olarak bu alanları kazandı.
+
+**Bildirim**: `commerce.order_shipped`/`commerce.order_delivered`
+olayları (yeni, paylaşılan `Support\OrderPayloadBuilder`
+kullanılarak - `OrderPersistenceHooks`'un ÖNCEDEN private olan
+`orderPayload()` metodu buraya taşındı, çünkü artık iki farklı sınıf
+[`OrderPersistenceHooks` VE `AdminOrdersRestController`] aynı payload
+şeklini üretmesi gerekiyordu) `Seviye\Notifications\Support\OrderStatusNotificationListener`'ın
+(bölüm 47'nin iptal/iade dinleyicisiyle AYNI sınıf, iki yeni metot -
+`onOrderShipped()`/`onOrderDelivered()`) veliye e-posta göndermesini
+tetikliyor; kargo takip numarası varsa e-postaya "Kargo Takip No: ..."
+satırı olarak ekleniyor (mevcut `reason`/"Not:" satırı deseninin genel
+hâle getirilmiş versiyonu - `notify()` artık opsiyonel `$note`/
+`$noteLabel` parametreleri alıyor).
+
+**Tema**: `templates/orders-admin.php`'nin listesinde ("Sipariş
+Yönetimi") her siparişin altına, uygun olduğunda, "Kargoya Ver" (takip
+numarası için `window.prompt`) ve "Teslim Edildi Olarak İşaretle"
+(`window.confirm`) butonları eklendi; kargo durumu WC durum rozetinin
+yanında İKİNCİ bir rozet olarak gösteriliyor (SADECE `preparing`
+DIŞINDA bir aşamada - `preparing` zaten mevcut "Hazırlanıyor" rozetiyle
+kapsandığı için ayrı bir rozet kazanmıyor). Velinin kendi
+`/siparislerim` geçmişi (`orders-panel.js`) AYNI rozeti VE takip
+numarası/tarih bilgisini salt-okunur gösteriyor - aksiyon butonu yok,
+sadece görünürlük.
+
+**Doğrulama**: `php -l` (dokunulan/yeni her PHP dosyası), `node --check`
+(dokunulan her JS dosyası), `vendor/bin/phpcs` (repo geneli, 0 hata),
+`plugin/seviye-commerce` (17 test, değişmedi - `OrderPresenter`/
+`AdminOrdersRestController`'ın constructor'ları değişti ama mevcut
+testler zaten bu sınıfları doğrudan constructor ile kurmuyordu) ve
+`plugin/seviye-notifications` (48 test, 3 yeni -
+`testShippedOrderDispatchesAnEmailWithTheTrackingNumber`,
+`testShippedOrderWithoutATrackingNumberOmitsTheNoteLine`,
+`testDeliveredOrderDispatchesAnEmailNotification`) PHPUnit paketleri
+yeşil. `seviye-commerce` ve `seviye-notifications` plugin zip'leri VE
+tema zip'i yeniden derlendi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

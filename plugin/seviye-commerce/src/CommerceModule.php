@@ -36,6 +36,8 @@ use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
 use Seviye\Commerce\Repository\WpdbSpendingLimitRepository;
 use Seviye\Commerce\Support\CartPricingService;
+use Seviye\Commerce\Support\OrderFulfillment;
+use Seviye\Commerce\Support\OrderPayloadBuilder;
 use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
@@ -169,15 +171,34 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::REFUND_ORDERS->value);
         $rbac->grantCapability(Role::MUHASEBE, OrderCapability::REFUND_ORDERS->value);
 
+        // "Kargoya verildi/teslim edildi" - same three-role/branch-scoped
+        // split as VIEW_ORDERS/CANCEL_ORDERS above (a logistics update, not
+        // a money movement, so - unlike REFUND_ORDERS - Şube Müdürü gets a
+        // tier here too).
+        $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::UPDATE_ORDER_FULFILLMENT->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::UPDATE_ORDER_FULFILLMENT->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::UPDATE_OWN_BRANCH_ORDER_FULFILLMENT->value);
+
         // "Kupon/kampanya kodu sistemi" - platform/campaign-level, HQ-only
         // (no Şube Müdürü tier, unlike Products/Orders) - see CouponCapability.
         $rbac->grantCapability(Role::GENEL_MERKEZ, CouponCapability::MANAGE_COUPONS->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, CouponCapability::MANAGE_COUPONS->value);
 
         $container->singleton(
+            OrderFulfillment::class,
+            static fn (): OrderFulfillment => new OrderFulfillment()
+        );
+
+        $container->singleton(
+            OrderPayloadBuilder::class,
+            static fn (): OrderPayloadBuilder => new OrderPayloadBuilder()
+        );
+
+        $container->singleton(
             OrderPresenter::class,
             static fn (ServiceContainer $c): OrderPresenter => new OrderPresenter(
-                $c->get(StudentLookupInterface::class)
+                $c->get(StudentLookupInterface::class),
+                $c->get(OrderFulfillment::class)
             )
         );
 
@@ -214,7 +235,10 @@ final class CommerceModule implements ModuleInterface
             static fn (): AdminOrdersRestController => new AdminOrdersRestController(
                 $container->get(StudentLookupInterface::class),
                 $container->get(BranchMembershipInterface::class),
-                $container->get(OrderPresenter::class)
+                $container->get(OrderPresenter::class),
+                $container->get(OrderFulfillment::class),
+                $container->get(OrderPayloadBuilder::class),
+                $container->get(EventBusInterface::class)
             )
         );
 
@@ -272,7 +296,8 @@ final class CommerceModule implements ModuleInterface
                 $container->get(StudentLookupInterface::class),
                 $container->get(BranchLookupInterface::class),
                 new SplitPaymentCalculator(),
-                $container->get(EventBusInterface::class)
+                $container->get(EventBusInterface::class),
+                $container->get(OrderPayloadBuilder::class)
             );
             $orderHooks->register();
 

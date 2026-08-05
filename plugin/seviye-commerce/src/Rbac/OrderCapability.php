@@ -35,4 +35,16 @@ enum OrderCapability: string
      * already applies to the platform's other money-moving action.
      */
     case REFUND_ORDERS = 'scp_refund_orders';
+
+    /**
+     * "Kargoya verildi/teslim edildi" - Genel Merkez / Bölge Müdürü: mark
+     * any order shipped/delivered (see AdminOrdersRestController::ship()/
+     * deliver()). Same VIEW_ORDERS/CANCEL_ORDERS split reasoning: this is a
+     * logistics update, not a money movement, so (unlike REFUND_ORDERS) it
+     * DOES have a branch-scoped tier below.
+     */
+    case UPDATE_ORDER_FULFILLMENT = 'scp_update_order_fulfillment';
+
+    /** Şube Müdürü: mark shipped/delivered only for orders touching their own branch. */
+    case UPDATE_OWN_BRANCH_ORDER_FULFILLMENT = 'scp_update_own_branch_order_fulfillment';
 }

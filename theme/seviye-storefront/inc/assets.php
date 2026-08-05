@@ -255,6 +255,18 @@ function scp_enqueue_panel_assets(): void
         'orderCancelled' => __('Sipariş iptal edildi.', 'seviye-storefront'),
         'refundAmountPrompt' => __('İade tutarı (TRY):', 'seviye-storefront'),
         'orderRefunded' => __('İade kaydedildi.', 'seviye-storefront'),
+        'shipOrderAction' => __('Kargoya Ver', 'seviye-storefront'),
+        'deliverOrderAction' => __('Teslim Edildi Olarak İşaretle', 'seviye-storefront'),
+        'trackingNumberPrompt' => __('Kargo takip numarası (isteğe bağlı):', 'seviye-storefront'),
+        'confirmDeliverOrder' => __(
+            'Bu siparişi teslim edildi olarak işaretlemek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'orderShipped' => __('Sipariş kargoya verildi olarak işaretlendi.', 'seviye-storefront'),
+        'orderDelivered' => __('Sipariş teslim edildi olarak işaretlendi.', 'seviye-storefront'),
+        'orderTrackingNumberLabel' => __('Kargo Takip No', 'seviye-storefront'),
+        'orderShippedAtLabel' => __('Kargoya Veriliş Tarihi', 'seviye-storefront'),
+        'orderDeliveredAtLabel' => __('Teslim Tarihi', 'seviye-storefront'),
         'noActivityLogData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
         'activityStudentCreated' => __('Öğrenci oluşturuldu', 'seviye-storefront'),
         'activityStudentUpdated' => __('Öğrenci güncellendi', 'seviye-storefront'),
@@ -443,11 +455,14 @@ function scp_enqueue_panel_assets(): void
             true
         );
         $canCancelOrders = current_user_can('scp_cancel_orders') || current_user_can('scp_cancel_own_branch_orders');
+        $canUpdateFulfillment = current_user_can('scp_update_order_fulfillment')
+            || current_user_can('scp_update_own_branch_order_fulfillment');
 
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
             'canViewAllBranches' => current_user_can('scp_view_orders'),
             'canCancelOrders' => $canCancelOrders,
             'canRefundOrders' => current_user_can('scp_refund_orders'),
+            'canUpdateFulfillment' => $canUpdateFulfillment,
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
