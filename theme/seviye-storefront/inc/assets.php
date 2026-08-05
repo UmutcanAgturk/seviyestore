@@ -213,6 +213,7 @@ function scp_enqueue_panel_assets(): void
             'seviye-storefront'
         ),
         'manageBranches' => __('Şubeler', 'seviye-storefront'),
+        'productOwnerHq' => __('Genel Merkez', 'seviye-storefront'),
         'uploadingImage' => __('Yükleniyor…', 'seviye-storefront'),
         'imageUploadError' => __('Görsel yüklenirken bir hata oluştu.', 'seviye-storefront'),
         'branchStatusSaved' => __('Şube durumu güncellendi.', 'seviye-storefront'),

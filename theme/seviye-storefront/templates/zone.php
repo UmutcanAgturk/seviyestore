@@ -656,7 +656,7 @@ get_header();
 
             <p class="scp-form__hint">
                 <?php esc_html_e(
-                    'Ürünler tüm şubelerin ortak kataloğundadır. Her şube, kendi öğrenci/velisi için bir ürünü ayrı ayrı aktif ya da pasif yapabilir.',
+                    'Ürünler ortak katalogdadır. Genel Merkez ürünleri her şubede görünür; bir şubenin kendi oluşturduğu ürün yalnızca o şube ve o şubenin velilerine/öğrencilerine görünür. Genel Merkez ürünlerine bir şube kendi fiyatını verebilir ama Genel Merkez\'in belirlediği fiyatın altına inemez.',
                     'seviye-storefront'
                 ); ?>
             </p>
@@ -674,6 +674,7 @@ get_header();
                             <th><?php esc_html_e('Kategori', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Stok', 'seviye-storefront'); ?></th>
                             <?php if ($scp_can_manage_products) : ?>
+                                <th><?php esc_html_e('Oluşturan', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
                                 <th></th>
                             <?php endif; ?>

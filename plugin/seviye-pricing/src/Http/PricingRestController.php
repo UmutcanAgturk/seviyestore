@@ -350,12 +350,29 @@ final class PricingRestController extends AbstractRestController
 
     /**
      * "Genel merkezin belirlediği fiyatın aşağısına fiyat verilemez" - a
-     * BRANCH/STUDENT rule may never undercut its product's own active
-     * GENERAL rule (the floor Genel Merkez/Sistem set - see
-     * MANAGE_BASE_PRICING). Checked per product (not a single platform-wide
-     * floor), and only when a GENERAL rule actually exists for that product
-     * - nothing to violate otherwise. Returns the error message to show, or
-     * null when the price is acceptable.
+     * BRANCH/STUDENT rule may never undercut its product's floor price.
+     * Two sources for that floor, checked in order:
+     *
+     * 1. An active GENERAL rule for the product (the floor Genel Merkez/
+     *    Sistem explicitly set via MANAGE_BASE_PRICING) - unchanged from
+     *    before this fell back to a second source below.
+     * 2. Otherwise, the product's own base price - but ONLY when the
+     *    product itself was created by Genel Merkez (see
+     *    Seviye\Commerce\Support\ProductOwnership). A branch-owned product
+     *    has no Genel Merkez floor to respect; that branch set its own
+     *    price at creation and may freely undercut it with a more specific
+     *    BRANCH/STUDENT rule.
+     *
+     * Read via `apply_filters()`, not a Contract/hard plugin dependency -
+     * Commerce already depends on Pricing (CartPricingService), so a
+     * Contract the other way round would make the two plugins depend on
+     * each other. See Seviye\Commerce\Http\ProductOwnershipBridge. When
+     * Commerce isn't active both filters return their default (null) and
+     * this floor source simply never applies - Pricing keeps working
+     * standalone exactly as it did before Commerce published this data.
+     *
+     * Returns the error message to show, or null when the price is
+     * acceptable.
      */
     private function violatesBasePriceFloor(int $productId, PriceScope $scope, Money $price): ?string
     {
@@ -365,7 +382,23 @@ final class PricingRestController extends AbstractRestController
 
         $floor = $this->rules->activeRuleFor($productId, PriceScope::general());
 
-        if ($floor === null || $price->toFloat() >= $floor->price->toFloat()) {
+        if ($floor !== null) {
+            if ($price->toFloat() >= $floor->price->toFloat()) {
+                return null;
+            }
+
+            return __('Fiyat, Genel Merkez tarafından belirlenen taban fiyatın altında olamaz.', 'seviye-pricing');
+        }
+
+        $ownerBranchId = apply_filters('scp_commerce_product_owner_branch_id', null, $productId);
+
+        if ($ownerBranchId !== null) {
+            return null;
+        }
+
+        $basePrice = apply_filters('scp_commerce_product_base_price', null, $productId);
+
+        if ($basePrice === null || $price->toFloat() >= (float) $basePrice) {
             return null;
         }
 

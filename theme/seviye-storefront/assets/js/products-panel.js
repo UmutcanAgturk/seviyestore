@@ -3,20 +3,27 @@
  *
  * Three tiers, mirroring zone.php's own gating:
  *   - scpPanel.canManageProducts (Genel Merkez/Bölge Müdürü/Şube Müdürü):
- *     full panel - create, and (canManageAllBranches only) edit/delete/
- *     per-branch status grid. A Şube Müdürü may create into the shared
- *     catalog and toggle their OWN branch's active/passive status only.
+ *     full panel - create, and per-product `can_manage` (server-computed,
+ *     see ProductsRestController::serialize()) edit/delete/variant editing -
+ *     Genel Merkez/Bölge Müdürü always, a Şube Müdürü only for a product
+ *     THEY THEMSELVES created (never a Genel Merkez product, never another
+ *     branch's - see Support\ProductOwnership). Clicking a manageable row
+ *     (or its "Düzenle" button) opens the same edit structure. The
+ *     "Şubeler" per-branch active/passive grid stays canManageAllBranches
+ *     (HQ) only regardless of ownership - a Şube Müdürü instead gets a
+ *     single toggle for their OWN branch's status on ANY product (see
+ *     statusCell()), independent of who created it.
  *   - VIEW_PRODUCTS only (Muhasebe/Depo/Sistem): read-only id/name/price/
- *     category/stock list, no form, no status/actions columns at all -
- *     those table cells and the create/edit form don't even exist in the
- *     DOM (see zone.php), so this script never queries for them unless
- *     canManageProducts is true.
+ *     category/stock list, no form, no owner/status/actions columns at
+ *     all - those table cells and the create/edit form don't even exist
+ *     in the DOM (see zone.php), so this script never queries for them
+ *     unless canManageProducts is true.
  *
  * "Bedenler"/"Renkler" on the create form (visible only for a NEW product -
  * an existing product's variant structure can't be changed here) produce a
  * variable WooCommerce product; "Varyantları Düzenle" then edits each
- * generated variation's own price/stock (canManageAllBranches only, same
- * gating as edit/delete). See
+ * generated variation's own price/stock - reachable only through the same
+ * per-product can_manage-gated edit form as everything else. See
  * plugin/seviye-commerce/src/Http/ProductsRestController.php.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
@@ -108,12 +115,35 @@
             row.appendChild(textCell(stockCellText(product)));
 
             if (scpPanel.canManageProducts) {
+                row.appendChild(ownerCell(product));
                 row.appendChild(statusCell(product));
                 row.appendChild(actionsCell(product));
+
+                // "Ürüne tıklandığında tüm düzenlemeleri için bir yapı
+                // açılsın" - the whole row opens the same edit structure the
+                // "Düzenle" button does, for anyone this specific product's
+                // can_manage flag allows (Genel Merkez/Bölge Müdürü always,
+                // a Şube Müdürü only for a product they created themselves -
+                // see ProductsRestController::canManageProductFully()).
+                // Button clicks inside the row (Şubeler/Durum/Düzenle) stop
+                // propagation so they don't ALSO trigger this.
+                if (product.can_manage) {
+                    row.classList.add('scp-row--clickable');
+                    row.addEventListener('click', function () {
+                        openProductForm(product);
+                    });
+                }
             }
 
             tableBody.appendChild(row);
         });
+    }
+
+    function ownerCell(product) {
+        var cell = document.createElement('td');
+        cell.textContent = product.owner_branch_name || scpPanelText.productOwnerHq;
+
+        return cell;
     }
 
     function statusCell(product) {
@@ -124,7 +154,8 @@
             branchesButton.type = 'button';
             branchesButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
             branchesButton.textContent = scpPanelText.manageBranches;
-            branchesButton.addEventListener('click', function () {
+            branchesButton.addEventListener('click', function (event) {
+                event.stopPropagation();
                 openBranchesPanel(product);
             });
             cell.appendChild(branchesButton);
@@ -136,7 +167,9 @@
         toggle.type = 'button';
         toggle.className = 'scp-badge ' + (product.own_branch_active ? 'scp-badge--active' : 'scp-badge--inactive');
         toggle.textContent = product.own_branch_active ? scpPanelText.statusActive : scpPanelText.statusInactive;
-        toggle.addEventListener('click', function () {
+        toggle.addEventListener('click', function (event) {
+            event.stopPropagation();
+
             var nextStatus = product.own_branch_active ? 'passive' : 'active';
 
             apiFetch('commerce/products/' + product.id + '/branches/own', {
@@ -160,7 +193,7 @@
     function actionsCell(product) {
         var cell = document.createElement('td');
 
-        if (!scpPanel.canManageAllBranches) {
+        if (!product.can_manage) {
             return cell;
         }
 
@@ -168,7 +201,8 @@
         editButton.type = 'button';
         editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
         editButton.textContent = scpPanelText.edit;
-        editButton.addEventListener('click', function () {
+        editButton.addEventListener('click', function (event) {
+            event.stopPropagation();
             openProductForm(product);
         });
         cell.appendChild(editButton);
@@ -238,7 +272,10 @@
                 imagePreview.hidden = true;
             }
 
-            deleteButton.hidden = !product;
+            // "Ürün eğer Genel Merkez'den oluşturulduysa silemez" - can_manage
+            // already encodes exactly that rule (see
+            // ProductsRestController::canManageProductFully()).
+            deleteButton.hidden = !product || !product.can_manage;
 
             form.scrollIntoView({ block: 'nearest' });
         };

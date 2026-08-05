@@ -9,6 +9,7 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Commerce\Domain\ProductBranchStatus;
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
+use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use WC_Post_Types;
@@ -26,11 +27,12 @@ use WP_Term;
  * (wp_posts/WC_Product) - this controller is a thin wrapper so Şube
  * Müdürü/Genel Merkez, who hold none of WordPress' native
  * edit_products/publish_products capabilities, can manage a SHARED catalog
- * without wp-admin. Full edit/delete is Genel Merkez/Bölge Müdürü only
- * (mirrors PricingRestController's GENERAL-scope gating); a Şube Müdürü may
- * CREATE into the shared catalog and toggle a product's active/passive
- * status for their OWN branch only - never another branch's, never the
- * product's own name/price/etc.
+ * without wp-admin. Full edit/delete is Genel Merkez/Bölge Müdürü ALWAYS,
+ * plus a Şube Müdürü for a product they THEMSELVES created (see
+ * ProductOwnership) - never another branch's product, and never a
+ * Genel Merkez-created one. A Şube Müdürü may still toggle any product's
+ * active/passive status for their OWN branch only (see setOwnBranchStatus()),
+ * regardless of who created it.
  *
  * "Ürün varyantları (beden/renk)" - a product may optionally be created
  * with `sizes`/`colors` (comma-separated), producing a real WooCommerce
@@ -50,7 +52,8 @@ final class ProductsRestController extends AbstractRestController
     public function __construct(
         private readonly ProductBranchVisibilityRepositoryInterface $visibility,
         private readonly BranchMembershipInterface $branchMemberships,
-        private readonly BranchLookupInterface $branches
+        private readonly BranchLookupInterface $branches,
+        private readonly ProductOwnership $ownership
     ) {
     }
 
@@ -183,6 +186,7 @@ final class ProductsRestController extends AbstractRestController
         $product->set_status('publish');
         $productId = $product->save();
         $this->applyCategory($productId, $request);
+        $this->ownership->setOwnerBranchId($productId, $this->currentUserBranchId());
 
         if ($hasVariants) {
             $termsByKey = $this->applyVariants(wc_get_product($productId), $sizes, $colors);
@@ -286,18 +290,28 @@ final class ProductsRestController extends AbstractRestController
         return current_user_can(ProductCapability::MANAGE_PRODUCTS->value) && $this->currentUserBranchId() !== null;
     }
 
-    public function canManageProductFully(): bool
+    public function canManageProductFully(WP_REST_Request $request): bool
     {
         if (!current_user_can(ProductCapability::MANAGE_PRODUCTS->value)) {
             return false;
         }
 
-        // Full edit/delete is Genel Merkez/Bölge Müdürü only - a Şube
-        // Müdürü's power over the shared catalog is limited to creating
-        // into it and toggling their own branch's visibility (see
-        // canToggleBranchStatus()), never rewriting another branch-created
-        // product's name/price/etc, nor its variations.
-        return $this->currentUserBranchId() === null;
+        $ownBranchId = $this->currentUserBranchId();
+
+        if ($ownBranchId === null) {
+            // Genel Merkez/Bölge Müdürü - full edit/delete/variations on
+            // every product, regardless of who created it.
+            return true;
+        }
+
+        // A Şube Müdürü may fully edit/delete a product only when THEY
+        // created it - never a Genel Merkez product, never another
+        // branch's. Their power over anything else stays limited to
+        // toggling their own branch's active/passive status (see
+        // canToggleBranchStatus()/setOwnBranchStatus()).
+        $productId = (int) $request->get_param('id');
+
+        return $this->ownership->ownerBranchId($productId) === $ownBranchId;
     }
 
     public function canToggleBranchStatus(WP_REST_Request $request): bool
@@ -662,6 +676,8 @@ final class ProductsRestController extends AbstractRestController
         $imageId = $product->get_image_id();
         $ownBranchId = $this->currentUserBranchId();
         $isVariable = $product instanceof WC_Product_Variable;
+        $ownerBranchId = $this->ownership->ownerBranchId($product->get_id());
+        $ownerBranch = $ownerBranchId !== null ? $this->branches->find($ownerBranchId) : null;
 
         return [
             'id' => $product->get_id(),
@@ -681,6 +697,15 @@ final class ProductsRestController extends AbstractRestController
             'own_branch_active' => $ownBranchId !== null
                 ? $this->visibility->isActiveForBranch($product->get_id(), $ownBranchId)
                 : null,
+            // "Genel Merkez" (null) or the creating branch - see
+            // ProductOwnership. can_manage tells the theme's Ürünler paneli
+            // whether THIS user may open the full edit/delete structure for
+            // THIS specific product, without reimplementing the ownership
+            // rule client-side.
+            'owner_branch_id' => $ownerBranchId,
+            'owner_branch_name' => $ownerBranch?->name,
+            'can_manage' => current_user_can(ProductCapability::MANAGE_PRODUCTS->value)
+                && ($ownBranchId === null || $ownerBranchId === $ownBranchId),
         ];
     }
 

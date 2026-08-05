@@ -113,6 +113,13 @@
   background: var(--scp-primary-bg);
 }
 
+/* A row whose click opens an edit structure (see products-panel.js) -
+   the plain hover tint above already applies to every row, this just adds
+   the pointer affordance so a clickable row reads as one. */
+.scp-row--clickable {
+  cursor: pointer;
+}
+
 .scp-product-thumb {
   width: 40px;
   height: 40px;

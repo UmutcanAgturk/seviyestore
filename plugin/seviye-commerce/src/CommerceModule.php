@@ -16,11 +16,13 @@ use Seviye\Commerce\Http\CouponsRestController;
 use Seviye\Commerce\Http\LowStockNotificationHooks;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
+use Seviye\Commerce\Http\ProductOwnershipBridge;
 use Seviye\Commerce\Http\ProductReviewGate;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
 use Seviye\Commerce\Http\SpendingLimitCartHooks;
 use Seviye\Commerce\Http\SpendingLimitRestController;
+use Seviye\Commerce\Http\StorefrontPriceDisplayHooks;
 use Seviye\Commerce\Http\Support\OrderPresenter;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
 use Seviye\Commerce\Rbac\CouponCapability;
@@ -34,6 +36,7 @@ use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
 use Seviye\Commerce\Repository\WpdbSpendingLimitRepository;
 use Seviye\Commerce\Support\CartPricingService;
+use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Commerce\Support\StudentSpendingCalculator;
 use Seviye\Core\Container\ServiceContainer;
@@ -105,6 +108,11 @@ final class CommerceModule implements ModuleInterface
         $container->singleton(
             StudentSpendingCalculator::class,
             static fn (): StudentSpendingCalculator => new StudentSpendingCalculator()
+        );
+
+        $container->singleton(
+            ProductOwnership::class,
+            static fn (): ProductOwnership => new ProductOwnership()
         );
 
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
@@ -179,7 +187,8 @@ final class CommerceModule implements ModuleInterface
             static fn (): ProductsRestController => new ProductsRestController(
                 $container->get(ProductBranchVisibilityRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
-                $container->get(BranchLookupInterface::class)
+                $container->get(BranchLookupInterface::class),
+                $container->get(ProductOwnership::class)
             )
         );
 
@@ -261,9 +270,18 @@ final class CommerceModule implements ModuleInterface
 
             $visibilityHooks = new ProductVisibilityHooks(
                 $container->get(ProductBranchVisibilityRepositoryInterface::class),
-                $container->get(ParentBranchLookupInterface::class)
+                $container->get(ParentBranchLookupInterface::class),
+                $container->get(ProductOwnership::class)
             );
             $visibilityHooks->register();
+
+            (new ProductOwnershipBridge($container->get(ProductOwnership::class)))->register();
+
+            $priceDisplayHooks = new StorefrontPriceDisplayHooks(
+                $container->get(PriceResolverInterface::class),
+                $container->get(ParentBranchLookupInterface::class)
+            );
+            $priceDisplayHooks->register();
 
             (new LowStockNotificationHooks($container->get(EventBusInterface::class)))->register();
 

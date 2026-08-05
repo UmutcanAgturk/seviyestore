@@ -2921,6 +2921,90 @@ değişiklikleri saf değer değişimleri (renk/gölge/transition kaldırma)
 olduğundan, sözdizimi/denge doğrulaması ötesinde bir işlevsel regresyon
 riski taşımıyor.
 
+### 60. Ürün sahipliği (şube bazlı görünürlük), mağazada dinamik fiyat, taban fiyat genişletmesi, Ürünler panelinde tıkla-düzenle yapısı
+
+Dört parçalı bir istek, dördü de Seviye Commerce'in "paylaşımlı katalog"
+modelini (bölüm 38-39: tüm ürünler tek bir ortak katalogda, her şube
+kendi öğrencisi için ayrı ayrı aktif/pasif yapabilir) temelden değiştirmeden
+üzerine kuruldu - var olan hiçbir ürün/kural, bu turdan önce olduğu gibi
+davranmaya devam ediyor (geriye dönük uyumluluk aşağıda açıklanıyor).
+
+**Ürün sahipliği** (yeni `Support\ProductOwnership`): bir ürünü hangi
+şubenin oluşturduğu, yeni bir tablo yerine sıradan bir WooCommerce post
+meta'sı (`_scp_owner_branch_id`) olarak tutuluyor - ürünler zaten tamamen
+WooCommerce'in kendi verisi (`ProductsRestController`'ın kendi doc
+yorumu), yeni bir tablo bu ilkeyi bozardı. Meta'nın YOK OLMASI "Genel
+Merkez'e ait" anlamına geliyor - bu turdan önce oluşturulmuş HER ürünün
+zaten sahip olduğu varsayılan durumla birebir aynı, yani geriye dönük bir
+taşıma/migration script'ine gerek yok: eski bir ürün yeni davranışta hiçbir
+şekilde farklılaşmıyor. `ProductsRestController::store()` artık oluşturan
+kullanıcının şubesi varsa (Şube Müdürü) o şubeyi sahip olarak kaydediyor;
+Genel Merkez/Bölge Müdürü oluşturursa meta hiç yazılmıyor.
+
+**Mağaza görünürlüğü** (`ProductVisibilityHooks`): bölüm 38'in "opt-out"
+modelinin (satır yoksa aktif kabul et) ÖNÜNE sert bir sahiplik kapısı
+eklendi - sahibi olan bir ürün, velinin çocuklarının HİÇBİRİ o şubede
+değilse görünmez, o ürünün kendi aktif/pasif toggle durumu ne olursa
+olsun. Sahibi olmayan (Genel Merkez) bir ürün bu kapıdan hiç etkilenmiyor,
+eskisi gibi opt-out modeliyle çalışmaya devam ediyor.
+
+**Mağazada dinamik fiyat** (yeni `Http\StorefrontPriceDisplayHooks`):
+`PriceResolverInterface` (bölüm 13) şimdiye kadar yalnızca sepet
+hesaplaması sırasında (`woocommerce_before_calculate_totals`) danışılıyordu
+- bir şubenin ürüne verdiği özel fiyat, ürün sepete eklenene kadar mağaza/
+ürün sayfasında hiç görünmüyordu. Bu, WooCommerce'in `get_price_html()`'inin
+(ve dolayısıyla her mağaza/ürün şablonunun) zaten geçtiği
+`woocommerce_product_get_price` filtresine bağlanarak çözüldü. Mağazada
+gezinirken henüz bir öğrenci seçilmediğinden (o yalnızca sepete eklerken
+seçiliyor) yalnızca ŞUBE bazlı çözümleme yapılabiliyor - velinin birden
+çok şubede çocuğu varsa EN UCUZ sonuç gösteriliyor ("başlangıç fiyatı"
+önizlemesi; sepete eklendiğinde CartPricingService daha spesifik bir
+öğrenci kuralını hâlâ doğru şekilde uyguluyor). Sepet/checkout/AJAX
+istekleri bilinçli olarak hariç tutuldu (`is_cart()`/`is_checkout()`/
+`DOING_AJAX`) - CartPricingService orada fiyatı zaten öğrenci bazlı ve
+doğru şekilde `set_price()` ile belirliyor; bu yeni filtre oraya karışırsa
+daha kaba (şube bazlı) bir sonuçla doğru öğrenci fiyatının üzerine
+yazabilirdi.
+
+**Taban fiyat genişletmesi** (`PricingRestController::violatesBasePriceFloor()`,
+bölüm 39'da kurulmuştu): önceden yalnızca AÇIK bir GENERAL fiyat kuralı
+varsa bir taban oluşturuyordu - bir ürünün kendi temel fiyatının (WC
+`regular_price`) hiçbir zaman taban olarak sayılmadığı bir boşluk vardı.
+Şimdi GENERAL kural yoksa ve ürün Genel Merkez'e aitse (bkz. yukarıdaki
+sahiplik), ürünün kendi temel fiyatı tabana geriye düşüyor. Pricing bunu
+Commerce'in verisine bir Contract/DI bağımlılığıyla DEĞİL,
+`apply_filters('scp_commerce_product_owner_branch_id'/'scp_commerce_product_base_price', ...)`
+üzerinden okuyor (yeni `Http\ProductOwnershipBridge`'in yayınladığı) -
+Commerce zaten Pricing'e bağımlı olduğundan (CartPricingService), ters
+yönde bir Contract iki eklentiyi birbirine bağımlı hale getirirdi;
+bölüm 39'daki filtre-köprüsü deseninin (tedarikçi portalı) aynısı. Commerce
+etkin değilse filtreler varsayılanı (null) döner, taban kontrolü sessizce
+devre dışı kalır - Pricing bağımsız çalışmaya devam eder.
+
+**Ürünler panelinde tıkla-düzenle yapısı**: `ProductsRestController::
+canManageProductFully()` artık HQ için hep true, bir Şube Müdürü için ise
+YALNIZCA kendi oluşturduğu üründe true (asla bir Genel Merkez ürününde,
+asla başka bir şubenin ürününde) - önceden bu tamamen HQ-only'ydi, bir
+şube kendi oluşturduğu ürünü bile sonradan düzenleyemiyordu. Yanıt artık
+her ürün için sunucu tarafında hesaplanmış bir `can_manage` bayrağı
+taşıyor; `products-panel.js` bunu ayrı bir yetki mantığı yazmadan doğrudan
+kullanıyor - `can_manage` true olan bir satıra TIKLAMAK (ya da "Düzenle"
+düğmesine basmak) aynı düzenleme yapısını (isim/fiyat/stok/görsel/varyant)
+açıyor, "Sil" düğmesi de aynı bayrakla gösteriliyor/gizleniyor ("ürün
+Genel Merkez'den oluşturulduysa silemez" - artık tam olarak bunu ifade
+ediyor). Satır içi düğmeler (`event.stopPropagation()`) satır tıklamasını
+tetiklemiyor. "Şubeler" (HQ'nun herhangi bir ürünün TÜM şube durumlarını
+yönettiği ekran) ve bir Şube Müdürü'nün KENDİ şubesi için tek toggle'ı
+bilinçli olarak sahiplikten bağımsız bırakıldı - kapsam dışı, kullanıcının
+isteği yalnızca tam düzenleme/silme hakkını kapsıyordu.
+
+**Doğrulama**: Commerce (17) ve Pricing (32) PHPUnit paketleri değişmeden
+yeşil (dokunulan sınıfların tamamı WP/WC'ye dokunan adapter'lar -
+`PricingRestController`/`ProductsRestController` gibi REST controller'lar
+bu kod tabanında zaten hiç birim testli değil, bkz. "Test stratejisi");
+repo geneli phpcs 0 hata. Görsel/işlevsel tarayıcı testi bu ortamda yine
+mümkün değil (bölüm 58'deki aynı kısıt).
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

@@ -6,6 +6,7 @@ namespace Seviye\Commerce\Http;
 
 use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
+use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Students\Contracts\ParentBranchLookupInterface;
 
 /**
@@ -17,12 +18,22 @@ use Seviye\Students\Contracts\ParentBranchLookupInterface;
  * ProductCapability::MANAGE_PRODUCTS, i.e. the "Ürünler" panel) always see
  * everything, since hiding a product from the very people managing its
  * visibility would be self-defeating.
+ *
+ * "Bir şube kendi eklediği ürünü sadece o şube ve o şubenin öğrencileri
+ * görebilecek" - layered IN FRONT of the toggle above: a branch-owned
+ * product (see ProductOwnership) is a hard gate, not an opt-out default -
+ * it is invisible to every Veli whose children are all in OTHER branches,
+ * regardless of that product's own active/passive toggle state. A
+ * Genel Merkez-owned product (no owner branch) is unaffected by this gate
+ * and keeps the exact opt-out behaviour every product already had before
+ * ownership existed.
  */
 final class ProductVisibilityHooks
 {
     public function __construct(
         private readonly ProductBranchVisibilityRepositoryInterface $visibility,
-        private readonly ParentBranchLookupInterface $parentBranches
+        private readonly ParentBranchLookupInterface $parentBranches,
+        private readonly ProductOwnership $ownership
     ) {
     }
 
@@ -70,6 +81,12 @@ final class ProductVisibilityHooks
             // has no branch-scoping opinion about) - never invented, so
             // don't hide anything the visibility model has no say over.
             return true;
+        }
+
+        $ownerBranchId = $this->ownership->ownerBranchId($productId);
+
+        if ($ownerBranchId !== null && !in_array($ownerBranchId, $branchIds, true)) {
+            return false;
         }
 
         foreach ($branchIds as $branchId) {
