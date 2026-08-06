@@ -1161,6 +1161,87 @@
         container.appendChild(list);
     }
 
+    /**
+     * "Stok gelince haber ver" - inc/woocommerce.php'nin
+     * scp_render_stock_subscription()'ı yalnızca stokta olmayan bir
+     * ürün sayfasında (ve yalnızca veli için) boş bir kap basıyor; bu
+     * fonksiyon o kabın gerçek abonelik durumunu GET ile sorgulayıp
+     * abone-ol/aboneliği-iptal-et arasında geçiş yapan tek bir düğme
+     * render ediyor. `scpApiFetch`/`scpPanel` bu sayfada zaten mevcut -
+     * scp-notifications-bell.js her girişli kullanıcı için HER sayfada
+     * (ürün sayfaları dahil) koşulsuz enqueue edildiğinden ve o da AYNI
+     * scpPanel/scpPanelText'i localize ettiğinden (inc/assets.php), ayrı
+     * bir yerelleştirme gerekmiyor.
+     */
+    function initStockSubscription() {
+        var container = document.querySelector('[data-scp-stock-subscription]');
+
+        if (!container || typeof scpApiFetch === 'undefined' || typeof scpPanel === 'undefined') {
+            return;
+        }
+
+        var productId = container.dataset.productId;
+
+        var text = {
+            subscribe: (typeof scpPanelText !== 'undefined' && scpPanelText.stockSubscribeAction)
+                || 'Stok Gelince Haber Ver',
+            unsubscribe: (typeof scpPanelText !== 'undefined' && scpPanelText.stockUnsubscribeAction)
+                || 'Aboneliği İptal Et',
+            subscribed: (typeof scpPanelText !== 'undefined' && scpPanelText.stockSubscribed)
+                || 'Bu ürün stoğa girince size haber vereceğiz.'
+        };
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-btn scp-btn--ghost';
+        button.hidden = true;
+        container.appendChild(button);
+
+        var note = document.createElement('p');
+        note.className = 'scp-stock-subscription__note';
+        note.hidden = true;
+        note.textContent = text.subscribed;
+        container.appendChild(note);
+
+        function render(subscribed) {
+            button.textContent = subscribed ? text.unsubscribe : text.subscribe;
+            button.hidden = false;
+            note.hidden = !subscribed;
+        }
+
+        function toggle(currentlySubscribed) {
+            var request = currentlySubscribed
+                ? scpApiFetch('commerce/stock-subscriptions/' + productId, { method: 'DELETE' })
+                : scpApiFetch('commerce/stock-subscriptions', {
+                    method: 'POST',
+                    body: JSON.stringify({ product_id: Number(productId) })
+                });
+
+            request.then(function (result) {
+                if (!result.ok) {
+                    return;
+                }
+
+                render(Boolean(result.data.subscribed));
+                button.onclick = function () {
+                    toggle(Boolean(result.data.subscribed));
+                };
+            });
+        }
+
+        scpApiFetch('commerce/stock-subscriptions/' + productId).then(function (result) {
+            if (!result.ok) {
+                return;
+            }
+
+            var subscribed = Boolean(result.data.subscribed);
+            render(subscribed);
+            button.onclick = function () {
+                toggle(subscribed);
+            };
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
@@ -1173,5 +1254,6 @@
         initResponsiveTables();
         initThemeToggle();
         initRecentlyViewed();
+        initStockSubscription();
     });
 })();

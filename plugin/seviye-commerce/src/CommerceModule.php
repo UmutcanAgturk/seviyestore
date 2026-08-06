@@ -9,11 +9,14 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Commerce\Contracts\OrderLineItemQueryInterface;
 use Seviye\Commerce\Database\Migrations\CreateOrderLineItemsTable;
 use Seviye\Commerce\Database\Migrations\CreateProductBranchesTable;
+use Seviye\Commerce\Database\Migrations\CreateStockSubscriptionsTable;
 use Seviye\Commerce\Http\AdminOrdersRestController;
+use Seviye\Commerce\Http\BackInStockNotificationHooks;
 use Seviye\Commerce\Http\CustomerAddressRestController;
 use Seviye\Commerce\Database\Migrations\CreateStudentSpendingLimitsTable;
 use Seviye\Commerce\Http\CouponsRestController;
 use Seviye\Commerce\Http\LowStockNotificationHooks;
+use Seviye\Commerce\Http\StockSubscriptionsRestController;
 use Seviye\Commerce\Http\OrderPersistenceHooks;
 use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductOwnershipBridge;
@@ -32,10 +35,12 @@ use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\OrderLineItemRepositoryInterface;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
 use Seviye\Commerce\Repository\SpendingLimitRepositoryInterface;
+use Seviye\Commerce\Repository\StockSubscriptionRepositoryInterface;
 use Seviye\Commerce\Repository\WpdbOrderLineItemQuery;
 use Seviye\Commerce\Repository\WpdbOrderLineItemRepository;
 use Seviye\Commerce\Repository\WpdbProductBranchVisibilityRepository;
 use Seviye\Commerce\Repository\WpdbSpendingLimitRepository;
+use Seviye\Commerce\Repository\WpdbStockSubscriptionRepository;
 use Seviye\Commerce\Support\CartPricingService;
 use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Commerce\Support\OrderPayloadBuilder;
@@ -131,9 +136,17 @@ final class CommerceModule implements ModuleInterface
             static fn (): TaxRateGateway => new TaxRateGateway()
         );
 
+        $container->singleton(
+            StockSubscriptionRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbStockSubscriptionRepository => new WpdbStockSubscriptionRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
         $container->get(MigrationRunner::class)->register(new CreateProductBranchesTable());
         $container->get(MigrationRunner::class)->register(new CreateStudentSpendingLimitsTable());
+        $container->get(MigrationRunner::class)->register(new CreateStockSubscriptionsTable());
 
         $rbac = $container->get(RbacManager::class);
         $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_PRODUCTS->value);
@@ -296,6 +309,16 @@ final class CommerceModule implements ModuleInterface
             static fn (): CouponsRestController => new CouponsRestController()
         );
 
+        // "Stok gelince haber ver" - route handlers themselves don't touch
+        // WC_Product directly, but this stays behind the same WC-active
+        // gate as every other controller here since subscribing only makes
+        // sense once WooCommerce (and its stock concept) exists.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): StockSubscriptionsRestController => new StockSubscriptionsRestController(
+                $container->get(StockSubscriptionRepositoryInterface::class)
+            )
+        );
+
         // Deferred to `init` (not resolved here in boot()): CartPricingService and
         // OrderPersistenceHooks depend on other modules' Contracts (Students,
         // Branches), and ModuleRegistry::bootAll() boots modules in plugin
@@ -345,6 +368,11 @@ final class CommerceModule implements ModuleInterface
             $priceDisplayHooks->register();
 
             (new LowStockNotificationHooks($container->get(EventBusInterface::class)))->register();
+
+            (new BackInStockNotificationHooks(
+                $container->get(StockSubscriptionRepositoryInterface::class),
+                $container->get(EventBusInterface::class)
+            ))->register();
 
             (new ProductReviewGate())->register();
         });

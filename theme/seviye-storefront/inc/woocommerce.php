@@ -79,6 +79,11 @@ add_action('woocommerce_after_shop_loop_item', 'scp_render_quick_view_trigger', 
 add_action('woocommerce_single_product_summary', 'scp_render_recently_viewed_marker', 60);
 add_action('woocommerce_after_single_product_summary', 'scp_render_recently_viewed_strip', 25);
 
+// "Stok gelince haber ver" - priority 31, WC'nin kendi sepete-ekleme
+// alanının (priority 30 - stok yoksa burada "Stokta yok" mesajı basılır)
+// HEMEN ardından.
+add_action('woocommerce_single_product_summary', 'scp_render_stock_subscription', 31);
+
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
@@ -646,4 +651,34 @@ function scp_render_recently_viewed_strip(): void
     }
 
     echo '<div class="scp-recently-viewed" data-scp-recently-viewed></div>';
+}
+
+/**
+ * "Stok gelince haber ver" - yalnızca STOKTA OLMAYAN bir üründe, yalnızca
+ * veli için (personelin kendi test amaçlı görüntülemesinde anlamı yok)
+ * boş bir kap basılıyor - gerçek abonelik durumu (aboneyim/değilim) ve
+ * abone ol/aboneliği iptal et düğmesi assets/js/scp-ui-kit.js'in
+ * initStockSubscription()'ı tarafından
+ * seviye/v1/commerce/stock-subscriptions/{id}'ye bir GET ile dolduruluyor
+ * - PHP tarafında "şu anda abone mi" bilgisini sorgulayıp basmak yerine
+ * (StockSubscriptionRepositoryInterface'i buraya bağımlılık olarak
+ * eklemek gerekirdi), tek kaynak REST endpoint'i JS'in zaten çağıracağı
+ * için PHP tarafı kasıtlı olarak sade tutuldu.
+ */
+function scp_render_stock_subscription(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product || $product->is_in_stock()) {
+        return;
+    }
+
+    if (!current_user_can('scp_view_own_children')) {
+        return;
+    }
+
+    printf(
+        '<div class="scp-stock-subscription" data-scp-stock-subscription data-product-id="%s"></div>',
+        esc_attr((string) $product->get_id())
+    );
 }

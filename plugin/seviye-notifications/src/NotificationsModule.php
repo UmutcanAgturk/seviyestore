@@ -39,6 +39,7 @@ use Seviye\Notifications\Repository\NotificationRepositoryInterface;
 use Seviye\Notifications\Repository\ScheduledBroadcastRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
 use Seviye\Notifications\Repository\WpdbScheduledBroadcastRepository;
+use Seviye\Notifications\Support\BackInStockNotificationListener;
 use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
 use Seviye\Notifications\Support\OrderStatusNotificationListener;
@@ -182,6 +183,20 @@ final class NotificationsModule implements ModuleInterface
             $container->get(EventBusInterface::class)->listen(
                 'commerce.product_low_stock',
                 [$lowStockListener, 'onLowStock']
+            );
+
+            // "Stok gelince haber ver" - see BackInStockNotificationListener
+            // and Seviye\Commerce\Http\BackInStockNotificationHooks, which
+            // fires this event ONCE PER SUBSCRIBER (unlike
+            // commerce.product_low_stock above, a single platform-wide
+            // event). Same deferred-to-`init` reasoning as the listeners
+            // above.
+            $backInStockListener = new BackInStockNotificationListener(
+                $container->get(NotificationDispatcherInterface::class)
+            );
+            $container->get(EventBusInterface::class)->listen(
+                'commerce.stock_subscription_fulfilled',
+                [$backInStockListener, 'onStockSubscriptionFulfilled']
             );
 
             // "Haftalık/aylık özet e-postaları" - not an EventBus reaction

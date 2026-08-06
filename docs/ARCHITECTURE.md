@@ -4434,6 +4434,73 @@ gerçek Türkçe ürün adları+fiyatlarıyla davranışı ve toplu teslim
 işleminin çok sayıda (örn. 50+) sipariş seçiliyken performansı
 kullanıcının kendi ortamında doğrulanmalı.
 
+### 79. Stok gelince haber ver (back-in-stock bildirimi)
+
+Görsel/UX turlarının ötesine geçen, gerçek bir yeni özellik - hem Seviye
+Commerce hem Seviye Notifications'a dokunuyor.
+
+**Abonelik verisi (Commerce)**: yeni `scp_stock_subscriptions` tablosu -
+`(product_id, user_id)` üzerinde UNIQUE, FK YOK (`product_id`/`user_id`
+WooCommerce'in/WordPress'in kendi çekirdek tablolarına işaret ediyor - bu
+platform çekirdek tablolara asla FK koymuyor). BİR KEZLİK abonelik: bir
+üründe stok geldiğinde bildirim gönderildikten SONRA o ürünün TÜM
+abonelik kayıtları siliniyor (`WpdbStockSubscriptionRepository::deleteAllFor()`)
+- kalıcı bir izleme değil, "bir dahaki sefere haber ver" niyeti; ürün
+tekrar stoksuz kalıp tekrar gelirse veli yeniden abone olmalı.
+
+**Stok geçişini yakalama**: `BackInStockNotificationHooks`,
+`LowStockNotificationHooks`'un (düşük stok) AYNI deseni ama TERS yönde -
+WooCommerce'in kendi `woocommerce_product_object_updated_props` kancasını
+kullanıyor (bir `WC_Product::save()` sonrası GERÇEKTEN DEĞİŞEN alanların
+listesiyle çağrılıyor). `in_array('stock_status', $updatedProps, true)`
+kontrolü, bu kod'un yalnızca stok durumu GERÇEKTEN değiştiğinde
+tetiklenmesini sağlıyor - `$product->get_stock_status() === 'instock'`i
+TEK BAŞINA kontrol etmek, zaten stoktaki bir ürünün ilgisiz her
+kaydedilişinde (fiyat güncellemesi gibi) yanlışlıkla tetiklenirdi.
+
+**Tek olay, tek alıcı deseni**: `commerce.product_low_stock` (platform
+geneli, TEK olay, Genel Merkez'in TAMAMI okur) aksine,
+`commerce.stock_subscription_fulfilled` HER ABONE İÇİN AYRI AYRI
+fırlatılıyor - `OrderPlacedNotificationListener`'ın tek-müşteri-tek-olay
+şekliyle aynı. `BackInStockNotificationListener` bu event'i dinleyip
+PANEL+EMAIL bildirimi gönderiyor (Notifications, Commerce'in sınıflarına
+değil yalnızca bu event adı/payload şekline bağımlı - platformun her
+yerinde tekrarlanan kural).
+
+**REST + tema UI**: `seviye/v1/commerce/stock-subscriptions` - POST
+(abone ol), DELETE `{product_id}` (aboneliği iptal et), GET `{product_id}`
+(o anki durumu sorgula) - üçü de `get_current_user_id()`'ye göre
+kapsamlı, istemcinin verdiği bir id'ye göre DEĞİL (her `*/mine` şeklindeki
+endpoint'in aynı kuralı). `scp_view_own_children` (ProductReviewGate'in
+kullandığı AYNI veli-only capability) ile korunuyor. Tema tarafında
+`scp_render_stock_subscription()` yalnızca STOKTA OLMAYAN bir üründe boş
+bir kap basıyor; `scp-ui-kit.js`'in `initStockSubscription()`'ı GET ile
+o anki durumu okuyup abone-ol/aboneliği-iptal-et arasında geçiş yapan
+TEK bir düğme render ediyor. Bu sayfada ayrı bir `scpPanel`/`scpPanelText`
+yerelleştirmesi GEREKMEDİ - `notifications-bell.js` her girişli
+kullanıcı için HER sayfada (ürün sayfaları dahil) koşulsuz enqueue
+edildiğinden ve AYNI `$localized`/`$text` PHP dizilerini yerelleştirdiğinden,
+bu globaller ürün sayfalarında zaten mevcut.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar, hem
+iki eklenti hem tema) temiz - kalan uyarılar önceki turlardan, yeni
+değil. `node --check` (`scp-ui-kit.js`) temiz. PHPUnit: `seviye-commerce`
+23/23 (yeni `WpdbStockSubscriptionRepositoryTest` dahil, önceki tur
+23'tü - fark yok, çünkü bu turda BAŞKA bir Commerce testi
+eklenmemişti), `seviye-notifications` 57/57 (yeni
+`BackInStockNotificationListenerTest` dahil, önceki tur 55'ti).
+`BackInStockNotificationHooks` (WC_Product'a doğrudan dokunuyor)
+KASITLI OLARAK unit test EDİLMEDİ - `LowStockNotificationHooks` için de
+aynı kural geçerli (bkz. bu dosyanın "Test stratejisi" bölümü, WC/WP'ye
+doğrudan dokunan adaptörler yalnızca fake/guard üzerinden test edilir,
+doğrudan değil). Gerçek bir WordPress/WooCommerce kurulumunda uçtan uca
+test EDİLEMEDİ (aynı ortam kısıtı) - özellikle
+`woocommerce_product_object_updated_props`'un gerçek bir stok
+güncellemesinde (manuel admin düzenlemesi, sipariş sonrası otomatik
+stok artırma/azaltma, toplu içe aktarma) beklenen `updated_props`
+listesini gerçekten içerip içermediği ve e-postanın gerçekten teslim
+edilip edilmediği kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

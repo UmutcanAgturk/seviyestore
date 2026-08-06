@@ -1155,3 +1155,18 @@
   font-size: var(--scp-text-xs);
   color: var(--scp-text-muted);
 }
+
+/* ---- Stok gelince haber ver - assets/js/scp-ui-kit.js'in
+   initStockSubscription()'ı tarafından doldurulan boş kap (bkz.
+   inc/woocommerce.php'nin scp_render_stock_subscription()'ı). Düğme
+   GET yanıtı gelene kadar [hidden], sessiz bir yüklenme durumu. ---- */
+
+.scp-stock-subscription {
+  margin: 16px 0 0;
+}
+
+.scp-stock-subscription__note {
+  margin: 8px 0 0;
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text-muted);
+}
