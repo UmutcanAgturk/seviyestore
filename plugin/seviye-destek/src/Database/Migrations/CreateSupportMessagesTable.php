@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Destek\Database\Migrations;
 
 use Seviye\Core\Database\ConnectionInterface;
+use Seviye\Core\Database\ForeignKeyInstaller;
 use Seviye\Core\Database\MigrationInterface;
 
 /**
@@ -14,6 +15,16 @@ use Seviye\Core\Database\MigrationInterface;
  * same plugin, so unlike branch_id above, this is an internal scp_*-to-
  * scp_* reference and a real FOREIGN KEY is the platform's convention here
  * (see plugin/seviye-depo/src/Database/Migrations/CreatePurchaseOrderItemsTable.php).
+ *
+ * The FK is added via ForeignKeyInstaller AFTER dbDelta(), not inline in
+ * the CREATE TABLE - confirmed against a real WordPress/MariaDB install
+ * that dbDelta() cannot reliably diff a FOREIGN KEY clause written inside
+ * the table body: on every subsequent run it misreads that line as a
+ * missing COLUMN and emits an invalid
+ * `ALTER TABLE ... ADD COLUMN FOREIGN KEY (...)`, which MariaDB rejects
+ * (logged as a WordPress database error on every page load). Every other
+ * FK'd migration in this codebase already followed the two-step pattern;
+ * this one was the sole exception.
  */
 final class CreateSupportMessagesTable implements MigrationInterface
 {
@@ -41,11 +52,17 @@ final class CreateSupportMessagesTable implements MigrationInterface
             message TEXT NOT NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
-            KEY ticket_id (ticket_id),
-            FOREIGN KEY (ticket_id) REFERENCES {$ticketsTable} (id) ON DELETE CASCADE
+            KEY ticket_id (ticket_id)
         ) {$charsetCollate};";
 
         $connection->dbDelta($sql);
+
+        ForeignKeyInstaller::ensure(
+            $connection,
+            $table,
+            $table . '_ticket_id_fk',
+            "FOREIGN KEY (ticket_id) REFERENCES {$ticketsTable} (id) ON DELETE CASCADE"
+        );
     }
 
     public function down(ConnectionInterface $connection): void
