@@ -15,6 +15,8 @@
   --scp-primary-hover: #0b2249;
   --scp-error: #c0271e;
   --scp-error-bg: #fbe9e8;
+  --scp-warning: #b45309;
+  --scp-success: #0f9d63;
   --scp-radius: 14px;
 }
 
@@ -30,6 +32,8 @@
     --scp-primary-hover: #7ea3f2;
     --scp-error: #f87171;
     --scp-error-bg: #341615;
+    --scp-warning: #f0b429;
+    --scp-success: #34d399;
   }
 }
 
@@ -146,6 +150,53 @@ body.scp-auth-body {
   outline: none;
   border-color: var(--scp-primary);
   box-shadow: 0 0 0 3px rgba(20, 50, 107, 0.12);
+}
+
+/* "Şifre gücü göstergesi" - PasswordPolicy::isAcceptable() only enforces a
+   minimum length server-side; this bar is UI-only encouragement toward a
+   stronger password, computed client-side in auth.js. */
+.scp-password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 16px;
+}
+
+.scp-password-strength[hidden] {
+  display: none;
+}
+
+.scp-password-strength__track {
+  flex: 1;
+  height: 4px;
+  background: var(--scp-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.scp-password-strength__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--scp-error);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.scp-password-strength__fill[data-scp-strength="medium"] {
+  background: var(--scp-warning);
+}
+
+.scp-password-strength__fill[data-scp-strength="strong"] {
+  background: var(--scp-success);
+}
+
+.scp-password-strength__label {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  min-width: 44px;
+  text-align: right;
 }
 
 .scp-auth-checkbox {

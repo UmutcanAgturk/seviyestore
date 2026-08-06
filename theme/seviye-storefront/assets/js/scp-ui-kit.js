@@ -447,9 +447,36 @@
         observer.observe(title);
     }
 
+    // ---- Character counter ----
+
+    /**
+     * "Uzun metin alanlarında karakter sayacı" - any
+     * `<textarea maxlength="…" data-scp-char-counter>` in the page gets a
+     * small "X / maxlength" label right below it that updates live, no
+     * per-panel wiring needed. A panel only has to add the attribute +
+     * maxlength to its own textarea; this runs once for every matching
+     * field on the page.
+     */
+    function initCharCounters() {
+        document.querySelectorAll('textarea[data-scp-char-counter][maxlength]').forEach(function (textarea) {
+            var max = textarea.getAttribute('maxlength');
+            var counter = document.createElement('span');
+            counter.className = 'scp-char-counter';
+
+            function update() {
+                counter.textContent = textarea.value.length + ' / ' + max;
+            }
+
+            update();
+            textarea.insertAdjacentElement('afterend', counter);
+            textarea.addEventListener('input', update);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
         initLargeTitleScroll();
+        initCharCounters();
     });
 })();

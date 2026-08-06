@@ -21,8 +21,8 @@
  *
  * "Kargoya verildi/teslim edildi": ship/deliver buttons call
  * AdminOrdersRestController::ship()/deliver() - mirrors
- * FULFILLABLE_STATUSES the same way; the fulfillment badge/meta rows come
- * from OrderPresenter merging in OrderFulfillment::present() (see
+ * FULFILLABLE_STATUSES the same way; the fulfillment timeline/meta rows
+ * come from OrderPresenter merging in OrderFulfillment::present() (see
  * `order.fulfillment_status`/`tracking_number`/`shipped_at`/`delivered_at`).
  */
 (function () {
@@ -306,6 +306,48 @@
         return hasAction ? actions : null;
     }
 
+    /**
+     * "Sipariş durumu için görsel zaman çizelgesi" - replaces the old
+     * single conditional fulfillment badge with all three steps always
+     * visible. Same markup/behaviour as orders-panel.js's (veli's own
+     * read-only order history) own copy of this function - duplicated
+     * rather than shared, same as every other small WP-context helper in
+     * this theme (see e.g. StudentsRestController::uniqueLoginFor()'s
+     * PHP-side precedent for the same call).
+     */
+    function renderFulfillmentTimeline(order) {
+        var stages = ['preparing', 'shipped', 'delivered'];
+        var labels = [
+            scpPanelTextData.fulfillmentStepPreparing,
+            scpPanelTextData.fulfillmentStepShipped,
+            scpPanelTextData.fulfillmentStepDelivered
+        ];
+        var currentIndex = stages.indexOf(order.fulfillment_status);
+
+        var list = document.createElement('ol');
+        list.className = 'scp-order-timeline';
+
+        labels.forEach(function (label, index) {
+            var state = index < currentIndex ? 'done' : (index === currentIndex ? 'active' : 'upcoming');
+
+            var step = document.createElement('li');
+            step.className = 'scp-order-timeline__step scp-order-timeline__step--' + state;
+
+            var dot = document.createElement('span');
+            dot.className = 'scp-order-timeline__dot';
+            step.appendChild(dot);
+
+            var stepLabel = document.createElement('span');
+            stepLabel.className = 'scp-order-timeline__label';
+            stepLabel.textContent = label;
+            step.appendChild(stepLabel);
+
+            list.appendChild(step);
+        });
+
+        return list;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -322,15 +364,8 @@
         badge.textContent = order.status_label;
         header.appendChild(badge);
 
-        if (order.fulfillment_status !== 'preparing') {
-            var fulfillmentBadge = document.createElement('span');
-            fulfillmentBadge.className = 'scp-badge '
-                + (order.fulfillment_status === 'delivered' ? 'scp-badge--active' : 'scp-badge--info');
-            fulfillmentBadge.textContent = order.fulfillment_status_label;
-            header.appendChild(fulfillmentBadge);
-        }
-
         card.appendChild(header);
+        card.appendChild(renderFulfillmentTimeline(order));
 
         var meta = document.createElement('dl');
         meta.className = 'scp-summary-list';

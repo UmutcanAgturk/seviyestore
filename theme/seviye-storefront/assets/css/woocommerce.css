@@ -125,6 +125,23 @@
   transform: scale(1.04);
 }
 
+/* "Düşük stok rozeti" - scp_render_low_stock_badge() (inc/woocommerce.php),
+   positioned over the product image's top-left corner (li.product is
+   already position:relative above). */
+.scp-low-stock-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--scp-danger, #c0271e);
+  border-radius: 999px;
+  letter-spacing: -0.01em;
+}
+
 .woocommerce ul.products li.product .woocommerce-loop-product__title {
   margin: 0 0 8px;
   font-size: 0.9375rem;

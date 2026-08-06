@@ -46,6 +46,11 @@ add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_li
 // keeps working with zero extra plumbing. See scp_render_shop_filters().
 add_action('woocommerce_before_shop_loop', 'scp_render_shop_filters', 5);
 
+// "Düşük stok rozeti" - priority 15 so it prints AFTER WooCommerce's own
+// default thumbnail output on this same hook (priority 10, unhooked
+// nowhere in this theme).
+add_action('woocommerce_before_shop_loop_item_title', 'scp_render_low_stock_badge', 15);
+
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
@@ -184,6 +189,49 @@ function scp_render_shop_filters(): void
         </nav>
     </div>
     <?php
+}
+
+/**
+ * "Ürün kartlarında 'Son 3 adet!' gibi aciliyet göstergesi" - only when the
+ * product manages its own stock AND its remaining quantity is at/under
+ * WooCommerce's own low-stock threshold (`wc_get_low_stock_amount()` -
+ * the product's own low_stock_amount if set, falling back to the store-wide
+ * "Düşük stok eşiği" setting, exactly the same threshold this platform's
+ * admin "Depo/Ürünler" low-stock warnings already use - see
+ * plugin/seviye-commerce/src/Http/LowStockNotificationHooks.php). Hidden
+ * entirely at 0 (out of stock is WooCommerce's own separate "Stokta Yok"
+ * badge, not this one).
+ */
+function scp_render_low_stock_badge(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product || !$product->get_manage_stock()) {
+        return;
+    }
+
+    $quantity = $product->get_stock_quantity();
+
+    if ($quantity === null || $quantity <= 0) {
+        return;
+    }
+
+    $threshold = (int) wc_get_low_stock_amount($product);
+
+    if ($threshold <= 0 || $quantity > $threshold) {
+        return;
+    }
+
+    printf(
+        '<span class="scp-low-stock-badge">%s</span>',
+        esc_html(
+            sprintf(
+                /* translators: %d: remaining stock quantity */
+                __('Son %d adet!', 'seviye-storefront'),
+                $quantity
+            )
+        )
+    );
 }
 
 /**

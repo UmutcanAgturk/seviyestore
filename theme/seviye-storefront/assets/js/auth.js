@@ -271,6 +271,90 @@
         }
     );
 
+    /**
+     * "Şifre gücü göstergesi" - a simple 0-6 point heuristic (length +
+     * character variety), not a real entropy calculation - good enough for
+     * steering someone away from an obviously weak password without
+     * pulling in a scoring library on the one screen every visitor hits
+     * before authenticating (see this file's own "self-contained on
+     * purpose" note in auth.css). PasswordPolicy::isAcceptable() (the
+     * actual server-side gate) only enforces a minimum length; this bar is
+     * UI encouragement only, never a validation blocker.
+     */
+    function passwordStrengthScore(password) {
+        var score = 0;
+
+        if (password.length >= 8) {
+            score++;
+        }
+        if (password.length >= 12) {
+            score++;
+        }
+        if (/[a-z]/.test(password)) {
+            score++;
+        }
+        if (/[A-Z]/.test(password)) {
+            score++;
+        }
+        if (/[0-9]/.test(password)) {
+            score++;
+        }
+        if (/[^a-zA-Z0-9]/.test(password)) {
+            score++;
+        }
+
+        return score;
+    }
+
+    function bindPasswordStrength(view) {
+        var form = views[view];
+
+        if (!form || !form.password) {
+            return;
+        }
+
+        var meter = form.querySelector('[data-scp-password-strength]');
+        var fill = form.querySelector('[data-scp-password-strength-fill]');
+        var label = form.querySelector('[data-scp-password-strength-label]');
+
+        if (!meter || !fill || !label) {
+            return;
+        }
+
+        form.password.addEventListener('input', function () {
+            var value = form.password.value;
+
+            if (!value) {
+                meter.hidden = true;
+                return;
+            }
+
+            meter.hidden = false;
+
+            var score = passwordStrengthScore(value);
+            var level = 'weak';
+            var percent = 33;
+            var text = scpAuthText.passwordStrengthWeak;
+
+            if (score >= 5) {
+                level = 'strong';
+                percent = 100;
+                text = scpAuthText.passwordStrengthStrong;
+            } else if (score >= 3) {
+                level = 'medium';
+                percent = 66;
+                text = scpAuthText.passwordStrengthMedium;
+            }
+
+            fill.style.width = percent + '%';
+            fill.setAttribute('data-scp-strength', level);
+            label.textContent = text;
+        });
+    }
+
+    bindPasswordStrength('set-password');
+    bindPasswordStrength('require-password-change');
+
     if (scpAuth.token) {
         showView('set-password');
     }

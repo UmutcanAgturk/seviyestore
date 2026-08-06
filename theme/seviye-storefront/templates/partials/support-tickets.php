@@ -40,7 +40,7 @@ if (!defined('ABSPATH')) {
         </label>
         <label>
             <span><?php esc_html_e('Mesaj', 'seviye-storefront'); ?></span>
-            <textarea name="message" rows="4" required></textarea>
+            <textarea name="message" rows="4" required maxlength="1000" data-scp-char-counter></textarea>
         </label>
         <div class="scp-form__actions">
             <button type="submit" class="scp-btn"><?php esc_html_e('Gönder', 'seviye-storefront'); ?></button>
@@ -74,7 +74,7 @@ if (!defined('ABSPATH')) {
         <ul class="scp-list" data-scp-support-messages></ul>
 
         <form class="scp-form" data-scp-support-reply-form>
-            <textarea name="message" rows="3" required></textarea>
+            <textarea name="message" rows="3" required maxlength="1000" data-scp-char-counter></textarea>
             <div class="scp-form__actions">
                 <button type="submit" class="scp-btn scp-btn--small">
                     <?php esc_html_e('Yanıtla', 'seviye-storefront'); ?>

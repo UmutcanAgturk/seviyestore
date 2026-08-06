@@ -3903,6 +3903,114 @@ WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam
 kısıtı) - özellikle nonce/çerez zamanlama akıl yürütmesi kullanıcının
 kendi ortamında doğrulanmalı.
 
+### 72. Görsel/UX Tur 1: e-posta HTML şablonu, şifre gücü göstergesi, sipariş zaman çizelgesi, düşük stok rozeti, karakter sayacı, markalı 404
+
+Kullanıcı, önceki turlarda önerilen ~90 maddelik görsel/UX birikiminin
+neredeyse tamamını tek seferde "yapılsın" diye işaretledi; bu boyutta bir
+isteği tek seferde denemek gözden geçirilemez/güvensiz olacağından,
+`AskUserQuestion` ile nasıl ilerleneceği soruldu - kullanıcı "Ben sıralayıp
+parça parça ilerleyeyim (Önerilen)" seçeneğini seçti. Bu, her turu tek tek
+onaya sunmadan, düşük riskli/yüksek etkili maddelerden başlayarak kendi
+kendine sıralı turlar halinde ilerleme yetkisi verdi. Bu ilk tur, birikimden
+düşük riskli/bağımsız 6 maddeyi kapsıyor.
+
+**E-posta bildirimlerinin HTML şablonu**: `EmailChannel::send()` artık düz
+metni `wp_mail()`'e vermeden önce markalı bir HTML gövdeye sarıyor
+(`Content-Type: text/html` başlığıyla). Tek noktadan yapıldı (her
+`NotificationDispatcher` dinleyicisine tek tek dokunmak yerine) -
+`NotificationDispatcher::dispatch()` uygulama içi/geçmiş kaydı için hâlâ
+ORİJİNAL düz metni saklıyor (`record()`'u `send()`'DEN ÖNCE, kendi
+dönüştürülmemiş kopyasıyla çağırıyor); yalnızca SMTP üzerinden giden
+gövde HTML'e çevriliyor. Logo, temanın `scp_logo_url()`'ünün okuduğu AYNI
+`branding_logo_attachment_id` ayarından - Notifications zaten
+`seviye/core`'a sabit bağımlı olduğundan `Plugin::instance()->container()
+->get(SettingsRepositoryInterface::class)` ile doğrudan erişiliyor (bir
+eklentinin Core'un paylaşılan container'ına uzanması sorun değil; bir
+eklentinin TEMA koduna uzanması olurdu, o yapılmadı). Gövde metni
+`bodyToHtml()` ile boş satırlara göre paragraflara bölünüyor; tek başına
+bir URL olan paragraf "Devam Et" biçiminde stilli bir buton pill'ine
+dönüşüyor, diğerleri `nl2br(esc_html())` ile `<p>` oluyor.
+
+**Şifre gücü göstergesi**: saf istemci-taraflı bir UX sezgisi (0-6 puanlık
+skor: uzunluk≥8, uzunluk≥12, küçük harf, büyük harf, rakam, sembol) -
+backend doğrulamasına (`PasswordPolicy::isAcceptable()`, hâlâ yalnızca
+min 8 karakter) KESİNLİKLE dokunulmadı; o sınıfın kendi docblock'u zaten
+bu eklemeyi öngörmüştü ("bir güç göstergesi Tema'nın UI'ına ait, bu
+backend doğrulama geçidine değil"). `templates/login.php`'nin hem
+`set-password` hem `require-password-change` formlarına aynı
+`.scp-password-strength` işaretlemesi eklendi; `auth.js`'e
+`passwordStrengthScore()`/`bindPasswordStrength()` eklendi.
+`auth.css` login ekranında `is_user_logged_in()`'DEN ÖNCE yüklendiği için
+kasıtlı olarak kendi kendine yeterli bir dosya - `theme.css`'in
+`--scp-danger`/`--scp-warning` token'ları o ekranda hiç yüklenmiyor - bu
+yüzden `--scp-warning`/`--scp-success` YENİ yerel token'lar olarak
+doğrudan `auth.css`'in kendi `:root` bloklarına (açık + koyu) eklendi.
+
+**Sipariş durumu görsel zaman çizelgesi**: eski tek koşullu rozet yerine
+her 3 adım (Hazırlanıyor/Kargoya Verildi/Teslim Edildi) her zaman görünür,
+`--done`/`--active`/`--upcoming` durum sınıflarıyla ve noktalar arasını
+birleştiren bir `::after` çizgisiyle. `orders-panel.js` (veli, salt-okunur)
+ile `admin-orders-panel.js` (admin/şube, aksiyon butonlarıyla) arasında
+paylaşılan yeni bir dosya yerine YİNELENDİ - bu kod tabanının küçük,
+WP-bağlama-özel yardımcıları paylaşılan bir dosya bağımlılığı kurmak
+yerine yinelemesi kuralına uygun (bkz. bölüm 68).
+
+Bu maddede bir HATA bulunup bu tur içinde düzeltildi: zaman çizelgesinin
+"Hazırlanıyor"/"Kargoya Verildi"/"Teslim Edildi" metinleri ilk yazımda
+yanlışlıkla yalnızca giriş ekranına özel `scpAuthText` localize
+çağrısına (`scp_enqueue_auth_assets()`) eklenmişti; oysa
+`orders-panel.js`/`admin-orders-panel.js` bu metinleri paylaşılan
+`scpPanelText`'ten (`scp_enqueue_panel_assets()`'in `$text` dizisi)
+okuyor - giriş ekranı hiç yüklenmeyen sipariş sayfalarında karşılığı
+`undefined` olurdu. Doğrulama sırasında (dosyalar arası grep ile hangi
+JS'in hangi localize objesini okuduğu karşılaştırılarak) yakalandı;
+üç anahtar doğru diziye taşındı.
+
+**Düşük stok rozeti (mağaza)**: `woocommerce_before_shop_loop_item_title`
+hook'una öncelik 15'te bağlanıyor (WC'nin kendi thumbnail çıktısının,
+öncelik 10, HEMEN ardından). `wc_get_low_stock_amount($product)` kullanıyor
+- bu, `plugin/seviye-commerce/src/Http/LowStockNotificationHooks.php`'nin
+zaten sunucu tarafında kullandığı AYNI eşik fonksiyonu (Depo/Ürünler'in
+düşük stok uyarılarıyla tutarlılık için).
+
+**Karakter sayacı**: paylaşılan `scp-ui-kit.js`'e (her kimliği doğrulanmış
+sayfada global yüklenir) genel, kendi kendini başlatan bir `initCharCounters()`
+eklendi - panel başına yinelemek yerine (zaman çizelgesinin aksine): bir
+karakter sayacı saf, genel, tekrar kullanılabilir bir yardımcı (sayfaya
+özel render mantığı değil), bu yüzden paylaşılan dosyaya konması kasıtlı
+bir istisna. `DOMContentLoaded`'da `textarea[data-scp-char-counter][maxlength]`
+taranıyor, her birine canlı bir `X / max` sayaç ekleniyor. Uygulandığı 5
+textarea: ürün açıklaması, toplu duyuru mesajı, veli destek talebi
+(yeni talep + yanıt), personel destek kuyruğu yanıtı - hepsi
+`maxlength="1000"` (bu alanlar için backend'de zorlanan bir üst sınır
+yok, tutarlılık için diğerleriyle aynı değer seçildi).
+
+**Markalı 404 sayfası**: yeni `theme/seviye-storefront/404.php`.
+`inc/access-gate.php`'nin `template_redirect` (öncelik 5) zaten oturum
+açmamış her isteği `templates/login.php`'ye yönlendiriyor, ve
+`inc/zones.php`'nin `scp_render_zone_template()`'i (öncelik 10) tanıdığı
+her `/admin`, `/sube` alt-yolunu (tanımadığı bir alt-yol dahil - o zaman
+zone kökünün kendisine sessizce düşüyor, 404 vermiyor, bkz. o fonksiyonun
+kendi docblock'u) zaten ele alıyor - yani bu dosyaya WordPress'in şablon
+hiyerarşisi yalnızca GERÇEKTEN eşleşmeyen bir istekte ulaşıyor: eskimiş/
+yanlış yazılmış bir WooCommerce ürün linki, eski bir yer imi, vb. -
+oturum açmış bir kullanıcının başına gelen. `get_header()`'ın
+koşulsuz çağrılması bu yüzden güvenli (`index.php`'nin aynı varsayımı
+gibi - `is_user_logged_in()` bu noktada zaten garanti true). Tasarım
+`.scp-empty-state`'in (panel.css) aynı ortalanmış-kart şeklini kullanan
+ama ayrı, yeni bir `.scp-not-found` bileşeni - marka renginde büyük bir
+"404" rakamı + "Panele Dön" linki (`scp_current_user_landing_path()`).
+
+**Doğrulama**: `node --check` (`scp-ui-kit.js`, `auth.js`, `orders-panel.js`,
+`admin-orders-panel.js`) temiz. `php -l` + `vendor/bin/phpcs` (tüm
+değişen dosyalar) temiz - `inc/assets.php`'deki tek uyarı (satır uzunluğu)
+bu turdan ÖNCE var olan, dokunulmamış bir satırda. `seviye-notifications`
+(48 test) yeşil - bu turda dokunulan tek eklenti plugin tarafı
+(`EmailChannel.php`); geri kalan her şey yalnızca tema. Gerçek bir
+WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam
+kısıtı) - özellikle e-posta HTML render'ı ve 404 sayfasının gerçek bir
+tarayıcıda görünümü kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

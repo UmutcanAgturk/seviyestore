@@ -111,6 +111,13 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
                 <input type="password" name="password" autocomplete="new-password" minlength="8" required>
             </label>
 
+            <div class="scp-password-strength" data-scp-password-strength hidden>
+                <div class="scp-password-strength__track">
+                    <div class="scp-password-strength__fill" data-scp-password-strength-fill></div>
+                </div>
+                <span class="scp-password-strength__label" data-scp-password-strength-label></span>
+            </div>
+
             <label class="scp-auth-field">
                 <span><?php esc_html_e('Yeni Şifre (Tekrar)', 'seviye-storefront'); ?></span>
                 <input type="password" name="password_confirm" autocomplete="new-password" minlength="8" required>
@@ -128,10 +135,11 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
          * no "Girişe dön"/vazgeç link and no cancel path - the account is
          * already authenticated at this point (the session cookie is set),
          * this is a mandatory gate before scpAuth's redirect_url is
-         * followed, not a separate auth flow. Posts to
-         * seviye/v1/auth/complete-first-login, which needs no T.C. Kimlik
-         * No/current password - the active session already proves the
-         * caller knows the institution-issued one.
+         * followed, not a separate auth flow. Posts to the SAME
+         * seviye/v1/auth/set-password endpoint the token-based "Şifremi
+         * Unuttum" flow uses, with the `password_change_token` finishLogin()
+         * included in its response (see auth.js) - no separate session-
+         * gated endpoint (see AuthRestController's own docblock on why).
          */
         ?>
         <form class="scp-auth-form" data-scp-view="require-password-change" hidden>
@@ -146,6 +154,13 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
                 <span><?php esc_html_e('Yeni Şifre', 'seviye-storefront'); ?></span>
                 <input type="password" name="password" autocomplete="new-password" minlength="8" required>
             </label>
+
+            <div class="scp-password-strength" data-scp-password-strength hidden>
+                <div class="scp-password-strength__track">
+                    <div class="scp-password-strength__fill" data-scp-password-strength-fill></div>
+                </div>
+                <span class="scp-password-strength__label" data-scp-password-strength-label></span>
+            </div>
 
             <label class="scp-auth-field">
                 <span><?php esc_html_e('Yeni Şifre (Tekrar)', 'seviye-storefront'); ?></span>

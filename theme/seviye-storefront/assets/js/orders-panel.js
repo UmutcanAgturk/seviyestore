@@ -102,6 +102,45 @@
         return wrapper;
     }
 
+    /**
+     * "Sipariş durumu için görsel zaman çizelgesi" - replaces the old
+     * single conditional fulfillment badge with all three steps always
+     * visible, so a veli sees exactly where an order stands at a glance
+     * rather than inferring "no badge = still preparing".
+     */
+    function renderFulfillmentTimeline(order) {
+        var stages = ['preparing', 'shipped', 'delivered'];
+        var labels = [
+            scpPanelTextData.fulfillmentStepPreparing,
+            scpPanelTextData.fulfillmentStepShipped,
+            scpPanelTextData.fulfillmentStepDelivered
+        ];
+        var currentIndex = stages.indexOf(order.fulfillment_status);
+
+        var list = document.createElement('ol');
+        list.className = 'scp-order-timeline';
+
+        labels.forEach(function (label, index) {
+            var state = index < currentIndex ? 'done' : (index === currentIndex ? 'active' : 'upcoming');
+
+            var step = document.createElement('li');
+            step.className = 'scp-order-timeline__step scp-order-timeline__step--' + state;
+
+            var dot = document.createElement('span');
+            dot.className = 'scp-order-timeline__dot';
+            step.appendChild(dot);
+
+            var stepLabel = document.createElement('span');
+            stepLabel.className = 'scp-order-timeline__label';
+            stepLabel.textContent = label;
+            step.appendChild(stepLabel);
+
+            list.appendChild(step);
+        });
+
+        return list;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -118,15 +157,8 @@
         badge.textContent = order.status_label;
         header.appendChild(badge);
 
-        if (order.fulfillment_status !== 'preparing') {
-            var fulfillmentBadge = document.createElement('span');
-            fulfillmentBadge.className = 'scp-badge '
-                + (order.fulfillment_status === 'delivered' ? 'scp-badge--active' : 'scp-badge--info');
-            fulfillmentBadge.textContent = order.fulfillment_status_label;
-            header.appendChild(fulfillmentBadge);
-        }
-
         card.appendChild(header);
+        card.appendChild(renderFulfillmentTimeline(order));
 
         var meta = document.createElement('dl');
         meta.className = 'scp-summary-list';

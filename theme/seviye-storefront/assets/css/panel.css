@@ -309,6 +309,14 @@ button.scp-badge:hover {
   resize: vertical;
 }
 
+.scp-char-counter {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--scp-text-muted);
+  text-align: right;
+}
+
 .scp-form input:focus,
 .scp-form select:focus,
 .scp-form textarea:focus {
@@ -693,6 +701,80 @@ button.scp-badge:hover {
   border: 1px solid var(--scp-border);
   border-radius: 6px;
   font-size: 0.8125rem;
+}
+
+/* "Sipariş durumu için görsel zaman çizelgesi" - Hazırlanıyor → Kargoya
+   Verildi → Teslim Edildi as connected steps, replacing the single
+   fulfillment badge that used to be the only signal. Steps are laid out
+   left-to-right with a connecting line drawn behind the dots (the ::after
+   pseudo-element on every non-last <li>) so "done" segments visibly extend
+   past their own dot into the next step, reading as one continuous
+   progress line rather than three isolated dots. */
+.scp-order-timeline {
+  display: flex;
+  margin: 4px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.scp-order-timeline__step {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.scp-order-timeline__step::after {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--scp-border);
+  z-index: 0;
+}
+
+.scp-order-timeline__step:last-child::after {
+  display: none;
+}
+
+.scp-order-timeline__step--done::after {
+  background: var(--scp-success-text);
+}
+
+.scp-order-timeline__dot {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--scp-surface);
+  border: 2px solid var(--scp-border);
+}
+
+.scp-order-timeline__step--done .scp-order-timeline__dot,
+.scp-order-timeline__step--active .scp-order-timeline__dot {
+  background: var(--scp-success-text);
+  border-color: var(--scp-success-text);
+}
+
+.scp-order-timeline__step--active .scp-order-timeline__dot {
+  box-shadow: 0 0 0 4px var(--scp-success-bg);
+}
+
+.scp-order-timeline__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+}
+
+.scp-order-timeline__step--done .scp-order-timeline__label,
+.scp-order-timeline__step--active .scp-order-timeline__label {
+  color: var(--scp-text);
 }
 
 /*
@@ -1080,6 +1162,40 @@ button.scp-badge:hover {
 .scp-empty-state p {
   margin: 0;
   max-width: 320px;
+  font-size: var(--scp-text-sm);
+}
+
+/* ---- Markalı 404 sayfası - theme's own 404.php. A big brand-colored
+   numeral in place of an icon; otherwise the same centered-card shape as
+   .scp-empty-state above (kept separate rather than reused, since a 404 is
+   its own top-level page rather than a section inside another panel). ---- */
+
+.scp-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 64px 20px;
+  text-align: center;
+}
+
+.scp-not-found__code {
+  margin: 0;
+  font-size: 4.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--scp-primary-light);
+}
+
+.scp-not-found h1 {
+  margin: 8px 0 0;
+  font-size: var(--scp-text-lg);
+}
+
+.scp-not-found__hint {
+  margin: 0 0 12px;
+  max-width: 360px;
+  color: var(--scp-text-muted);
   font-size: var(--scp-text-sm);
 }
 

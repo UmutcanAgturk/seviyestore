@@ -42,7 +42,7 @@ if (!defined('ABSPATH')) {
             </label>
             <label>
                 <span><?php esc_html_e('Mesaj', 'seviye-storefront'); ?></span>
-                <textarea name="body" rows="5" required></textarea>
+                <textarea name="body" rows="5" required maxlength="1000" data-scp-char-counter></textarea>
             </label>
             <fieldset class="scp-form__row">
                 <label class="scp-checkbox">

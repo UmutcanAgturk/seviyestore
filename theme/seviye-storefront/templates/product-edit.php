@@ -64,7 +64,7 @@ $scp_is_new_product = $scp_product_id === null;
 
             <label>
                 <span><?php esc_html_e('Açıklama', 'seviye-storefront'); ?></span>
-                <textarea name="description" rows="3"></textarea>
+                <textarea name="description" rows="3" maxlength="1000" data-scp-char-counter></textarea>
             </label>
 
             <div class="scp-form__row">

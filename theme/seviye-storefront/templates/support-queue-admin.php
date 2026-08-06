@@ -65,7 +65,7 @@ if (!defined('ABSPATH')) {
             <ul class="scp-list" data-scp-support-queue-messages></ul>
 
             <form class="scp-form" data-scp-support-queue-reply-form>
-                <textarea name="message" rows="3" required></textarea>
+                <textarea name="message" rows="3" required maxlength="1000" data-scp-char-counter></textarea>
                 <div class="scp-form__actions">
                     <button type="submit" class="scp-btn scp-btn--small">
                         <?php esc_html_e('Yanıtla', 'seviye-storefront'); ?>
