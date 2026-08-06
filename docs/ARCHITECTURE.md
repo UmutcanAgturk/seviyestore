@@ -4501,6 +4501,79 @@ stok artırma/azaltma, toplu içe aktarma) beklenen `updated_props`
 listesini gerçekten içerip içermediği ve e-postanın gerçekten teslim
 edilip edilmediği kullanıcının kendi ortamında doğrulanmalı.
 
+### 80. Güvenlik: native wp-login.php 2FA atlatması + CSV formula injection
+
+Bu tur, sandbox'ın dışa erişimi izin verdiği bir yoldan (WordPress
+çekirdeğini wordpress.org yerine kendi GitHub aynasından, WooCommerce'i
+GitHub release'inden çekerek) geçici bir yerel WordPress + MariaDB
+kurulumu yapılıp bu platform ilk kez GERÇEK bir çalışma zamanına karşı
+test edilerek gerçekleşti - bölüm 79 ve öncesindeki "aynı ortam kısıtı"
+notlarının işaret ettiği sınırlama bu tur için aşıldı (kalıcı bir
+altyapı değişikliği değil, tek seferlik bir doğrulama ortamıydı). Bu,
+sandbox'ta önceden hiç test edilemeyen bir sınıf hatayı ortaya çıkardı.
+
+**Native login 2FA atlatması (Kritik, doğrulandı)**: Platformun T.C.
+Kimlik No + Şifre + iki adımlı doğrulama + IP izin listesi giriş akışı,
+WordPress'in kendi `wp-login.php`'sinden TAMAMEN bağımsız kuruldu -
+kod tabanında `wp-login`, `wp_login`, `login_init`, `authenticate` için
+yapılan aramalar SIFIR sonuç verdi. Şifreler `wp_set_password()` ile
+gerçek, standart WordPress hash'leri olarak saklandığından (bkz.
+`AuthRestController::resetPassword()`, `UserListPage`,
+`UserAuthorizationAdminPage`), her veli/personel hesabının şifresi
+`wp-login.php` için de geçerliydi - iki adımlı doğrulamayı
+etkinleştiren bir hesap bile, WordPress'in kendi giriş formu üzerinden
+YALNIZCA şifresiyle (2FA kodu SORULMADAN) tam bir oturum açabiliyordu.
+Canlı kurulumda hem açığın var olduğu (2FA açık bir hesapla
+`wp-login.php` üzerinden tam `wp-admin` erişimi elde edildi) hem de
+düzeltmenin çalıştığı (aynı deneme artık reddediliyor, 2FA kapalı bir
+hesap normal çalışmaya devam ediyor) doğrulandı.
+
+Yeni `NativeLoginGate` (`seviye-security`), WordPress'in kendi
+`wp_authenticate_username_password`/`wp_authenticate_email_password`
+filtrelerinin çalıştığı önceliğin (20) HEMEN sonrasında (30) `authenticate`
+filtresine bağlanıyor: eğer o ana kadar oluşan sonuç geçerli bir
+`WP_User` ise VE bu kullanıcının `TwoFactorService::isEnabledForUser()`'ı
+true dönüyorsa, sonucu bir `WP_Error`'a çeviriyor - `wp-login.php`'nin
+2FA kodu sorma yeteneği olmadığından, bu hesap için native giriş
+tamamen reddediliyor. Native `administrator` rolünün kendisi
+BİLİNÇLİ OLARAK dokunulmadı bırakıldı - `SecurityModule::boot()`'un
+`get_role('administrator')->add_cap(...)` çağrısı, sitenin gerçek
+WordPress yöneticisinin de "Seviye Kullanıcılar" menüsüne erişebilmesi
+için kasıtlı bir birlikte-var-olma yolu; bu düzeltme yalnızca "2FA
+açık bir hesap 2FA'sız giriş yapabiliyor" boşluğunu kapatıyor, native
+girişi toptan KAPATMIYOR. IP izin listesine de dokunulmadı -
+`inc/ip-restriction.php`'nin kendi docblock'u bu kontrolün BİLİNÇLİ
+OLARAK yalnızca sayfa render'ına (`template_redirect`) kapsandığını,
+REST çağrılarını/zaten-var-olan-oturumları kapsamadığını zaten
+belgeliyor ("çalınmış bir oturum çerezi bugün de her iki geçidi eşit
+şekilde atlıyor") - bu, yeni bir boşluk değil, kayıtlı bir kapsam
+kararı.
+
+**CSV formula injection (Orta)**: bölüm 77'nin admin sipariş CSV dışa
+aktarma özelliği, `order.customer_name`'in WooCommerce checkout'ta
+velinin serbestçe girdiği fatura adı/soyadından geldiğini (bkz.
+`OrderPresenter::present()`) hesaba katmıyordu - `=`, `+`, `-`, `@` ile
+başlayan bir fatura adı, dışa aktarılan CSV Excel/Sheets/LibreOffice'te
+açıldığında bir formül/DDE payload'ı olarak çalışabilirdi (OWASP CSV
+Injection). `csvCell()` artık bu dört karakterden biriyle başlayan her
+hücrenin önüne bir tek tırnak ekleyip hücreyi metne sabitliyor - bu
+düzeltme `csvCell()`'in KENDİSİNDE olduğundan dışa aktarılan TÜM
+sütunları (veli e-postası dahil) kapsıyor, yalnızca ada özel bir
+istisna değil.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (değişen dosyalar) temiz.
+`seviye-security`'de PHPUnit: 78/78 (yeni `NativeLoginGate` sınıfı WC/WP
+hook'larına doğrudan dokunan diğer adaptörlerle (`LowStockNotificationHooks`,
+`BackInStockNotificationHooks`) AYNI kuralla unit test EDİLMEDİ - yalnızca
+`WP_User`/`WP_Error` tip ipuçları ve `add_filter()`/`__()` çağrıları
+içeriyor, test bootstrap'ında bu sınıflar için stub yok). `node --check`
+(`admin-orders-panel.js`) temiz. Her iki düzeltme de bu kez gerçek bir
+WordPress + MariaDB kurulumunda UÇTAN UCA doğrulandı (yalnızca kod
+okuması/statik analiz değil) - 2FA'yı etkinleştirip aynı native giriş
+denemesini tekrarlayarak açığın kapandığı, 2FA'sız bir hesabın hâlâ
+normal giriş yapabildiği ve CSV hücrelerinin artık tek tırnakla
+sabitlendiği doğrudan gözlemlendi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
