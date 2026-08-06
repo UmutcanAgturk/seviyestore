@@ -35,6 +35,8 @@ if (!defined('ABSPATH')) {
             aria-label="<?php esc_attr_e('Durum', 'seviye-storefront'); ?>"
         ></nav>
 
+        <div class="scp-bulk-actions" data-scp-admin-orders-bulk-actions hidden></div>
+
         <form class="scp-form scp-form--inline" data-scp-admin-orders-form>
             <label data-scp-admin-orders-branch-field hidden>
                 <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>

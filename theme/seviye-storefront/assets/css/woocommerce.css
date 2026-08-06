@@ -1095,3 +1095,63 @@
   flex: 1;
   text-align: center;
 }
+
+/* ---- Son görüntülenen ürünler - assets/js/scp-ui-kit.js'in
+   initRecentlyViewed()'i tarafından doldurulan boş kap (bkz.
+   inc/woocommerce.php'nin scp_render_recently_viewed_strip()'i). Kap
+   içeriği yoksa (hiç render edilmemişse) hiçbir yer kaplamıyor - JS
+   yalnızca gösterilecek en az bir ürün varsa içerik ekliyor. ---- */
+
+.scp-recently-viewed {
+  margin: 40px 0 0;
+}
+
+.scp-recently-viewed__heading {
+  margin: 0 0 16px;
+  font-size: var(--scp-text-lg);
+  color: var(--scp-text);
+}
+
+.scp-recently-viewed__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.scp-recently-viewed__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.scp-recently-viewed__item:hover {
+  border-color: var(--scp-primary-light);
+  box-shadow: var(--scp-shadow-1);
+}
+
+.scp-recently-viewed__item img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-recently-viewed__name {
+  font-size: var(--scp-text-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scp-recently-viewed__price {
+  font-size: var(--scp-text-xs);
+  color: var(--scp-text-muted);
+}

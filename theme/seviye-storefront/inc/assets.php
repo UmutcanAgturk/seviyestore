@@ -258,6 +258,9 @@ function scp_enqueue_panel_assets(): void
         'orderNumberLabel' => __('Sipariş No', 'seviye-storefront'),
         'orderNumberCopyLabel' => __('Kopyala', 'seviye-storefront'),
         'orderNumberCopied' => __('Sipariş numarası kopyalandı.', 'seviye-storefront'),
+        'orderPrintLabel' => __('Yazdır', 'seviye-storefront'),
+        'orderPrintTitle' => __('Sipariş Fişi', 'seviye-storefront'),
+        'recentlyViewedHeading' => __('Son Görüntülenen Ürünler', 'seviye-storefront'),
         'orderDateLabel' => __('Tarih', 'seviye-storefront'),
         'orderPaymentMethodLabel' => __('Ödeme Yöntemi', 'seviye-storefront'),
         'orderSubtotalLabel' => __('Ara Toplam', 'seviye-storefront'),
@@ -291,6 +294,19 @@ function scp_enqueue_panel_assets(): void
         'orderTrackingNumberLabel' => __('Kargo Takip No', 'seviye-storefront'),
         'orderShippedAtLabel' => __('Kargoya Veriliş Tarihi', 'seviye-storefront'),
         'orderDeliveredAtLabel' => __('Teslim Tarihi', 'seviye-storefront'),
+        'bulkSelectedSuffix' => __('sipariş seçildi', 'seviye-storefront'),
+        'bulkClearSelection' => __('Seçimi Temizle', 'seviye-storefront'),
+        'bulkDeliverAction' => __('Seçilenleri Teslim Edildi İşaretle', 'seviye-storefront'),
+        'confirmBulkDeliver' => __(
+            'Seçili siparişleri teslim edildi olarak işaretlemek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'bulkDeliverNoneEligible' => __(
+            'Seçili siparişlerin hiçbiri teslim edildi olarak işaretlenmeye uygun değil.',
+            'seviye-storefront'
+        ),
+        'bulkDeliverDoneSuffix' => __('sipariş teslim edildi olarak işaretlendi,', 'seviye-storefront'),
+        'bulkDeliverSkippedSuffix' => __('sipariş uygun olmadığı için atlandı.', 'seviye-storefront'),
         'noActivityLogData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
         'activityStudentCreated' => __('Öğrenci oluşturuldu', 'seviye-storefront'),
         'activityStudentUpdated' => __('Öğrenci güncellendi', 'seviye-storefront'),

@@ -87,6 +87,55 @@
   border-color: var(--scp-primary-light);
 }
 
+/* "Yazdırılabilir sipariş görünümü" - window.scpPrintOrder() (scp-ui-kit.js)
+   writes a clean order/fiş fragment into this root. Hidden in normal
+   browsing; body.scp-printing-order (added only for the duration of
+   window.print()) flips the visibility so the print dialog sees ONLY
+   this fragment instead of the whole page (header, sidebar, filter
+   form, other order cards). */
+#scp-print-order-root {
+  display: none;
+}
+
+@media print {
+  body.scp-printing-order > * {
+    display: none !important;
+  }
+
+  body.scp-printing-order #scp-print-order-root {
+    display: block !important;
+    color: #000;
+  }
+
+  #scp-print-order-root h1 {
+    margin-bottom: 16px;
+    font-size: 1.25rem;
+  }
+
+  #scp-print-order-root dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin-bottom: 20px;
+  }
+
+  #scp-print-order-root dt {
+    font-weight: 600;
+  }
+
+  #scp-print-order-root table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #scp-print-order-root th,
+  #scp-print-order-root td {
+    padding: 6px 8px;
+    border: 1px solid #999;
+    text-align: left;
+  }
+}
+
 /* "Sipariş listesi durum sekmeleri" - assets/js/admin-orders-panel.js's
    renderStatusTabs(), built from the filter form's own status <select>
    options (see that function's own comment). Empty (no children) until
@@ -119,6 +168,32 @@
 .scp-status-tabs__tab--active {
   color: #fff;
   background: var(--scp-primary);
+}
+
+/* "Admin sipariş listesinde toplu işlem" - assets/js/admin-orders-panel.js's
+   updateBulkToolbar() toggles [hidden] itself; empty/hidden by default so
+   it takes no space until at least one order is selected. */
+.scp-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius);
+}
+
+.scp-bulk-actions__count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  margin-right: auto;
+}
+
+.scp-order-select {
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
 }
 
 .scp-status {

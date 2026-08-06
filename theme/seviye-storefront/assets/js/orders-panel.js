@@ -166,6 +166,18 @@
         return button;
     }
 
+    function renderOrderPrintButton(order) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-order-copy-btn';
+        button.textContent = scpPanelTextData.orderPrintLabel;
+        button.addEventListener('click', function () {
+            window.scpPrintOrder(order, scpPanelTextData, formatMoney);
+        });
+
+        return button;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -185,6 +197,8 @@
         if (copyButton) {
             titleGroup.appendChild(copyButton);
         }
+
+        titleGroup.appendChild(renderOrderPrintButton(order));
 
         header.appendChild(titleGroup);
 

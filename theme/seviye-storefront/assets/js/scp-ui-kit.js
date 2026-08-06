@@ -955,6 +955,212 @@
         update();
     }
 
+    /**
+     * "Yazdırılabilir sipariş görünümü" - window.scpPrintOrder(), hem
+     * orders-panel.js (veli) hem admin-orders-panel.js (admin/şube)
+     * tarafından çağrılan TEK paylaşılan implementasyon. Sayfanın geri
+     * kalanını (header, sidebar, filtre formu, DİĞER sipariş kartları)
+     * gizlemeye çalışmak yerine - ki bu iki sayfanın farklı DOM
+     * yerleşimleri için ayrı ayrı mantık gerektirirdi - ham sipariş
+     * verisinden TEMİZ, sayfa yerleşiminden bağımsız bir fiş/fatura DOM
+     * parçası inşa edip `#scp-print-order-root`'a yazıyor; bu kök normal
+     * görünümde CSS ile gizli, yalnızca `body.scp-printing-order`
+     * sınıfı VARKEN (yazdırma sırasında) görünür oluyor - bkz. panel.css.
+     */
+    function printMetaRow(dl, label, value) {
+        var dt = document.createElement('dt');
+        dt.textContent = label;
+        var dd = document.createElement('dd');
+        dd.textContent = value;
+        dl.appendChild(dt);
+        dl.appendChild(dd);
+    }
+
+    window.scpPrintOrder = function (order, text, formatMoney, options) {
+        options = options || {};
+
+        var root = document.getElementById('scp-print-order-root');
+
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scp-print-order-root';
+            document.body.appendChild(root);
+        }
+
+        root.innerHTML = '';
+
+        var heading = document.createElement('h1');
+        heading.textContent = (text.orderPrintTitle || 'Sipariş') + ' - #' + order.number;
+        root.appendChild(heading);
+
+        var meta = document.createElement('dl');
+        printMetaRow(meta, text.orderDateLabel, order.date || '');
+
+        if (options.customerName) {
+            printMetaRow(meta, text.orderCustomerLabel, options.customerName);
+        }
+
+        printMetaRow(meta, text.orderStatusLabel, order.status_label || order.status);
+        printMetaRow(meta, text.orderSubtotalLabel, formatMoney(order.subtotal));
+        printMetaRow(meta, text.orderTaxLabel, formatMoney(order.total_tax));
+        printMetaRow(meta, text.orderTotalLabel, formatMoney(order.total));
+        root.appendChild(meta);
+
+        var table = document.createElement('table');
+        var thead = document.createElement('thead');
+        var headRow = document.createElement('tr');
+        [
+            text.orderItemProductLabel,
+            text.orderItemStudentLabel,
+            text.orderItemQuantityLabel,
+            text.orderItemUnitPriceLabel,
+            text.orderItemTotalLabel
+        ].forEach(function (label) {
+            var th = document.createElement('th');
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        (order.items || []).forEach(function (item) {
+            var row = document.createElement('tr');
+            [
+                item.name,
+                item.student_name || '',
+                String(item.quantity),
+                formatMoney(item.unit_price),
+                formatMoney(item.line_total)
+            ].forEach(function (cellText) {
+                var cell = document.createElement('td');
+                cell.textContent = cellText;
+                row.appendChild(cell);
+            });
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        root.appendChild(table);
+
+        document.body.classList.add('scp-printing-order');
+
+        var cleanup = function () {
+            document.body.classList.remove('scp-printing-order');
+            window.removeEventListener('afterprint', cleanup);
+        };
+
+        window.addEventListener('afterprint', cleanup);
+        window.print();
+
+        // `afterprint` doesn't fire reliably in every browser/print-preview
+        // flow - print dialogs are modal, so by the time this fallback
+        // timeout fires the user has already printed or cancelled either way.
+        setTimeout(cleanup, 2000);
+    };
+
+    /**
+     * "Son görüntülenen ürünler" - `#scp-recently-viewed-marker`'ın
+     * data-* öznitelikleri (inc/woocommerce.php'nin
+     * scp_render_recently_viewed_marker()'ı) o anki ürünü
+     * `localStorage.scpRecentlyViewed`'e kaydediyor (en yeni önde, id'ye
+     * göre tekilleştirilmiş, en fazla 8 kayıt), sonra
+     * `[data-scp-recently-viewed]` kabı (varsa) o anki ürün HARİÇ en
+     * fazla 6 kaydı küçük kartlar olarak render ediyor. Bu sayfa hiçbir
+     * ürün sayfası değilse (marker yok) fonksiyon hiçbir şey yapmadan
+     * çıkıyor - diğer generic initXxx() fonksiyonlarıyla aynı desen.
+     */
+    function initRecentlyViewed() {
+        var STORAGE_KEY = 'scpRecentlyViewed';
+        var MAX_STORED = 8;
+        var MAX_SHOWN = 6;
+
+        var marker = document.getElementById('scp-recently-viewed-marker');
+
+        if (marker) {
+            var current = {
+                id: marker.dataset.id,
+                name: marker.dataset.name,
+                url: marker.dataset.url,
+                image: marker.dataset.image,
+                price: marker.dataset.price
+            };
+
+            var stored;
+
+            try {
+                stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]');
+            } catch (error) {
+                stored = [];
+            }
+
+            stored = stored.filter(function (entry) {
+                return entry.id !== current.id;
+            });
+            stored.unshift(current);
+            stored = stored.slice(0, MAX_STORED);
+
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        }
+
+        var container = document.querySelector('[data-scp-recently-viewed]');
+
+        if (!container) {
+            return;
+        }
+
+        var all;
+
+        try {
+            all = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch (error) {
+            all = [];
+        }
+
+        var currentId = marker ? marker.dataset.id : null;
+        var others = all.filter(function (entry) {
+            return entry.id !== currentId;
+        }).slice(0, MAX_SHOWN);
+
+        if (others.length === 0) {
+            return;
+        }
+
+        var heading = document.createElement('h2');
+        heading.className = 'scp-recently-viewed__heading';
+        heading.textContent = (typeof scpPanelText !== 'undefined' && scpPanelText.recentlyViewedHeading)
+            ? scpPanelText.recentlyViewedHeading
+            : 'Son Görüntülenen Ürünler';
+        container.appendChild(heading);
+
+        var list = document.createElement('div');
+        list.className = 'scp-recently-viewed__list';
+
+        others.forEach(function (entry) {
+            var link = document.createElement('a');
+            link.className = 'scp-recently-viewed__item';
+            link.href = entry.url;
+
+            var img = document.createElement('img');
+            img.src = entry.image;
+            img.alt = '';
+            link.appendChild(img);
+
+            var name = document.createElement('span');
+            name.className = 'scp-recently-viewed__name';
+            name.textContent = entry.name;
+            link.appendChild(name);
+
+            var price = document.createElement('span');
+            price.className = 'scp-recently-viewed__price';
+            price.textContent = entry.price;
+            link.appendChild(price);
+
+            list.appendChild(link);
+        });
+
+        container.appendChild(list);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
@@ -966,5 +1172,6 @@
         initScrollToTop();
         initResponsiveTables();
         initThemeToggle();
+        initRecentlyViewed();
     });
 })();

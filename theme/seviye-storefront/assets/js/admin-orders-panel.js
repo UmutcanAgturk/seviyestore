@@ -59,8 +59,16 @@
     var listEl = root.querySelector('[data-scp-admin-orders-list]');
     var statusTabsEl = root.querySelector('[data-scp-admin-orders-status-tabs]');
     var exportButton = root.querySelector('[data-scp-admin-orders-export]');
+    var bulkActionsEl = root.querySelector('[data-scp-admin-orders-bulk-actions]');
     var statusSelect = form.status;
     var apiFetch = scpApiFetch;
+
+    // "Toplu işlem": seçili sipariş ID'leri, listeyi her yeniden
+    // çektiğimizde (loadOrders()) sıfırlanıyor - eski bir filtrede seçilmiş
+    // bir sipariş, yeni filtre sonucunda hiç görünmeyebilir/farklı bir
+    // duruma geçmiş olabilir, bu yüzden seçim listenin YENİ haliyle
+    // tutarsız kalmasın diye her yenilemede temizleniyor.
+    var selectedOrderIds = [];
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -377,12 +385,179 @@
         return button;
     }
 
+    /**
+     * "Toplu işlem": her sipariş kartına, YALNIZCA
+     * `scpPanelData.canUpdateFulfillment` varsa bir seçim kutusu ekliyor -
+     * tek bulk eylem ("Teslim Edildi Olarak İşaretle") de bu izne bağlı
+     * olduğundan, kutuyu izni olmayan bir kullanıcıya göstermenin anlamı
+     * yok. `data-scp-order-checkbox` + `data-order-id`, clearSelection()'ın
+     * DOM'daki kutuları seçim dizisiyle yeniden senkronlamasını sağlıyor.
+     */
+    function renderOrderCheckbox(order) {
+        if (!scpPanelData.canUpdateFulfillment) {
+            return null;
+        }
+
+        var label = document.createElement('label');
+        label.className = 'scp-order-select';
+
+        var checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.setAttribute('data-scp-order-checkbox', '');
+        checkbox.dataset.orderId = String(order.id);
+        checkbox.checked = selectedOrderIds.indexOf(order.id) !== -1;
+        checkbox.addEventListener('change', function () {
+            if (checkbox.checked) {
+                selectedOrderIds.push(order.id);
+            } else {
+                selectedOrderIds = selectedOrderIds.filter(function (id) {
+                    return id !== order.id;
+                });
+            }
+
+            updateBulkToolbar();
+        });
+
+        label.appendChild(checkbox);
+
+        return label;
+    }
+
+    function clearSelection() {
+        selectedOrderIds = [];
+
+        Array.prototype.forEach.call(listEl.querySelectorAll('[data-scp-order-checkbox]'), function (checkbox) {
+            checkbox.checked = false;
+        });
+
+        updateBulkToolbar();
+    }
+
+    function updateBulkToolbar() {
+        if (!bulkActionsEl) {
+            return;
+        }
+
+        if (selectedOrderIds.length === 0) {
+            bulkActionsEl.hidden = true;
+            bulkActionsEl.innerHTML = '';
+            return;
+        }
+
+        bulkActionsEl.hidden = false;
+        bulkActionsEl.innerHTML = '';
+
+        var count = document.createElement('span');
+        count.className = 'scp-bulk-actions__count';
+        count.textContent = selectedOrderIds.length + ' ' + scpPanelTextData.bulkSelectedSuffix;
+        bulkActionsEl.appendChild(count);
+
+        var deliverButton = document.createElement('button');
+        deliverButton.type = 'button';
+        deliverButton.className = 'scp-btn scp-btn--small';
+        deliverButton.textContent = scpPanelTextData.bulkDeliverAction;
+        deliverButton.addEventListener('click', bulkDeliverOrders);
+        bulkActionsEl.appendChild(deliverButton);
+
+        var clearButton = document.createElement('button');
+        clearButton.type = 'button';
+        clearButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        clearButton.textContent = scpPanelTextData.bulkClearSelection;
+        clearButton.addEventListener('click', clearSelection);
+        bulkActionsEl.appendChild(clearButton);
+    }
+
+    /**
+     * "Teslim Edildi Olarak İşaretle" (toplu) - shipOrder()'ın aksine
+     * (kargo takip numarası girişi gerektirdiği için tek tek yapılıyor),
+     * deliverOrder()'ın hiçbir ekstra girdiye ihtiyacı yok - bu yüzden
+     * TOPLU eylem olarak yalnızca bu sunuluyor. Seçili siparişlerden
+     * FULFILLABLE_STATUSES/fulfillment_status kontrolüne uymayanlar
+     * (server'ın da zaten reddedeceği) istek gönderilmeden atlanıyor.
+     */
+    function bulkDeliverOrders() {
+        var eligibleIds = [];
+        var skipped = 0;
+
+        selectedOrderIds.forEach(function (id) {
+            var order = lastLoadedOrders.filter(function (candidate) {
+                return candidate.id === id;
+            })[0];
+
+            var eligible = order
+                && FULFILLABLE_STATUSES.indexOf(order.status) !== -1
+                && order.fulfillment_status !== 'delivered';
+
+            if (eligible) {
+                eligibleIds.push(id);
+            } else {
+                skipped += 1;
+            }
+        });
+
+        if (eligibleIds.length === 0) {
+            setStatus(scpPanelTextData.bulkDeliverNoneEligible, true);
+            return;
+        }
+
+        if (!window.confirm(scpPanelTextData.confirmBulkDeliver)) {
+            return;
+        }
+
+        Promise.all(eligibleIds.map(function (id) {
+            return apiFetch('commerce/orders/' + id + '/deliver', { method: 'POST' });
+        })).then(function (results) {
+            var failed = results.filter(function (result) {
+                return !result.ok;
+            }).length;
+
+            loadOrders();
+
+            if (failed > 0) {
+                setStatus(scpPanelTextData.saveError, true);
+            } else if (skipped > 0) {
+                setStatus(
+                    eligibleIds.length + ' ' + scpPanelTextData.bulkDeliverDoneSuffix
+                        + ' ' + skipped + ' ' + scpPanelTextData.bulkDeliverSkippedSuffix
+                );
+            } else {
+                setStatus(scpPanelTextData.orderDelivered);
+            }
+        });
+    }
+
+    /**
+     * "Yazdırılabilir sipariş görünümü" - orders-panel.js'in AYNI
+     * düğmesi, bu dosyada da yinelenmiş (bölüm 68). Admin bağlamında
+     * ayrıca veli adı da fiş'e ekleniyor - window.scpPrintOrder()'ın
+     * `options.customerName` parametresi bunun için var.
+     */
+    function renderOrderPrintButton(order) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-order-copy-btn';
+        button.textContent = scpPanelTextData.orderPrintLabel;
+        button.addEventListener('click', function () {
+            window.scpPrintOrder(order, scpPanelTextData, formatMoney, {
+                customerName: order.customer_name || ''
+            });
+        });
+
+        return button;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
 
         var header = document.createElement('div');
         header.className = 'scp-card__header';
+
+        var checkbox = renderOrderCheckbox(order);
+
+        if (checkbox) {
+            header.appendChild(checkbox);
+        }
 
         var titleGroup = document.createElement('div');
         titleGroup.className = 'scp-card__header-title';
@@ -396,6 +571,8 @@
         if (copyButton) {
             titleGroup.appendChild(copyButton);
         }
+
+        titleGroup.appendChild(renderOrderPrintButton(order));
 
         header.appendChild(titleGroup);
 
@@ -508,6 +685,8 @@
 
             listEl.innerHTML = '';
             lastLoadedOrders = result.data;
+            selectedOrderIds = [];
+            updateBulkToolbar();
 
             if (result.data.length === 0) {
                 setStatus(scpPanelTextData.noOrders);

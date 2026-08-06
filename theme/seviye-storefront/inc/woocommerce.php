@@ -72,6 +72,13 @@ add_action('woocommerce_before_shop_loop_item_title', 'scp_render_new_badge', 12
 // "Öğrenci Seç"e çevrilmiş) HEMEN ardından.
 add_action('woocommerce_after_shop_loop_item', 'scp_render_quick_view_trigger', 15);
 
+// "Son görüntülenen ürünler" - işaretçi ürün özetinin İÇİNDE (WC'nin ürün
+// verisi orada `global $product` olarak zaten hazır), şerit ise özetten
+// SONRA - WC'nin kendi ilgili ürünler bölümünün (priority 20) hemen
+// ardından, priority 25.
+add_action('woocommerce_single_product_summary', 'scp_render_recently_viewed_marker', 60);
+add_action('woocommerce_after_single_product_summary', 'scp_render_recently_viewed_strip', 25);
+
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
@@ -589,4 +596,54 @@ function scp_replace_loop_add_to_cart_link(string $html, $product): string
         esc_url(get_permalink($product->get_id())),
         esc_html__('Öğrenci Seç', 'seviye-storefront')
     );
+}
+
+/**
+ * "Son görüntülenen ürünler" - tamamen istemci tarafı: yeni bir REST
+ * endpoint'i veya sunucu tarafı oturum/kullanıcı verisi YOK. Bu gizli
+ * işaretçi, o anki ürün sayfasının kendi verisini (id, ad, url, görsel,
+ * fiyat) data-* öznitelikleri olarak basıyor; assets/js/scp-ui-kit.js'in
+ * initRecentlyViewed()'i bunu `localStorage`'a yazıyor VE aşağıdaki
+ * scp_render_recently_viewed_strip()'in boş kabını dolduruyor - ikisi de
+ * AYNI JS fonksiyonu, sırasıyla "kaydet" ve "listele" adımları.
+ */
+function scp_render_recently_viewed_marker(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    $imageId = $product->get_image_id();
+    $imageUrl = $imageId ? wp_get_attachment_image_url($imageId, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+
+    printf(
+        '<div id="scp-recently-viewed-marker" hidden data-id="%1$s" data-name="%2$s"'
+            . ' data-url="%3$s" data-image="%4$s" data-price="%5$s"></div>',
+        esc_attr((string) $product->get_id()),
+        esc_attr($product->get_name()),
+        esc_url(get_permalink($product->get_id())),
+        esc_url((string) $imageUrl),
+        esc_attr(wp_strip_all_tags($product->get_price_html()))
+    );
+}
+
+/**
+ * Boş bir kap - initRecentlyViewed() `localStorage.scpRecentlyViewed`'dan
+ * (o anki ürün HARİÇ) en fazla 6 kartı buraya render ediyor. Hiç kayıt
+ * yoksa (ilk ziyaret) veya listede o anki üründen başka ürün yoksa kap
+ * boş kalır - initResponsiveTables() gibi diğer generic initXxx()
+ * fonksiyonlarının izlediği "veri yoksa sessizce hiçbir şey render etme"
+ * deseniyle aynı.
+ */
+function scp_render_recently_viewed_strip(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    echo '<div class="scp-recently-viewed" data-scp-recently-viewed></div>';
 }

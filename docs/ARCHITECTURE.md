@@ -4369,6 +4369,71 @@ mesajının gerçekten teslim edilip edilmediği, 24 saatlik pencerenin
 gerçek davranışı ve CSV'nin gerçek Excel'de Türkçe karakterlerle açılışı
 kullanıcının kendi ortamında doğrulanmalı.
 
+### 78. Görsel/UX Tur 7: Yazdırılabilir sipariş görünümü, son görüntülenen ürünler, admin sipariş listesinde toplu işlem
+
+Yedinci tur - tekrar tema-only.
+
+**Yazdırılabilir sipariş görünümü**: `window.scpPrintOrder()`
+(`scp-ui-kit.js`, paylaşılan tek implementasyon) hem `orders-panel.js`
+(veli) hem `admin-orders-panel.js` (admin/şube) tarafından çağrılıyor.
+Sayfanın geri kalanını (header, sidebar, filtre formu, DİĞER sipariş
+kartları) `@media print` içinde gizlemeye/göstermeye çalışmak YERİNE -
+ki bu iki sayfanın farklı DOM yerleşimleri için ayrı mantık gerektirirdi
+ve yanlış giderse header/sidebar da yazdırılabilirdi - ham sipariş
+verisinden TEMİZ, sayfa yerleşiminden tamamen bağımsız bir fiş DOM
+parçası inşa edip `#scp-print-order-root`'a yazıyor; bu kök normalde
+`display: none`, yalnızca `body.scp-printing-order` sınıfı VARKEN
+(`window.print()` çağrısının süresi boyunca) görünür oluyor. Temizlik
+hem `afterprint` olayıyla HEM DE 2 saniyelik bir zaman aşımı yedeğiyle
+yapılıyor - `afterprint` her tarayıcı/print-preview akışında güvenilir
+ateşlenmiyor, ama yazdırma diyalogları modal olduğundan zaman aşımı
+ateşlendiğinde kullanıcı zaten yazdırmış ya da vazgeçmiş oluyor.
+
+**Son görüntülenen ürünler**: tamamen istemci tarafı - yeni bir REST
+endpoint'i veya sunucu tarafı oturum verisi YOK.
+`scp_render_recently_viewed_marker()` (yalnızca `woocommerce_single_product_summary`
+kancasında, `global $product` zaten hazırken) o anki ürünün verisini
+(id, ad, url, görsel, fiyat) gizli bir işaretçinin data-* öznitelikleri
+olarak basıyor; `scp-ui-kit.js`'in `initRecentlyViewed()`'i bunu
+`localStorage.scpRecentlyViewed`'e yazıyor (en yeni önde, en fazla 8
+kayıt, id'ye göre tekilleştirilmiş) VE AYNI fonksiyon
+`scp_render_recently_viewed_strip()`'in boş kabını (WC'nin kendi ilgili
+ürünler bölümünün hemen ardından, `woocommerce_after_single_product_summary`
+priority 25) o anki ürün HARİÇ en fazla 6 kayıtla dolduruyor. Hiç kayıt
+yoksa veya listede o anki üründen başka ürün yoksa kap boş kalıyor -
+diğer generic `initXxx()` fonksiyonlarıyla (`initResponsiveTables()` vb.)
+aynı "veri yoksa sessizce hiçbir şey render etme" deseni.
+
+**Admin sipariş listesinde toplu işlem**: her sipariş kartına (yalnızca
+`scpPanelData.canUpdateFulfillment` varsa) bir seçim kutusu eklendi; bir
+veya daha fazla sipariş seçildiğinde filtre formunun altında bir toplu
+işlem çubuğu beliriyor. Toplu eylem olarak YALNIZCA "Teslim Edildi Olarak
+İşaretle" sunuluyor - "Kargoya Ver" (bulk) BİLİNÇLİ OLARAK eklenmedi,
+çünkü `shipOrder()` her sipariş için AYRI bir kargo takip numarası
+istiyor (`window.prompt`); bunu toplu bir akışta da yapmaya çalışmak ya
+tüm seçili siparişlere AYNI (yanlış) takip numarasını verecek ya da N
+kez prompt açacaktı - ikisi de gerçek kargo takibini bozardı. Toplu
+teslim işlemi, seçili siparişlerden `FULFILLABLE_STATUSES`/
+`fulfillment_status` kontrolüne uymayanları (server'ın da zaten
+reddedeceği) isteği hiç göndermeden atlıyor ve kaç siparişin
+atlandığını durum mesajında bildiriyor - sunucu tarafı, tek tek
+`deliver()` çağrılarının aynısı olduğundan (`Promise.all` ile paralel),
+her sipariş için AYRI ayrı capability/durum denetiminden geçiyor; stale
+bir seçim asla sunucu tarafı kuralını bypass edemez.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar) temiz
+- kalan uyarılar (`inc/assets.php` satır uzunluğu,
+`inc/woocommerce.php`'nin GET tabanlı mağaza filtreleri için nonce
+uyarıları) önceki turlardan, yeni değil. `node --check`
+(`scp-ui-kit.js`, `orders-panel.js`, `admin-orders-panel.js`) temiz. Bu
+turda hiçbir eklenti dosyasına dokunulmadığından PHPUnit çalıştırılmadı.
+Gerçek bir WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ
+(aynı ortam kısıtı) - özellikle yazdırma çıktısının gerçek bir yazıcıda/
+PDF'e kaydet akışında nasıl göründüğü, "son görüntülenen ürünler"in
+gerçek Türkçe ürün adları+fiyatlarıyla davranışı ve toplu teslim
+işleminin çok sayıda (örn. 50+) sipariş seçiliyken performansı
+kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
