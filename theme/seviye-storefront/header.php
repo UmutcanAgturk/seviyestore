@@ -72,7 +72,7 @@ if (!defined('ABSPATH')) {
                 <?php esc_html_e('Mağaza', 'seviye-storefront'); ?>
             </a>
             <?php $scp_cart_count = function_exists('WC') && WC()->cart ? WC()->cart->get_cart_contents_count() : 0; ?>
-            <a href="<?php echo esc_url(wc_get_cart_url()); ?>">
+            <a href="<?php echo esc_url(wc_get_cart_url()); ?>" data-scp-mini-cart-trigger>
                 <?php esc_html_e('Sepetim', 'seviye-storefront'); ?>
                 <?php if ($scp_cart_count > 0) : ?>
                     <span class="scp-cart-count"><?php echo esc_html((string) $scp_cart_count); ?></span>
@@ -110,6 +110,9 @@ if (!defined('ABSPATH')) {
         </a>
     </nav>
 </header>
+<?php if (function_exists('scp_render_mini_cart_drawer')) : ?>
+    <?php scp_render_mini_cart_drawer(); ?>
+<?php endif; ?>
 <div class="scp-layout">
     <?php scp_render_sidebar(); ?>
     <main id="scp-main-content" class="scp-site-main">

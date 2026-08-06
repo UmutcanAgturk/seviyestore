@@ -4011,6 +4011,78 @@ WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam
 kısıtı) - özellikle e-posta HTML render'ı ve 404 sayfasının gerçek bir
 tarayıcıda görünümü kullanıcının kendi ortamında doğrulanmalı.
 
+### 73. Görsel/UX Tur 2: mini sepet, kategori banner'ları, ödeme sonrası kutlama, ürün hızlı önizleme
+
+Aynı "Ben sıralayıp parça parça ilerleyeyim" yetkisiyle devam eden ikinci
+tur - birikimden 5 madde seçildi: kırıntı navigasyonu, mini sepet,
+kategori banner'ları, ödeme sonrası kutlama animasyonu, ürün hızlı
+önizleme. Tamamı tema-only (bu turda hiçbir eklenti dosyasına
+dokunulmadı).
+
+**Kırıntı navigasyonu**: araştırma, bunun ZATEN var olduğunu ortaya
+çıkardı - WooCommerce'in kendi `woocommerce_breadcrumb()`'u
+`woocommerce_before_main_content` önceliği 20'de hiç kaldırılmadan
+çalışıyor, `assets/css/woocommerce.css`'in 10-27. satırları da onu zaten
+stillendirmiş durumda (önceki bir turdan). Yeni iş yapılmadı.
+
+**Mini sepet (kayan panel)**: header.php'deki "Sepetim" linki artık
+doğrudan Sepetim sayfasına gitmek yerine bir kayan paneli açıyor -
+`inc/woocommerce.php`'nin `scp_render_mini_cart_drawer()`'ı,
+WooCommerce'in kendi `woocommerce_mini_cart()` şablon fonksiyonunu
+(widget/shortcode'un da kullandığı `cart/mini-cart.php`) render ediyor.
+Özel bir sepet REST uç noktası veya AJAX fragment-refresh mekanizması
+KURULMADI: bu platformda sepete ekleme zaten tam sayfa yeniden
+yüklemesiyle oluyor (tekil ürün sayfasındaki standart WC formu; mağaza
+listesindeki linkler `scp_replace_loop_add_to_cart_link()` ile "Öğrenci
+Seç"e çevrilmiş, ayrıca ajax değil) - yani header her sayfa
+yüklemesinde ZATEN güncel sepeti render ediyor. `assets/js/scp-ui-kit.js`'in
+`initMiniCart()`'ı yalnızca aç/kapat etkileşimini yönetiyor.
+
+**Kategori banner'ları**: `scp_render_category_banner()`,
+`woocommerce_before_shop_loop` önceliği 4'te (filtre çubuğundan ÖNCE) -
+kategorinin WooCommerce'in kendi "Ürün kategorileri" ekranındaki "Görsel"
+alanı (`thumbnail_id` term meta'sı, kategori ızgarasının zaten kullandığı
+AYNI alan) varsa geniş bir arka plan banner'ı, açıklaması varsa üzerinde
+metin olarak basıyor. Kategori ADI burada TEKRAR basılmadı - WC'nin kendi
+`archive-product.php`'si (dokunulmadı) zaten ayrı bir
+`.woocommerce-products-header__title` başlığı basıyor; o başlık bu turda
+CSS ile banner'la görsel bütünlük kuracak şekilde stillendirildi.
+
+**Ödeme sonrası kutlama animasyonu**: `initOrderCelebration()`,
+`body.woocommerce-order-received` sınıfını kontrol ediyor - bu sınıf
+WooCommerce'in KENDİ `wc_body_class()`'ı tarafından zaten ekleniyor
+(`is_order_received_page()` true olduğunda), yani ayrı bir PHP koşulu/
+enqueue şartı kurmaya gerek yok. Üçüncü parti bir kütüphane KULLANILMADI -
+birkaç saniyeliğine DOM'a eklenip kaldırılan, CSS `@keyframes` ile düşen
+basit `<span>` parçacıkları. `prefers-reduced-motion: reduce` için ayrı
+bir kontrol de YAZILMADI - theme.css'in bölüm 66'dan beri var olan global
+`* { animation-duration: 0.01ms !important }` geçersiz kılması zaten tüm
+CSS animasyonlarını (bunu da) kapsıyor.
+
+**Ürün hızlı önizleme**: mağaza ızgarasındaki her karta bir "Hızlı Bakış"
+düğmesi + o ürünün detaylarını (görsel, fiyat, kısa açıklama) taşıyan
+gizli bir `<template>` ekleniyor (`scp_render_quick_view_trigger()`,
+`woocommerce_after_shop_loop_item` önceliği 15). Ayrı bir REST çağrısı/
+AJAX KURULMADI - araştırma, `ProductsRestController`'ın
+`canViewProducts()` izin denetiminin yalnızca personelde bulunan
+`scp_view_products`/`scp_manage_products` yetkisini istediğini, mağazayı
+gezen bir veli'de bu yetkinin OLMADIĞINI ortaya çıkardı; bu yüzden
+detaylar sayfa zaten render edilirken sunucu tarafında basılıyor,
+`initQuickView()` yalnızca bu ZATEN VAR olan `<template>` içeriğini bir
+modale klonluyor. Sepete ekleme bilerek modalin içine TAŞINMADI - "Ürün
+Sayfasına Git" linki öğrenci seçiminin yapıldığı tekil ürün sayfasına
+yönlendiriyor; sepet/harcama limiti/fiyat kuralı doğrulamalarını burada
+yeniden uygulamaktan kaçınmak için kasıtlı bir kapsam sınırı.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar) temiz.
+`node --check` (`scp-ui-kit.js`) temiz. Bu turda hiçbir eklenti dosyasına
+dokunulmadığından PHPUnit çalıştırılmadı (değişen tek şey tema). Gerçek
+bir WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam
+kısıtı) - özellikle mini sepetin `woocommerce_mini_cart()` çıktısı,
+kategori banner'ının gerçek bir kategori görseliyle görünümü ve hızlı
+önizleme modalinin gerçek ürün verileriyle davranışı kullanıcının kendi
+ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

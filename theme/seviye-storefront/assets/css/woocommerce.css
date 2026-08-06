@@ -638,3 +638,323 @@
     flex: 1;
   }
 }
+
+/* ---- Ürün hızlı önizleme - inc/woocommerce.php's
+   scp_render_quick_view_trigger() prints the trigger button + a hidden
+   <template> per product card; assets/js/scp-ui-kit.js's initQuickView()
+   clones that template into the .scp-quick-view panel below on click. The
+   overlay reuses .scp-modal-overlay (panel.css) for the same
+   backdrop/centering as the confirm modal, .scp-quick-view is its own
+   panel shape (image + body) rather than .scp-modal's plain text
+   layout. ---- */
+
+.woocommerce ul.products li.product .scp-quick-view-trigger {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-primary);
+  background: none;
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.woocommerce ul.products li.product .scp-quick-view-trigger:hover {
+  background: var(--scp-surface-alt);
+  border-color: var(--scp-primary-light);
+}
+
+.scp-quick-view {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--scp-surface);
+  border-radius: var(--scp-radius-lg);
+  box-shadow: 0 24px 48px rgba(16, 24, 40, 0.25);
+}
+
+.scp-quick-view__header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scp-quick-view__close {
+  padding: 4px 10px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--scp-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+}
+
+.scp-quick-view__close:hover {
+  background: var(--scp-surface-alt);
+}
+
+.scp-quick-view__image img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: var(--scp-radius-sm);
+  background: var(--scp-surface-alt);
+}
+
+.scp-quick-view__body h2 {
+  margin: 16px 0 8px;
+  font-size: var(--scp-text-lg);
+}
+
+.scp-quick-view__price {
+  margin: 0 0 12px;
+  font-size: var(--scp-text-md);
+  font-weight: 600;
+  color: var(--scp-primary-dark);
+}
+
+.scp-quick-view__description {
+  margin: 0 0 16px;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+}
+
+.scp-quick-view__description p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Ödeme sonrası kutlama animasyonu - assets/js/scp-ui-kit.js's
+   initOrderCelebration() injects/removes this container + its particles;
+   this file only supplies the look. ---- */
+
+.scp-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scp-confetti__piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  opacity: 0.9;
+  border-radius: 1px;
+  animation-name: scp-confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes scp-confetti-fall {
+  from {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.9;
+  }
+
+  to {
+    transform: translateY(100vh) rotate(540deg);
+    opacity: 0;
+  }
+}
+
+/* ---- Kategori banner'ları - .woocommerce-products-header__title is
+   WooCommerce's own unstyled default category/shop page title
+   (archive-product.php, untouched); styled here so it reads as one piece
+   with .scp-category-banner (inc/woocommerce.php's
+   scp_render_category_banner()) directly below it rather than two
+   unrelated blocks. ---- */
+
+.woocommerce-products-header__title.page-title {
+  margin: 0 0 16px;
+  font-size: var(--scp-text-lg);
+  color: var(--scp-text);
+}
+
+.scp-category-banner {
+  margin: 0 0 20px;
+  padding: 32px 24px;
+  background-color: var(--scp-primary);
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--scp-radius-lg);
+}
+
+.scp-category-banner__description {
+  max-width: 640px;
+  color: #fff;
+  font-size: var(--scp-text-sm);
+  text-shadow: 0 1px 3px rgba(16, 24, 40, 0.55);
+}
+
+.scp-category-banner__description p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Mini sepet (slide-out cart drawer) - header.php's "Sepetim" link
+   opens this instead of navigating away. Content is WooCommerce's own
+   `woocommerce_mini_cart()` template output (cart/mini-cart.php), restyled
+   here via its stable documented class names the same way the rest of
+   this file restyles WC's default templates. See
+   inc/woocommerce.php's scp_render_mini_cart_drawer() and
+   assets/js/scp-ui-kit.js's initMiniCart(). ---- */
+
+.scp-mini-cart[hidden] {
+  display: none;
+}
+
+.scp-mini-cart {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+}
+
+.scp-mini-cart__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.45);
+  animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
+}
+
+.scp-mini-cart__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--scp-surface);
+  box-shadow: -8px 0 24px rgba(16, 24, 40, 0.18);
+  animation: scp-slide-in-right var(--scp-duration-base) var(--scp-ease);
+}
+
+@keyframes scp-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.scp-mini-cart__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-mini-cart__header h2 {
+  margin: 0;
+  font-size: var(--scp-text-md);
+}
+
+.scp-mini-cart__close {
+  padding: 4px 10px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--scp-text-muted);
+  background: none;
+  border: none;
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+}
+
+.scp-mini-cart__close:hover {
+  background: var(--scp-surface-alt);
+}
+
+.scp-mini-cart__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__empty-message {
+  margin: 0;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+}
+
+.scp-mini-cart__content ul.woocommerce-mini-cart {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item a:not(.remove) {
+  color: var(--scp-text);
+  text-decoration: none;
+  font-size: var(--scp-text-sm);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item .quantity {
+  display: block;
+  margin-top: 2px;
+  color: var(--scp-text-muted);
+  font-size: 0.75rem;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item .remove {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--scp-danger);
+  text-decoration: none;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart-item .remove:hover {
+  background: var(--scp-surface-alt);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__total {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 16px;
+  font-size: var(--scp-text-sm);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__buttons {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__buttons .button {
+  flex: 1;
+  text-align: center;
+}

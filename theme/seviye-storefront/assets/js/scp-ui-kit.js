@@ -473,10 +473,160 @@
         });
     }
 
+    // ---- Mini sepet (slide-out cart drawer) ----
+
+    /**
+     * header.php's "Sepetim" link (data-scp-mini-cart-trigger) opens
+     * inc/woocommerce.php's scp_render_mini_cart_drawer() panel instead of
+     * navigating to the Sepetim page - the link's own href is left intact
+     * as a plain-navigation fallback for anything that reaches it without
+     * JS (a "middle-click open in new tab", a very old browser, ...).
+     * No-op (nothing to wire up) on any page that doesn't have the drawer
+     * markup - only rendered for scp_view_own_children (veli) users.
+     */
+    function initMiniCart() {
+        var drawer = document.querySelector('[data-scp-mini-cart]');
+        var trigger = document.querySelector('[data-scp-mini-cart-trigger]');
+
+        if (!drawer || !trigger) {
+            return;
+        }
+
+        function open(event) {
+            event.preventDefault();
+            drawer.hidden = false;
+            document.body.classList.add('scp-mini-cart-open');
+        }
+
+        function close() {
+            drawer.hidden = true;
+            document.body.classList.remove('scp-mini-cart-open');
+        }
+
+        trigger.addEventListener('click', open);
+
+        drawer.querySelectorAll('[data-scp-mini-cart-close]').forEach(function (el) {
+            el.addEventListener('click', close);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !drawer.hidden) {
+                close();
+            }
+        });
+    }
+
+    // ---- Ürün hızlı önizleme ----
+
+    /**
+     * inc/woocommerce.php'nin scp_render_quick_view_trigger()'ı mağaza
+     * ızgarasındaki her karta bir düğme + o ürünün detaylarını taşıyan
+     * gizli bir `<template>` ekliyor. Burada yapılan tek şey, tıklanan
+     * düğmenin hedef `<template>`'ini bir modale klonlamak - ekstra bir
+     * ağ isteği YOK, detaylar zaten sayfayla birlikte sunucu tarafında
+     * render edilmiş durumda. Tek bir delege `click` dinleyicisi
+     * kullanılıyor (mağaza ızgarasında onlarca ürün/düğme olabileceğinden
+     * her birine ayrı ayrı bağlanmak yerine).
+     */
+    function initQuickView() {
+        document.addEventListener('click', function (event) {
+            var trigger = event.target.closest('[data-scp-quick-view-trigger]');
+
+            if (!trigger) {
+                return;
+            }
+
+            var template = document.getElementById(trigger.getAttribute('data-scp-quick-view-target'));
+
+            if (!template || !('content' in template)) {
+                return;
+            }
+
+            var overlay = document.createElement('div');
+            overlay.className = 'scp-modal-overlay scp-quick-view-overlay';
+
+            var panel = document.createElement('div');
+            panel.className = 'scp-quick-view';
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-modal', 'true');
+            panel.appendChild(template.content.cloneNode(true));
+
+            function close() {
+                overlay.remove();
+                document.removeEventListener('keydown', onKeydown);
+            }
+
+            function onKeydown(keyEvent) {
+                if (keyEvent.key === 'Escape') {
+                    close();
+                }
+            }
+
+            var closeButton = panel.querySelector('[data-scp-quick-view-close]');
+
+            if (closeButton) {
+                closeButton.addEventListener('click', close);
+            }
+
+            overlay.addEventListener('click', function (overlayEvent) {
+                if (overlayEvent.target === overlay) {
+                    close();
+                }
+            });
+            document.addEventListener('keydown', onKeydown);
+
+            overlay.appendChild(panel);
+            document.body.appendChild(overlay);
+        });
+    }
+
+    // ---- Ödeme sonrası kutlama animasyonu ----
+
+    /**
+     * "Sipariş tamamlandı" (order-received) sayfasında bir kereliğine
+     * konfeti patlaması. `body.woocommerce-order-received` sınıfı WC'nin
+     * KENDİ `wc_body_class()`'ı tarafından zaten ekleniyor (bu tema hiçbir
+     * yerde dokunmadı) - `is_order_received_page()` true olduğunda - bu
+     * yüzden burada ayrı bir PHP koşulu/enqueue şartı kurmaya gerek yok,
+     * yalnızca o body sınıfını kontrol etmek yeterli. Üçüncü parti bir
+     * kütüphane KULLANILMADI (CDN'e çıkmayan, kendi kendine yeten script
+     * kuralı - bkz. bu dosyanın kendi toast/modal'ı) - birkaç saniyeliğine
+     * DOM'a eklenip kaldırılan basit, CSS animasyonlu <span> parçacıkları.
+     */
+    function initOrderCelebration() {
+        if (!document.body.classList.contains('woocommerce-order-received')) {
+            return;
+        }
+
+        var colors = ['#0f9d63', '#2a5cb8', '#e0a72b', '#c0271e', '#7ea6f2'];
+        var container = document.createElement('div');
+        container.className = 'scp-confetti';
+        container.setAttribute('aria-hidden', 'true');
+
+        for (var i = 0; i < 40; i++) {
+            var piece = document.createElement('span');
+            piece.className = 'scp-confetti__piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.backgroundColor = colors[i % colors.length];
+            piece.style.animationDelay = (Math.random() * 0.4) + 's';
+            piece.style.animationDuration = (2.2 + Math.random() * 1.2) + 's';
+            container.appendChild(piece);
+        }
+
+        document.body.appendChild(container);
+
+        window.setTimeout(function () {
+            container.remove();
+        }, 4000);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
         initLargeTitleScroll();
         initCharCounters();
+        initMiniCart();
+        initOrderCelebration();
+        initQuickView();
     });
 })();

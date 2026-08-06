@@ -39,6 +39,11 @@ add_action('admin_init', 'scp_ensure_cart_page_exists');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
+// "Kategori banner'ları" - öncelik 4, scp_render_shop_filters()'ten (5)
+// ÖNCE - bir kategori arşivinin görseli/açıklaması varsa filtre çubuğunun
+// üstünde geniş bir banner olarak görünür.
+add_action('woocommerce_before_shop_loop', 'scp_render_category_banner', 4);
+
 // "Mağaza tarafında arama ve kategori filtreleme" - reuses WooCommerce's own
 // native search form (get_product_search_form()) and category taxonomy
 // listing (wp_list_categories()) rather than a custom REST/JS filter UI, so
@@ -50,6 +55,11 @@ add_action('woocommerce_before_shop_loop', 'scp_render_shop_filters', 5);
 // default thumbnail output on this same hook (priority 10, unhooked
 // nowhere in this theme).
 add_action('woocommerce_before_shop_loop_item_title', 'scp_render_low_stock_badge', 15);
+
+// "Ürün hızlı önizleme" - priority 15, WC'nin kendi sepete-ekleme
+// linkinin (priority 10, scp_replace_loop_add_to_cart_link() ile
+// "Öğrenci Seç"e çevrilmiş) HEMEN ardından.
+add_action('woocommerce_after_shop_loop_item', 'scp_render_quick_view_trigger', 15);
 
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
@@ -142,6 +152,162 @@ function scp_render_student_picker(): void
             </select>
         </label>
     </div>
+    <?php
+}
+
+/**
+ * "Mini sepet" - header.php'deki "Sepetim" linki artık doğrudan Sepetim
+ * sayfasına gitmek yerine (data-scp-mini-cart-trigger, bkz. header.php ve
+ * assets/js/scp-ui-kit.js'in initMiniCart()'ı) bu kayan paneli açıyor.
+ * İçerik WooCommerce'in kendi `woocommerce_mini_cart()` şablon
+ * fonksiyonuyla (widget/shortcode'un da kullandığı, `cart/mini-cart.php`)
+ * render ediliyor - özel bir sepet REST uç noktası KURULMADI, çünkü sepete
+ * ekleme bu platformda zaten tam sayfa yeniden yüklemeyle oluyor (tekil
+ * ürün sayfasındaki standart WC formu, mağaza listesindeki linkler
+ * `scp_replace_loop_add_to_cart_link()` ile "Öğrenci Seç" linkine
+ * çevrilmiş durumda, ayrıca ajax değiller) - yani header her sayfa
+ * yüklemesinde ZATEN güncel sepeti render ediyor, ayrı bir fragment-refresh
+ * mekanizmasına gerek yok. Yalnızca veli/`scp_view_own_children` sahibi
+ * kullanıcılar için (Sepetim linkiyle aynı görünürlük kuralı).
+ */
+function scp_render_mini_cart_drawer(): void
+{
+    if (!current_user_can('scp_view_own_children')) {
+        return;
+    }
+    ?>
+    <div class="scp-mini-cart" data-scp-mini-cart hidden>
+        <div class="scp-mini-cart__backdrop" data-scp-mini-cart-close></div>
+        <div
+            class="scp-mini-cart__panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="<?php esc_attr_e('Sepetim', 'seviye-storefront'); ?>"
+        >
+            <div class="scp-mini-cart__header">
+                <h2><?php esc_html_e('Sepetim', 'seviye-storefront'); ?></h2>
+                <button
+                    type="button"
+                    class="scp-mini-cart__close"
+                    data-scp-mini-cart-close
+                    aria-label="<?php esc_attr_e('Kapat', 'seviye-storefront'); ?>"
+                >&times;</button>
+            </div>
+            <div class="scp-mini-cart__content">
+                <?php woocommerce_mini_cart(); ?>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+/**
+ * "Kategori banner'ları" - kategori arşivinin kendi görseli varsa
+ * (WooCommerce'in "Ürün kategorileri" ekranındaki "Görsel" alanı -
+ * `thumbnail_id` term meta'sı, `content-product_cat.php` şablonunun
+ * kategori ızgarasında zaten kullandığı AYNI alan, burada YENİDEN
+ * KULLANILIYOR, yeni bir alan icat edilmedi) geniş bir arka plan banner'ı
+ * olarak, açıklaması varsa da üzerinde gösteriliyor. Kategori ADI burada
+ * TEKRAR basılmıyor - WooCommerce'in kendi `archive-product.php` şablonu
+ * (dokunulmadı) zaten `woocommerce_page_title()` ile ayrı bir
+ * `.woocommerce-products-header__title` başlığı basıyor; bu fonksiyon
+ * yalnızca görsel/açıklamayı ekliyor, o başlık woocommerce.css'te bu
+ * banner'la görsel olarak bütünleşecek şekilde ayrıca stillendi.
+ */
+function scp_render_category_banner(): void
+{
+    if (!is_product_taxonomy()) {
+        return;
+    }
+
+    $term = get_queried_object();
+
+    if (!$term instanceof WP_Term) {
+        return;
+    }
+
+    $thumbnailId = (int) get_term_meta($term->term_id, 'thumbnail_id', true);
+    $imageUrl = $thumbnailId > 0 ? wp_get_attachment_image_url($thumbnailId, 'large') : false;
+    $description = term_description($term->term_id, 'product_cat');
+
+    if (!$imageUrl && $description === '') {
+        return;
+    }
+
+    $style = $imageUrl ? sprintf('background-image:url(%s)', esc_url($imageUrl)) : '';
+
+    ?>
+    <div class="scp-category-banner" style="<?php echo esc_attr($style); ?>">
+        <?php if ($description !== '') : ?>
+            <div class="scp-category-banner__description"><?php echo wp_kses_post($description); ?></div>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+/**
+ * "Ürün hızlı önizleme" - mağaza ızgarasındaki her karta bir "Hızlı Bakış"
+ * düğmesi + o ürünün detaylarını taşıyan gizli bir `<template>` ekliyor.
+ * Ayrı bir REST çağrısı/AJAX KURULMADI: bu platformda "ürünleri görüntüle"
+ * yetkisi (`scp_view_products`/`scp_manage_products`) yalnızca personelde
+ * var, mağazayı gezen veli'de YOK - `ProductsRestController`'ın
+ * `canViewProducts()` izin denetimi bu yüzden buradan çağrılamaz. Bunun
+ * yerine detaylar (görsel, fiyat, kısa açıklama) sayfa zaten render
+ * edilirken sunucu tarafında basılıyor - assets/js/scp-ui-kit.js'in
+ * initQuickView()'ı yalnızca bu ZATEN VAR olan `<template>` içeriğini bir
+ * modale klonluyor, ekstra bir ağ isteği yok. Sepete ekleme burada
+ * YAPILMIYOR - "Ürün Sayfasına Git" linki, öğrenci seçiminin yapıldığı
+ * tekil ürün sayfasına yönlendiriyor (bkz. scp_render_student_picker()) -
+ * sepet/harcama limiti/fiyat kuralı doğrulamalarını burada yeniden
+ * uygulamaktan kaçınmak için kasıtlı bir kapsam sınırı.
+ */
+function scp_render_quick_view_trigger(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    $productId = $product->get_id();
+    $imageId = $product->get_image_id();
+    $imageUrl = $imageId ? wp_get_attachment_image_url($imageId, 'medium') : wc_placeholder_img_src('medium');
+    $shortDescription = $product->get_short_description();
+
+    ?>
+    <button
+        type="button"
+        class="scp-quick-view-trigger"
+        data-scp-quick-view-trigger
+        data-scp-quick-view-target="scp-quick-view-<?php echo esc_attr((string) $productId); ?>"
+    >
+        <?php esc_html_e('Hızlı Bakış', 'seviye-storefront'); ?>
+    </button>
+    <template id="scp-quick-view-<?php echo esc_attr((string) $productId); ?>">
+        <div class="scp-quick-view__header">
+            <button
+                type="button"
+                class="scp-quick-view__close"
+                data-scp-quick-view-close
+                aria-label="<?php esc_attr_e('Kapat', 'seviye-storefront'); ?>"
+            >&times;</button>
+        </div>
+        <div class="scp-quick-view__image">
+            <img src="<?php echo esc_url((string) $imageUrl); ?>" alt="">
+        </div>
+        <div class="scp-quick-view__body">
+            <h2><?php echo esc_html($product->get_name()); ?></h2>
+            <p class="scp-quick-view__price"><?php echo wp_kses_post($product->get_price_html()); ?></p>
+            <?php if ($shortDescription !== '') : ?>
+                <div class="scp-quick-view__description">
+                    <?php echo wp_kses_post(wpautop($shortDescription)); ?>
+                </div>
+            <?php endif; ?>
+            <a class="scp-btn" href="<?php echo esc_url((string) get_permalink($productId)); ?>">
+                <?php esc_html_e('Ürün Sayfasına Git', 'seviye-storefront'); ?>
+            </a>
+        </div>
+    </template>
     <?php
 }
 
