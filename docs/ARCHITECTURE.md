@@ -4083,6 +4083,78 @@ kategori banner'ının gerçek bir kategori görseliyle görünümü ve hızlı
 önizleme modalinin gerçek ürün verileriyle davranışı kullanıcının kendi
 ortamında doğrulanmalı.
 
+### 74. Görsel/UX Tur 3: gelişmiş mağaza filtreleri, ürün galerisi zoom, boş sepet illüstrasyonu, yukarı kaydır, sipariş numarası kopyalama
+
+Üçüncü tur, aynı yetkiyle devam - 5 madde seçildi. Bu turda da hiçbir
+eklenti dosyasına dokunulmadı (tema-only).
+
+**Gelişmiş mağaza filtreleri**: `scp_render_shop_filters()`'e fiyat
+aralığı (min/maks) + "yalnızca stokta olanlar" alanları eklendi, AYRI bir
+`<form method="get">` olarak (arama kutusuyla aynı forma konulmadı - biri
+gönderildiğinde diğerinin alanı kaybolmasın diye; arama terimi varsa
+gizli bir `s` input'uyla yeni forma taşınıyor). `scp_apply_shop_filters()`
+(`pre_get_posts`, yalnızca ana ürün arşivi sorgusu) bu GET
+parametrelerini WooCommerce'in kendi `_price`/`_stock_status`
+postmeta alanlarına (fiyat aralığı widget'ının/katalog filtrelerinin de
+kullandığı AYNI, dokümante edilmiş alanlar) bir `meta_query` olarak
+uyguluyor.
+
+**Ürün galerisi yakınlaştırma**: kendi zoom/lightbox'ımız YAZILMADI -
+araştırma, WooCommerce'in kendi bundled PhotoSwipe tabanlı zoom/
+lightbox/slider'ının `add_theme_support('wc-product-gallery-zoom'/
+'-lightbox'/'-slider')` bildirimleri OLMADAN hiç enqueue edilmediğini
+ortaya çıkardı (`wc_current_theme_supports_gallery_zoom()` vb. - WC'nin
+tema entegrasyonunda bilinçli olarak opt-in). Bu üç satır
+`inc/setup.php`'ye eklenerek WC'nin zaten test edilmiş, kendi kendine
+yeten (CDN'e çıkmayan) kütüphanesi açıldı - hiçbir şablon/JS dosyası
+değişmedi.
+
+**Sepet sayfası boş durum illüstrasyonu**: WooCommerce'in kendi
+`cart/cart-empty.php` şablonu (dokunulmadı) restyled - `.cart-empty`
+(WC'nin stabil, uzun süredir değişmeyen sınıf adı) artık ortalanmış,
+ikonlu bir kart olarak görünüyor. İkon bir `background-image` SVG data
+URI değil, bir CSS `mask-image` - `background-color: var(--scp-text-muted)`
+üzerinden tema token'ıyla renkleniyor (bir `background-image` SVG'nin
+`currentColor`/CSS değişkenlerini güvenilir şekilde alması tarayıcılar
+arası tutarlı değil). Belirsiz bir hook'a (`woocommerce_cart_is_empty`'in
+tam olarak hangi WC sürümünde/sırada ateşlendiği gibi) bağımlı KALINMADI -
+yalnızca kesin, dokümante edilmiş sınıf adları kullanıldı.
+
+**Yukarı kaydır düğmesi**: `initScrollToTop()`, 400px'ten fazla
+kaydırıldığında beliren, sayfanın başına yumuşak kaydıran sabit bir
+düğme - her kimliği doğrulanmış sayfada global (scp-ui-kit.js). Etiketi
+`scpPanelText.scrollToTop`'tan okunuyor ama scp-ui-kit.js bu değişkeni
+localize eden bir "panel" script'i OLMADIĞINDAN (bkz. bu dosyanın kendi
+docblock'u - paylaşılan temel dosya, tüketici değil) değişkenin o
+sayfada hiç var olmama ihtimaline karşı savunmacı okunuyor
+(`typeof scpPanelText !== 'undefined' && ...`), sabit bir Türkçe
+fallback'e düşerek.
+
+**Sipariş numarası kopyalama düğmesi**: `orders-panel.js` (veli) ve
+`admin-orders-panel.js` (admin/şube) - ikisinde de AYNI
+`renderOrderNumberCopyButton()` yinelendi (bu kod tabanının küçük,
+sayfa-bağlamına-özel yardımcıları paylaşılan bir dosya yerine yinelemesi
+kuralına uygun, bkz. bölüm 68). `navigator.clipboard.writeText` yoksa
+(güvensiz bağlam/eski tarayıcı) düğme hiç render EDİLMİYOR - sessizce
+çalışmayan bir düğme bırakmak yerine. Başlık artık `.scp-card__header`'ın
+DOĞRUDAN çocuğu değil, yeni bir `.scp-card__header-title` sarmalayıcının
+içinde (başlık+kopyala düğmesi bir arada) - `justify-content: space-between`
+üç öğe yerine iki "mantıksal" öğeyi (başlık grubu, durum rozeti) ayırsın
+diye.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar) temiz
+- kalan uyarılar (fiyat/stok filtresinin GET parametreleri için nonce
+uyarıları, WP'nin kendi `?s=` arama deseniyle aynı kategoriden salt-okunur
+filtreler için beklenen/kabul edilen; `inc/assets.php`'nin satır uzunluğu
+uyarısı önceki turdan) yeni değil. `node --check` (`orders-panel.js`,
+`admin-orders-panel.js`, `scp-ui-kit.js`) temiz. Bu turda hiçbir eklenti
+dosyasına dokunulmadığından PHPUnit çalıştırılmadı. Gerçek bir WordPress/
+WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam kısıtı) -
+özellikle fiyat/stok filtresinin gerçek ürün verisiyle davranışı, WC'nin
+PhotoSwipe zoom/lightbox'ının gerçek bir ürün galerisiyle görünümü ve
+Clipboard API'nin gerçek bir tarayıcıda (http değil, https/localhost)
+davranışı kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

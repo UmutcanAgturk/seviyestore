@@ -66,6 +66,70 @@
   margin-left: auto;
 }
 
+/* ---- Sepet sayfası boş durum illüstrasyonu - WooCommerce's own default
+   `cart/cart-empty.php` template (untouched - no template override in
+   this theme) renders a bare `.cart-empty` notice + a `.return-to-shop`
+   link; both are stable, long-standing WC class names restyled here
+   directly rather than via a hook, so this doesn't depend on a
+   template-version-specific action firing in the right place. Icon is a
+   CSS mask (not a background-image) so it themes via
+   `background-color: var(--scp-text-muted)` the same as every other
+   token-driven color in this file - a plain `background-image` SVG data
+   URI can't reliably pick up currentColor/CSS vars across browsers. ---- */
+
+.woocommerce-cart .cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 320px;
+  margin: 40px auto;
+  padding: 0;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+  text-align: center;
+  background: none;
+  border: none;
+}
+
+.woocommerce-cart .cart-empty::before {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  background-color: var(--scp-text-muted);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8l9-5 9 5-9 5-9-5Z'/%3E%3Cpath d='M3 8v8l9 5 9-5V8'/%3E%3Cpath d='M12 13v8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8l9-5 9 5-9 5-9-5Z'/%3E%3Cpath d='M3 8v8l9 5 9-5V8'/%3E%3Cpath d='M12 13v8'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: 40px 40px;
+  mask-size: 40px 40px;
+}
+
+.woocommerce-cart .return-to-shop {
+  margin: 0 0 40px;
+  text-align: center;
+}
+
+.woocommerce-cart .return-to-shop .button {
+  display: inline-flex;
+  padding: 10px 22px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  background: var(--scp-primary);
+  border-radius: 999px;
+  transition: filter 0.15s ease;
+}
+
+.woocommerce-cart .return-to-shop .button:hover {
+  filter: brightness(1.1);
+}
+
 /* Shop / archive product grid */
 .woocommerce ul.products {
   display: grid;
@@ -625,6 +689,61 @@
 .scp-shop-filters__categories .current-cat > a {
   color: #fff;
   background: var(--scp-primary);
+}
+
+/* Advanced filters (price range + in-stock-only) - see
+   inc/woocommerce.php's scp_render_shop_filters()/scp_apply_shop_filters().
+   A separate <form> from the search box above so submitting it never
+   loses the other's own field. */
+.scp-shop-filters__advanced {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--scp-border);
+}
+
+.scp-shop-filters__advanced label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+}
+
+.scp-shop-filters__advanced label.scp-checkbox {
+  flex-direction: row;
+  align-items: center;
+  padding-bottom: 9px;
+}
+
+.scp-shop-filters__advanced input[type="number"] {
+  width: 110px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--scp-text);
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-shop-filters__advanced input[type="number"]:focus {
+  outline: none;
+  border-color: var(--scp-primary-light);
+  box-shadow: 0 0 0 3px var(--scp-primary-bg);
+}
+
+.scp-shop-filters__clear {
+  align-self: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  text-decoration: underline;
 }
 
 @media (max-width: 782px) {

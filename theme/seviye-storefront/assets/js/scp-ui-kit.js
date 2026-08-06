@@ -620,6 +620,45 @@
         }, 4000);
     }
 
+    // ---- Yukarı kaydır düğmesi ----
+
+    /**
+     * Uzun sayfalarda (raporlar, sipariş listeleri, mağaza ızgarası...)
+     * belirli bir kaydırma mesafesinden sonra beliren, sayfanın başına
+     * yumuşak kaydıran sabit bir düğme. `scroll` dinleyicisi zaten atılgan
+     * değil - yalnızca bir CSS sınıfı ekleyip/kaldırıyor, `scrollTo` çağrısı
+     * tek seferlik bir tıklama olayında.
+     */
+    function initScrollToTop() {
+        // scp-ui-kit.js is the shared foundation script, not one of the
+        // per-panel handles wp_localize_script() targets (see this file's
+        // own docblock) - `scpPanelText` may not exist at all on a page
+        // with no panel script enqueued (a plain shop/product page), so
+        // this reads it defensively rather than assuming it's there.
+        var label = (typeof scpPanelText !== 'undefined' && scpPanelText.scrollToTop)
+            ? scpPanelText.scrollToTop
+            : 'Yukarı çık';
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-scroll-top';
+        button.setAttribute('aria-label', label);
+        button.hidden = true;
+        button.innerHTML = '&uarr;';
+
+        function update() {
+            button.hidden = window.scrollY < 400;
+        }
+
+        button.addEventListener('click', function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        window.addEventListener('scroll', update, { passive: true });
+
+        document.body.appendChild(button);
+        update();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
@@ -628,5 +667,6 @@
         initMiniCart();
         initOrderCelebration();
         initQuickView();
+        initScrollToTop();
     });
 })();

@@ -327,6 +327,12 @@ function scp_render_shop_filters(): void
     if (!is_shop() && !is_product_taxonomy()) {
         return;
     }
+
+    $minPrice = isset($_GET['scp_min_price']) ? sanitize_text_field(wp_unslash($_GET['scp_min_price'])) : '';
+    $maxPrice = isset($_GET['scp_max_price']) ? sanitize_text_field(wp_unslash($_GET['scp_max_price'])) : '';
+    $inStock = isset($_GET['scp_in_stock']) && $_GET['scp_in_stock'] === '1';
+    $hasActiveFilter = $minPrice !== '' || $maxPrice !== '' || $inStock;
+
     ?>
     <div class="scp-shop-filters">
         <?php get_product_search_form(); ?>
@@ -353,8 +359,105 @@ function scp_render_shop_filters(): void
                 ?>
             </ul>
         </nav>
+        <form class="scp-shop-filters__advanced" method="get">
+            <?php if (get_search_query() !== '') : ?>
+                <input type="hidden" name="s" value="<?php echo esc_attr(get_search_query()); ?>">
+                <input type="hidden" name="post_type" value="product">
+            <?php endif; ?>
+            <label>
+                <span><?php esc_html_e('Min. Fiyat', 'seviye-storefront'); ?></span>
+                <input
+                    type="number"
+                    name="scp_min_price"
+                    min="0"
+                    step="0.01"
+                    value="<?php echo esc_attr($minPrice); ?>"
+                >
+            </label>
+            <label>
+                <span><?php esc_html_e('Maks. Fiyat', 'seviye-storefront'); ?></span>
+                <input
+                    type="number"
+                    name="scp_max_price"
+                    min="0"
+                    step="0.01"
+                    value="<?php echo esc_attr($maxPrice); ?>"
+                >
+            </label>
+            <label class="scp-checkbox">
+                <input type="checkbox" name="scp_in_stock" value="1" <?php checked($inStock); ?>>
+                <span><?php esc_html_e('Yalnızca stokta olanlar', 'seviye-storefront'); ?></span>
+            </label>
+            <button type="submit" class="scp-btn scp-btn--small">
+                <?php esc_html_e('Filtrele', 'seviye-storefront'); ?>
+            </button>
+            <?php if ($hasActiveFilter) : ?>
+                <a
+                    class="scp-shop-filters__clear"
+                    href="<?php echo esc_url(remove_query_arg(['scp_min_price', 'scp_max_price', 'scp_in_stock'])); ?>"
+                >
+                    <?php esc_html_e('Temizle', 'seviye-storefront'); ?>
+                </a>
+            <?php endif; ?>
+        </form>
     </div>
     <?php
+}
+
+/**
+ * "Gelişmiş mağaza filtreleri" - scp_render_shop_filters()'in fiyat
+ * aralığı/stok durumu formunu (`scp_min_price`/`scp_max_price`/
+ * `scp_in_stock` GET parametreleri) mağazanın ana ürün sorgusuna
+ * uyguluyor. WooCommerce'in kendi `_price`/`_stock_status` postmeta
+ * alanları kullanılıyor (WC'nin fiyat aralığı widget'ının/katalog
+ * filtrelerinin de kullandığı AYNI, dokümante edilmiş alanlar) - yeni bir
+ * alan icat edilmedi. Yalnızca ana ürün arşivi sorgusunu etkiler
+ * (`is_main_query()` + `is_post_type_archive('product')`/`is_tax('product_cat')`) -
+ * başka bir yerdeki (ör. "İlgili Ürünler") ikincil bir sorguyu etkilemez.
+ */
+add_action('pre_get_posts', 'scp_apply_shop_filters');
+
+function scp_apply_shop_filters(WP_Query $query): void
+{
+    if (is_admin() || !$query->is_main_query()) {
+        return;
+    }
+
+    if (!$query->is_post_type_archive('product') && !$query->is_tax('product_cat')) {
+        return;
+    }
+
+    $minPrice = isset($_GET['scp_min_price']) ? sanitize_text_field(wp_unslash($_GET['scp_min_price'])) : '';
+    $maxPrice = isset($_GET['scp_max_price']) ? sanitize_text_field(wp_unslash($_GET['scp_max_price'])) : '';
+    $inStock = isset($_GET['scp_in_stock']) && $_GET['scp_in_stock'] === '1';
+
+    if ($minPrice === '' && $maxPrice === '' && !$inStock) {
+        return;
+    }
+
+    $metaQuery = (array) $query->get('meta_query');
+
+    if ($minPrice !== '' || $maxPrice !== '') {
+        $metaQuery[] = [
+            'key' => '_price',
+            'value' => [
+                $minPrice !== '' ? (float) $minPrice : 0,
+                $maxPrice !== '' ? (float) $maxPrice : 999999999,
+            ],
+            'type' => 'DECIMAL',
+            'compare' => 'BETWEEN',
+        ];
+    }
+
+    if ($inStock) {
+        $metaQuery[] = [
+            'key' => '_stock_status',
+            'value' => 'instock',
+            'compare' => '=',
+        ];
+    }
+
+    $query->set('meta_query', $metaQuery);
 }
 
 /**

@@ -348,6 +348,32 @@
         return list;
     }
 
+    /**
+     * "Sipariş numarası kopyalama düğmesi" - orders-panel.js'in AYNI
+     * fonksiyonu, bu dosyada da yinelenmiş (bu kod tabanının küçük,
+     * sayfa-bağlamına-özel yardımcıları paylaşılan bir dosya yerine
+     * yinelemesi kuralına uygun - bkz. bölüm 68). `navigator.clipboard`
+     * yoksa (eski tarayıcı, güvenli olmayan bağlam) düğme hiç render
+     * edilmiyor.
+     */
+    function renderOrderNumberCopyButton(order) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            return null;
+        }
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-order-copy-btn';
+        button.textContent = scpPanelTextData.orderNumberCopyLabel;
+        button.addEventListener('click', function () {
+            navigator.clipboard.writeText(String(order.number)).then(function () {
+                window.scpToast(scpPanelTextData.orderNumberCopied, 'success');
+            });
+        });
+
+        return button;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -355,9 +381,20 @@
         var header = document.createElement('div');
         header.className = 'scp-card__header';
 
+        var titleGroup = document.createElement('div');
+        titleGroup.className = 'scp-card__header-title';
+
         var title = document.createElement('h3');
         title.textContent = scpPanelTextData.orderNumberLabel + ' #' + order.number;
-        header.appendChild(title);
+        titleGroup.appendChild(title);
+
+        var copyButton = renderOrderNumberCopyButton(order);
+
+        if (copyButton) {
+            titleGroup.appendChild(copyButton);
+        }
+
+        header.appendChild(titleGroup);
 
         var badge = document.createElement('span');
         badge.className = 'scp-badge ' + (order.status === 'completed' ? 'scp-badge--active' : 'scp-badge--info');

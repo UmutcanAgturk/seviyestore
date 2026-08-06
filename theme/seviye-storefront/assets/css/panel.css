@@ -59,6 +59,34 @@
   letter-spacing: -0.01em;
 }
 
+/* Groups a title with a small inline action (currently only the order
+   number's copy button, assets/js/orders-panel.js/admin-orders-panel.js's
+   renderOrderNumberCopyButton()) so .scp-card__header's own
+   space-between still treats it as ONE item next to the status badge,
+   instead of spreading three items apart. */
+.scp-card__header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scp-order-copy-btn {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.scp-order-copy-btn:hover {
+  color: var(--scp-primary);
+  border-color: var(--scp-primary-light);
+}
+
 .scp-status {
   min-height: 1.25em;
   font-size: 0.875rem;
@@ -1522,4 +1550,38 @@ textarea:focus-visible,
   .scp-form__row {
     gap: 10px;
   }
+}
+
+/* ---- Yukarı kaydır düğmesi - assets/js/scp-ui-kit.js's
+   initScrollToTop() creates/toggles this element; global (loaded on
+   every logged-in page, not just /admin,/sube), so it lives here rather
+   than in woocommerce.css. ---- */
+
+.scp-scroll-top {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 80;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #fff;
+  background: var(--scp-primary);
+  border: none;
+  border-radius: 999px;
+  box-shadow: var(--scp-shadow);
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.scp-scroll-top:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.scp-scroll-top[hidden] {
+  display: none;
 }
