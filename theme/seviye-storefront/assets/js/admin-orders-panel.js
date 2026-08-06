@@ -700,8 +700,23 @@
         });
     }
 
+    /**
+     * "CSV formula injection" koruması - `order.customer_name` WooCommerce
+     * checkout'ta velinin kendi girdiği fatura adı/soyadından geliyor
+     * (bkz. OrderPresenter::present()), yani `=`, `+`, `-`, `@` ile
+     * başlayan bir değer verip Excel/Sheets/LibreOffice'te dosya
+     * açıldığında çalışan bir formül/DDE payload'ı yerleştirebilir
+     * (OWASP CSV Injection). Bu dört karakterden biriyle başlayan her
+     * hücrenin önüne bir tek tırnak ekleniyor - hücreyi metin olarak
+     * "sabitliyor", elektronik tablo uygulamalarının çoğu bunu görünür
+     * bir önek olarak DEĞİL, salt-metin göstergesi olarak yorumluyor.
+     */
     function csvCell(value) {
         var text = value === null || value === undefined ? '' : String(value);
+
+        if (/^[=+\-@\t\r]/.test(text)) {
+            text = "'" + text;
+        }
 
         return '"' + text.replace(/"/g, '""') + '"';
     }

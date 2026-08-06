@@ -21,6 +21,7 @@ use Seviye\Parents\Contracts\ParentContactLookupInterface;
 use Seviye\Security\Auth\AuthService;
 use Seviye\Security\Auth\CredentialGatewayInterface;
 use Seviye\Security\Auth\MustChangePasswordGatewayInterface;
+use Seviye\Security\Auth\NativeLoginGate;
 use Seviye\Security\Auth\WpCredentialGateway;
 use Seviye\Security\Auth\WpdbMustChangePasswordGateway;
 use Seviye\Security\Database\Migrations\CreateMustChangePasswordFlagsTable;
@@ -181,6 +182,15 @@ final class SecurityModule implements ModuleInterface
                 $container->get(CredentialGatewayInterface::class)
             )
         );
+
+        // Closes the gap where a two-factor-enabled account could still
+        // fully authenticate via WordPress' own native wp-login.php/
+        // xmlrpc.php/Application Passwords path, which never asks for the
+        // TOTP code - see NativeLoginGate's own docblock. Registered
+        // directly (not deferred to `init`) since TwoFactorService has no
+        // cross-plugin Contract dependency, same reasoning as the REST
+        // controllers above.
+        (new NativeLoginGate($container->get(TwoFactorService::class)))->register();
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): AccountRestController => new AccountRestController(
