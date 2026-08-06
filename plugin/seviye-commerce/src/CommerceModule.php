@@ -24,6 +24,7 @@ use Seviye\Commerce\Http\SpendingLimitCartHooks;
 use Seviye\Commerce\Http\SpendingLimitRestController;
 use Seviye\Commerce\Http\StorefrontPriceDisplayHooks;
 use Seviye\Commerce\Http\Support\OrderPresenter;
+use Seviye\Commerce\Http\TaxRatesRestController;
 use Seviye\Commerce\Http\WooCommerceCartHooks;
 use Seviye\Commerce\Rbac\CouponCapability;
 use Seviye\Commerce\Rbac\OrderCapability;
@@ -42,6 +43,7 @@ use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Commerce\Support\StudentSpendingCalculator;
+use Seviye\Commerce\Support\TaxRateGateway;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
@@ -124,6 +126,11 @@ final class CommerceModule implements ModuleInterface
             static fn (): ProductGradeLevels => new ProductGradeLevels()
         );
 
+        $container->singleton(
+            TaxRateGateway::class,
+            static fn (): TaxRateGateway => new TaxRateGateway()
+        );
+
         $container->get(MigrationRunner::class)->register(new CreateOrderLineItemsTable());
         $container->get(MigrationRunner::class)->register(new CreateProductBranchesTable());
         $container->get(MigrationRunner::class)->register(new CreateStudentSpendingLimitsTable());
@@ -184,6 +191,15 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::GENEL_MERKEZ, CouponCapability::MANAGE_COUPONS->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, CouponCapability::MANAGE_COUPONS->value);
 
+        // "Ürün ürün vergilendirme" - defining the named tax rate CATALOG is
+        // HQ-only (a legal/store-wide setting, same shape as
+        // CouponCapability above - no Şube Müdürü tier). ASSIGNING an
+        // already-defined rate to one product stays under MANAGE_PRODUCTS
+        // (granted above), see ProductCapability::MANAGE_TAX_RATES's own
+        // docblock.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_TAX_RATES->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_TAX_RATES->value);
+
         $container->singleton(
             OrderFulfillment::class,
             static fn (): OrderFulfillment => new OrderFulfillment()
@@ -217,7 +233,17 @@ final class CommerceModule implements ModuleInterface
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class),
                 $container->get(ProductOwnership::class),
-                $container->get(ProductGradeLevels::class)
+                $container->get(ProductGradeLevels::class),
+                $container->get(TaxRateGateway::class)
+            )
+        );
+
+        // "Ürün ürün vergilendirme" - same WC-active gating as the
+        // controllers above, its route handlers call WC_Tax directly (see
+        // TaxRateGateway).
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): TaxRatesRestController => new TaxRatesRestController(
+                $container->get(TaxRateGateway::class)
             )
         );
 

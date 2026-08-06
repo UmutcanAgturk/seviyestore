@@ -3706,6 +3706,96 @@ belirtilere karşı kod okuma yoluyla doğrulandı. PHP dosyası dışında sade
 tema (`header.php`, `inc/woocommerce.php`, `assets/css/woocommerce.css`)
 değişti - plugin zip'leri yeniden derlenmedi, sadece tema zip'i.
 
+### 70. Ürün ürün vergilendirme: WooCommerce'in tax class/rate motorunu saran "Vergi Oranları" yönetimi
+
+"Woo commerce'te yok bu" - kullanıcının gördüğü gerçek eksiklik buydu:
+Commerce eklentisi zaten WooCommerce'in KENDİ vergi hesaplamasının
+SONUCUNU (`get_total_tax()`) okuyup Finance'a hakediş kaydı olarak
+yazıyordu (bkz. bölüm 15, "12d-A: Commerce VAT capture"), ve
+`WooCommerceCartHooks` (Seviye'nin fiyat çözümleyicisi) yalnızca sepetteki
+BİRİM FİYATI değiştiriyor - `WC_Cart::calculate_totals()`'ın kendisi ve
+dolayısıyla ürünün kendi `tax_class`'ına göre vergi uygulaması hâlâ normal
+şekilde çalışıyor. Yani WooCommerce'in vergi MOTORU zaten doğru
+çalışıyordu; eksik olan, platformun kendi özel "Ürünler" sayfasının hiçbir
+zaman bir "Vergi Sınıfı" alanı göstermemesiydi - her ürün sessizce
+mağazanın TEK global vergi ayarını kullanıyordu, ürün bazlı bir seçim
+imkânsızdı.
+
+**Tasarım kararı** (kullanıcıya iki seçenek sunuldu, "WooCommerce
+motorunu kullan" seçildi): sıfırdan bir Seviye vergi hesaplayıcısı
+yazıp WooCommerce'in vergi motorunu devre dışı bırakmak yerine,
+WooCommerce'in KENDİ tax class/rate depolamasının üstüne ince bir
+sarmalayıcı eklendi - `plugin/seviye-commerce/src/Support/
+TaxRateGateway.php`. Bir "vergi oranı" burada TEK bir isim + TEK bir düz
+yüzde olarak sunuluyor (`tax_rate_country`/`tax_rate_state` boş = her
+yere uygulanır - tek ülkeli/TR mağazası için doğru basitleştirme;
+WooCommerce'in bir vergi sınıfının prensipte birden çok ülke/eyalet satırı
+taşıyabilmesi burada gerekmiyor). Yeni bir `scp_*` tablosu YOK - aynı
+"Kural" (bkz. Ürünler/Siparişler/Kuponlar): sınıf adı `woocommerce_tax_
+classes` seçeneğinde (WC_Tax'ın kendi belgelenmiş formatı - yeni satırla
+ayrılmış isim listesi, slug her zaman `sanitize_title()`), oranı ise
+WooCommerce'in kendi vergi oranları tablosunda, `WC_Tax::
+_insert_tax_rate()`/`_update_tax_rate()`/`_delete_tax_rate()` üzerinden
+(alt çizgi WC'nin bir isimlendirme tuhaflığı, gerçek PHP görünürlüğü
+değil - WooCommerce'in KENDİ `wc/v3/taxes` REST API'sinin arkasındaki
+`WC_REST_Tax_Rates_Controller`'ın çağırdığı AYNI metodlar). Bu, bu
+ortamda çalışan bir WooCommerce kurulumuna karşı DOĞRULANAMADI (yerel WC
+kaynağı/internet erişimi yok - dokümanın tamamında tekrarlanan aynı kısıt)
+- bu yüzden `TaxRateGateway::isSupported()` her yazma yolunu (create/
+update/delete) korur: beklenmedik bir WC sürümünde ham bir fatal yerine
+501 + Türkçe hata mesajı döner.
+
+"Standart" (WooCommerce'in her zaman var olan varsayılan sınıfı, gerçek
+`tax_rate_class` değeri boş string) API/URL katmanında `standard` sözde
+slug'ı olarak sunuluyor - boş string bir REST route'un
+`(?P<slug>[^/]+)` path segmenti olarak ASLA eşleşemez, bu yüzden gerçek
+WC değeri yalnızca sınırlarda çevriliyor (`toWooCommerceClass()`/
+`toPublicSlug()`); silinemez (WooCommerce her zaman ihtiyaç duyar).
+
+**RBAC ikili katman**: vergi oranı KATALOĞUNU tanımlamak/silmek yeni
+`ProductCapability::MANAGE_TAX_RATES` ile HQ-only (Genel Merkez/Bölge
+Müdürü, Kupon'la aynı şekilde Şube Müdürü katmanı yok - hukuki/mağaza
+geneli bir ayar). Zaten TANIMLANMIŞ bir oranı bir ÜRÜNE atamak ise ayrı
+tutulmadı, mevcut `MANAGE_PRODUCTS`'ın bir parçası kaldı - bir Şube
+Müdürü zaten o ürünün fiyatını/kategorisini değiştirebiliyorsa, HQ'nun
+tanımladığı listeden bir vergi oranı SEÇMESİ de aynı yetki seviyesinde
+(yeni bir oran ekleyemez/silemez, sadece seçer).
+
+**`ProductsRestController`**: `applyWritableFields()`'a `tax_class` alanı
+eklendi - varyantlı (`WC_Product_Variable`) ürünlerin fiyat/stoktan farklı
+olarak KENDİ vergi sınıfı olduğu için (varyasyonlar varsayılan olarak
+bunu miras alır), bu atama varyant erken-dönüşünden ÖNCE yapılıyor.
+`serialize()` hem `tax_class` (public slug) hem `tax_rate_percent`
+(o an geçerli yüzde) döndürüyor, böylece tema ek bir istek atmadan
+"KDV: %20" gösterebiliyor.
+
+**Tema**: yeni HQ-only `/admin/vergi-oranlari` sayfası
+(`templates/tax-rates-admin.php` + `assets/js/tax-rates-panel.js`,
+`coupons-admin.php`/`coupons-panel.js`'den birebir kopyalanan yapı) -
+isim+yüzde formu, "Standart"ın adı değiştirilemez (sadece yüzdesi),
+kullanımda olan/olmayan özel oranlar listede gösteriliyor, kullanımdaki
+bir oran silinemiyor (`TaxRateGateway::delete()` zaten bunu reddediyor,
+buton da `disabled`). Ürün düzenleme sayfasına (`templates/
+product-edit.php`) bir "Vergi Oranı" `<select>` eklendi;
+`product-edit-panel.js` sayfa açılışında `commerce/tax-rates`'i AYRI,
+paralel bir istekle çeker (ürünün kendi verisiyle aynı anda) -
+`pendingTaxClass`/`applyPendingTaxClass()` iki isteğin hangisinin önce
+bittiğine bakmaksızın doğru seçili değeri garanti ediyor.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (değişen dosyalar ve tüm
+repo) temiz - tek kalan uyarılar önceki turlardan bilinen, kabul edilmiş
+uyarılar. `seviye-commerce`'in 17 testi (47 assertion) yeşil kaldı - yeni
+`TaxRateGateway` için ayrı bir birim testi YAZILMADI, çünkü sınıfın
+tamamı `WC_Tax`/`get_option`/`get_posts` gibi WordPress/WooCommerce çalışma
+zamanı fonksiyonlarına sarılı (bu platformdaki diğer WC-entegrasyon
+sınıflarıyla - `ProductsRestController`, `WooCommerceCartHooks`, `CouponsRestController`
+- aynı, hiçbiri birim testli değil, gerçek bir WP/WC ortamı gerektiriyor).
+`node --check` iki yeni/değişen JS dosyasında temiz. Gerçek bir
+WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (dokümanın tamamında
+tekrarlanan aynı ortam kısıtı) - özellikle `WC_Tax::_insert_tax_rate()`
+ailesinin tam davranışı kullanıcının kendi WooCommerce sürümünde
+doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

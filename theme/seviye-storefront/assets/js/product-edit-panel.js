@@ -76,6 +76,7 @@
     var variantHint = form.querySelector('[data-scp-variant-hint]');
     var variantLockedNotice = form.querySelector('[data-scp-variant-locked-notice]');
     var gradeLevelCheckboxes = form.querySelectorAll('[name="grade_levels[]"]');
+    var taxClassSelect = form.querySelector('[data-scp-tax-class-select]');
     var variationsPanel = root.querySelector('[data-scp-product-variations-panel]');
     var variationsList = root.querySelector('[data-scp-product-variations-list]');
     var saveVariationsButton = root.querySelector('[data-scp-save-variations]');
@@ -94,6 +95,41 @@
     var productIdAttr = root.getAttribute('data-scp-product-id');
     var productId = productIdAttr ? parseInt(productIdAttr, 10) : null;
     var currentProduct = null;
+
+    // "Ürün ürün vergilendirme" - the option list itself loads
+    // asynchronously (commerce/tax-rates) independently of the product
+    // fetch below, so whichever of the two finishes LAST is what actually
+    // sets the select's value: applyPendingTaxClass() is a no-op until
+    // BOTH populateForm() has recorded which slug the product wants AND
+    // loadTaxRates() has populated the <option>s to select among.
+    var pendingTaxClass = null;
+
+    function applyPendingTaxClass() {
+        if (pendingTaxClass === null || !taxClassSelect.options.length) {
+            return;
+        }
+
+        taxClassSelect.value = pendingTaxClass;
+    }
+
+    function loadTaxRates() {
+        apiFetch('commerce/tax-rates').then(function (result) {
+            if (!result.ok) {
+                return;
+            }
+
+            taxClassSelect.innerHTML = '';
+
+            result.data.forEach(function (rate) {
+                var option = document.createElement('option');
+                option.value = rate.slug;
+                option.textContent = rate.name + ' (%' + rate.percent + ')';
+                taxClassSelect.appendChild(option);
+            });
+
+            applyPendingTaxClass();
+        });
+    }
 
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
@@ -374,6 +410,9 @@
         form.category.value = product && product.category ? product.category : '';
         form.image_id.value = product && product.image_id ? product.image_id : '';
 
+        pendingTaxClass = product && product.tax_class ? product.tax_class : 'standard';
+        applyPendingTaxClass();
+
         variantFields.hidden = Boolean(product);
         variantHint.hidden = Boolean(product);
         variantLockedNotice.hidden = !isVariable;
@@ -485,6 +524,7 @@
             description: form.description.value,
             price: isVariable ? 0 : parseFloat(form.price.value) || 0,
             category: form.category.value,
+            tax_class: taxClassSelect.value,
             manage_stock: isVariable ? false : manageStockCheckbox.checked,
             grade_levels: Array.prototype.filter.call(gradeLevelCheckboxes, function (checkbox) {
                 return checkbox.checked;
@@ -531,6 +571,8 @@
             window.location.href = scpPanelData.productsBasePath + '/' + result.data.id;
         });
     });
+
+    loadTaxRates();
 
     if (productId) {
         apiFetch('commerce/products/' + productId).then(function (result) {

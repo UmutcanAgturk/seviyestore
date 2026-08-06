@@ -85,6 +85,10 @@ function scp_sidebar_sections(): array
         $groups['katalog'][scp_menu_page_path('kampanyalar')] = __('Kampanya Kodları', 'seviye-storefront');
     }
 
+    if (current_user_can('scp_manage_tax_rates')) {
+        $groups['katalog'][scp_menu_page_path('vergi-oranlari')] = __('Vergi Oranları', 'seviye-storefront');
+    }
+
     if (current_user_can('scp_manage_purchase_orders')) {
         $groups['operasyon'][scp_menu_page_path('depo')] = __('Depo', 'seviye-storefront');
     }

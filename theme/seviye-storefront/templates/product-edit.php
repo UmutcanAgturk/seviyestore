@@ -72,6 +72,12 @@ $scp_is_new_product = $scp_product_id === null;
                     <span><?php esc_html_e('Kategori', 'seviye-storefront'); ?></span>
                     <input type="text" name="category" placeholder="<?php esc_attr_e('ör. Kırtasiye', 'seviye-storefront'); ?>">
                 </label>
+                <label>
+                    <span><?php esc_html_e('Vergi Oranı', 'seviye-storefront'); ?></span>
+                    <select name="tax_class" data-scp-tax-class-select>
+                        <option value="standard"><?php esc_html_e('Yükleniyor…', 'seviye-storefront'); ?></option>
+                    </select>
+                </label>
                 <label class="scp-checkbox">
                     <input type="checkbox" name="manage_stock" data-scp-manage-stock>
                     <span><?php esc_html_e('Stok takibi yap', 'seviye-storefront'); ?></span>

@@ -11,6 +11,7 @@ use Seviye\Commerce\Rbac\ProductCapability;
 use Seviye\Commerce\Repository\ProductBranchVisibilityRepositoryInterface;
 use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
+use Seviye\Commerce\Support\TaxRateGateway;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use WC_Post_Types;
@@ -55,7 +56,8 @@ final class ProductsRestController extends AbstractRestController
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly BranchLookupInterface $branches,
         private readonly ProductOwnership $ownership,
-        private readonly ProductGradeLevels $gradeLevels
+        private readonly ProductGradeLevels $gradeLevels,
+        private readonly TaxRateGateway $taxRates
     ) {
     }
 
@@ -418,6 +420,20 @@ final class ProductsRestController extends AbstractRestController
             $product->set_image_id($imageId);
         }
 
+        // "Ürün ürün vergilendirme" - unlike price/stock below, tax class
+        // is a real WC_Product field on a VARIABLE product too (its
+        // variations inherit it by default), so this runs before the
+        // variable-product early return, not after. The theme sends one of
+        // the PUBLIC slugs TaxRateGateway::list() returned ('standard' or a
+        // custom slug); toWooCommerceClass() maps 'standard' back to
+        // WooCommerce's real empty-string tax_rate_class. Omitted entirely
+        // (a request from before this field existed, or a client that
+        // never touches it) defaults to 'standard' rather than leaving the
+        // product's existing tax_class untouched - applyWritableFields()
+        // already fully overwrites every other writable field the same way.
+        $taxClass = (string) ($request->get_param('tax_class') ?? 'standard');
+        $product->set_tax_class($this->taxRates->toWooCommerceClass($taxClass));
+
         if ($product instanceof WC_Product_Variable) {
             // Variable products carry no price/stock of their own - each
             // generated variation (see generateVariations()) owns those
@@ -716,6 +732,12 @@ final class ProductsRestController extends AbstractRestController
                 ? $this->nullableLowStockAmount($product)
                 : null,
             'category' => $this->firstCategoryName($product),
+            // "Ürün ürün vergilendirme" - the PUBLIC slug (see
+            // TaxRateGateway) this product's tax_class maps to, plus the
+            // currently configured percent for that class so the theme can
+            // show "KDV: %20" without a second request.
+            'tax_class' => $this->taxRates->toPublicSlug($product->get_tax_class()),
+            'tax_rate_percent' => $this->taxRates->percentForWooCommerceClass($product->get_tax_class()),
             'own_branch_active' => $ownBranchId !== null
                 ? $this->visibility->isActiveForBranch($product->get_id(), $ownBranchId)
                 : null,
@@ -817,6 +839,7 @@ final class ProductsRestController extends AbstractRestController
             'stock_quantity' => ['required' => false, 'type' => 'integer'],
             'low_stock_amount' => ['required' => false, 'type' => 'integer'],
             'category' => ['required' => false, 'type' => 'string'],
+            'tax_class' => ['required' => false, 'type' => 'string'],
             'sizes' => ['required' => false, 'type' => 'string'],
             'colors' => ['required' => false, 'type' => 'string'],
             'grade_levels' => [

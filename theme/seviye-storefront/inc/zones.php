@@ -344,6 +344,11 @@ function scp_menu_pages(): array
             'capability' => static fn (): bool => current_user_can('scp_manage_coupons'),
             'template' => 'coupons-admin.php',
         ],
+        'vergi-oranlari' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_tax_rates'),
+            'template' => 'tax-rates-admin.php',
+        ],
         'depo' => [
             'zones' => ['admin', 'sube'],
             'capability' => static fn (): bool => current_user_can('scp_manage_purchase_orders'),
