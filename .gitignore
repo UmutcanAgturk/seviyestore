@@ -59,6 +59,10 @@ node_modules/
 # fresh from /plugin/* for each delivered theme package, never committed.
 /theme/seviye-storefront/inc/bundled-plugins/*.zip
 
+# The final packaged theme .zip (delivered to the user via file transfer,
+# not the repo) - same "packaging-time build artifact" reasoning as above.
+/theme/seviye-storefront.zip
+
 # PHPUnit / PHPCS caches
 .phpunit.result.cache
 .phpunit.cache/
