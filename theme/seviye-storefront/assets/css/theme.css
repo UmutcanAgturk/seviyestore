@@ -333,6 +333,28 @@ body {
   font-weight: 700;
 }
 
+/* assets/js/notifications-bell.js's refreshBadge() adds this only when
+   the unread count just grew, restarting it on every such change (see
+   that function's own comment on why a plain class add wouldn't
+   re-trigger a still-running animation). */
+.scp-notif-bell__badge--pop {
+  animation: scp-notif-badge-pop 0.4s var(--scp-ease);
+}
+
+@keyframes scp-notif-badge-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.35);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 .scp-notif-bell__panel {
   position: absolute;
   right: 0;
@@ -346,7 +368,40 @@ body {
   border-radius: var(--scp-radius);
   box-shadow: var(--scp-shadow-3);
   z-index: 20;
-  animation: scp-fade-in var(--scp-duration-base) var(--scp-ease);
+  animation: scp-notif-panel-in var(--scp-duration-base) var(--scp-ease);
+}
+
+@keyframes scp-notif-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* assets/js/notifications-bell.js's closePanel() adds this instead of
+   hiding the panel immediately, then removes it (and sets `hidden`)
+   once this animation's `animationend` fires - the same "let it play out
+   first" pattern scp-ui-kit.js's scpToast() uses for its own leaving
+   state. */
+.scp-notif-bell__panel--closing {
+  animation: scp-notif-panel-out var(--scp-duration-base) var(--scp-ease) forwards;
+}
+
+@keyframes scp-notif-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .scp-notif-item {

@@ -4155,6 +4155,85 @@ PhotoSwipe zoom/lightbox'ının gerçek bir ürün galerisiyle görünümü ve
 Clipboard API'nin gerçek bir tarayıcıda (http değil, https/localhost)
 davranışı kullanıcının kendi ortamında doğrulanmalı.
 
+### 75. Görsel/UX Tur 4: mobil kart görünümlü tablolar, ürün rozetleri, bildirim zili animasyonu, genel ağ etkinliği göstergesi
+
+Dördüncü tur - bu turda tema-only kalmaya devam edildi. İki madde, önceki
+turlarda ertelenen veya kapsamı önemli ölçüde değişen maddelerdi.
+
+**Mobil kart görünümlü tablolar**: önceki bir turda "her paneli tek tek
+değiştirmek gerekir" diye ertelenmişti - bu turda GENEL bir çözümle
+(sıfır panel-script değişikliği) çözüldü.
+`scp-ui-kit.js`'in `initResponsiveTables()`'ı her `.scp-table`'ın kendi
+`<thead th>` metnini okuyup her `<td>`'ye karşılık gelen `data-label`
+yazıyor; `panel.css`'in 640px altı kuralı `.scp-table--responsive-cards`
+(yalnızca etiketleme BAŞARILI olduğunda eklenen sınıf) tabloyu yatay
+kaydırma yerine etiketli kartlara çeviriyor. Sorun: panellerin çoğu
+tablo satırlarını KENDİ REST çağrısıyla, DOMContentLoaded'DAN SONRA
+dolduruyor (bazıları statik `<thead>`'i olan ama başlangıçta boş bir
+`<tbody>`'yi dolduruyor, `orders-panel.js`/`admin-orders-panel.js`'in
+sipariş kalemleri tablosu gibi ikisi ise TÜM `<table>`'ı JS'te sıfırdan
+kurup sonradan ekliyor) - tek seferlik bir DOMContentLoaded taraması bu
+satırların hiçbirini yakalamazdı. Çözüm: TEK bir `document.body` geneli
+MutationObserver, herhangi bir DOM değişikliğinde sayfadaki tüm
+`.scp-table`'ları yeniden tarayıp etiketliyor - hem "zaten var olan ama
+sonradan doldurulan tablo" hem "sonradan sıfırdan eklenen tablo"
+durumunu TEK mekanizmayla kapsıyor.
+
+**Ürün rozetleri**: araştırma, "İndirimde" rozetinin WooCommerce'in kendi
+varsayılan `woocommerce_show_product_sale_flash()`'ı üzerinden ZATEN var
+olduğunu ve zaten stillendirildiğini ortaya çıkardı - yeni iş yalnızca
+"Yeni" rozetiydi (ürün 14 günden daha yeni yayınlanmışsa, WP'nin kendi
+`post_date`'i üzerinden). "İndirimde" ile "Son N adet!" (düşük stok)
+rozetlerinin İKİSİ DE sol üst köşede aynı konumda (`top:12px; left:12px`)
+- önceden fark edilmemiş bir üst üste binme hatası. Bunu bir sarmalayıcı
+ile düzeltmek/yeniden konumlandırmak yerine ("Yeni" rozeti dahil üçünü
+tek bir dikey rozet yığınına almak), bilinçli olarak YAPILMADI: WC'nin
+mağaza ızgarası şablonundaki thumbnail + sale-flash hook'larının TAM
+önceliğini bu sandbox'ta canlı bir WooCommerce kurulumu olmadan
+doğrulayamıyoruz - yanlış tahmin edilen bir öncelik aralığı, sarmalayıcının
+ürün GÖRSELİNİ de içine alıp mağaza ızgarasını bozabilirdi. Bunun yerine
+"Yeni" rozeti tamamen AYRI bir köşeye (sağ üst) kondu - hem çakışmayı
+önlüyor hem hiçbir mevcut hook/CSS'e dokunmuyor. Var olan "İndirimde"/
+düşük-stok çakışması dokunulmadan (önceden var olan, bu turun kapsamı
+dışında bir sorun olarak) bırakıldı.
+
+**Bildirim zili rozet animasyonu + panel geçişi**: rozet, okunmamış sayı
+BİR ÖNCEKİ kontrolden fazla çıktığında (0→N ilk yüklemede de sayılır,
+gerçek yeni bir bildirim gibi) kısa bir "pop" animasyonu alıyor -
+`markRead()`'in kendi `refreshBadge()` çağrısı sayıyı DÜŞÜRDÜĞÜNDE tekrar
+tetiklenmiyor. Panel: araştırma, AÇILIŞIN zaten `.scp-notif-bell__panel`'in
+kendi `animation` özelliği üzerinden (hidden→false her seferinde CSS
+animasyonunu yeniden başlatıyor) animasyonlu olduğunu, ama KAPANIŞIN
+`hidden = true` ile ANINDA gerçekleştiğini (hiç animasyonsuz) ortaya
+çıkardı - asıl eksik yalnızca kapanıştı. `closePanel()` artık bir
+`--closing` sınıfı ekleyip `hidden = true`'yu YALNIZCA o animasyonun
+`animationend`'i ateşlendiğinde yazıyor - `scp-ui-kit.js`'in kendi
+`scpToast()`'unun "leaving" durumuyla AYNI desen.
+
+**Genel ağ etkinliği göstergesi**: `Kaydet düğmesi yükleniyor/başarı
+durumları` maddesi araştırma sırasında kapsamı değişti - bir düğme-bazlı
+spinner, HANGİ düğmenin HANGİ isteği tetiklediğini bilmesi gerekirdi (her
+panel script kendi fetch'ini kendi başına yönetiyor, tek bir merkezi
+"bu istek şu düğmeye ait" eşlemesi yok). Bunun yerine TEK bir merkezi
+kilit noktası kullanıldı: her panel script'in REST çağrısı ZATEN
+`scp-api-fetch.js`'in `scpApiFetch()`'inden geçiyor - bu TEK fonksiyona
+`scpBeginNetworkActivity()`/`scpEndNetworkActivity()` (yeni,
+`scp-ui-kit.js`) kancalanarak, sayfanın en üstünde ince bir ilerleme
+çubuğu HERHANGİ bir istek uçuştayken (yalnızca form gönderimleri değil,
+liste yüklemeleri de dahil) beliriyor - hiçbir panel script'ine
+dokunmadan. Bir sayaç (boolean değil) kullanıldı ki iki örtüşen istekten
+biri bitince çubuk erken kaybolmasın.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar) temiz
+- kalan uyarılar (nonce) önceki turdan, yeni değil. `node --check`
+(`notifications-bell.js`, `scp-api-fetch.js`, `scp-ui-kit.js`) temiz. Bu
+turda hiçbir eklenti dosyasına dokunulmadığından PHPUnit çalıştırılmadı.
+Gerçek bir WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ
+(aynı ortam kısıtı) - özellikle mobil kart tablolarının gerçek panel
+verisiyle davranışı, "Yeni" rozetinin gerçek ürün yayın tarihleriyle
+görünümü ve ağ etkinliği çubuğunun gerçek bir tarayıcıda zamanlaması
+kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

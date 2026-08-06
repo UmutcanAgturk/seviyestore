@@ -42,6 +42,13 @@
 
     var apiFetch = scpApiFetch;
 
+    // "Bildirim zili rozet animasyonu" - a brief pop only when the unread
+    // count actually GREW since the last check (0 -> N on first load
+    // counts, same as a genuinely new notification arriving would), not
+    // on every refresh - re-marking something read also calls this and
+    // shouldn't re-trigger the pop for a count that just went DOWN.
+    var lastKnownUnreadCount = 0;
+
     function refreshBadge() {
         apiFetch('notifications/mine/unread-count').then(function (result) {
             if (!result.ok) {
@@ -51,6 +58,14 @@
             var count = result.data.unread_count;
             badge.textContent = String(count);
             badge.hidden = count === 0;
+
+            if (count > lastKnownUnreadCount) {
+                badge.classList.remove('scp-notif-bell__badge--pop');
+                void badge.offsetWidth; // restart the animation even if it's still mid-run
+                badge.classList.add('scp-notif-bell__badge--pop');
+            }
+
+            lastKnownUnreadCount = count;
         });
     }
 
@@ -114,22 +129,47 @@
         });
     }
 
+    // "Panel geçişi" - opening already animated in via the panel's own CSS
+    // `animation` (restarts whenever `hidden` flips to false); closing had
+    // none - `hidden = true` made it vanish instantly. `openPanel()` is
+    // unchanged; `closePanel()` now adds a fade/slide-out class FIRST and
+    // only sets `hidden = true` once that animation actually finishes
+    // (`animationend`), the same "let the animation end, THEN remove"
+    // pattern scpToast() already uses for its own leaving state.
+    var panelOpen = false;
+
+    function openPanel() {
+        panelOpen = true;
+        panel.classList.remove('scp-notif-bell__panel--closing');
+        panel.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        loadList();
+    }
+
+    function closePanel() {
+        panelOpen = false;
+        toggle.setAttribute('aria-expanded', 'false');
+        panel.classList.add('scp-notif-bell__panel--closing');
+        panel.addEventListener('animationend', function onAnimationEnd() {
+            panel.removeEventListener('animationend', onAnimationEnd);
+            panel.classList.remove('scp-notif-bell__panel--closing');
+            panel.hidden = true;
+        });
+    }
+
     toggle.addEventListener('click', function (event) {
         event.stopPropagation();
 
-        var wasOpen = !panel.hidden;
-        panel.hidden = wasOpen;
-        toggle.setAttribute('aria-expanded', String(!wasOpen));
-
-        if (!wasOpen) {
-            loadList();
+        if (panelOpen) {
+            closePanel();
+        } else {
+            openPanel();
         }
     });
 
     document.addEventListener('click', function (event) {
-        if (!panel.hidden && !root.contains(event.target)) {
-            panel.hidden = true;
-            toggle.setAttribute('aria-expanded', 'false');
+        if (panelOpen && !root.contains(event.target)) {
+            closePanel();
         }
     });
 

@@ -26,6 +26,37 @@ function scpApiFetch(path, options) {
     );
     options.credentials = 'same-origin';
 
+    // "Yükleniyor göstergesi" - every panel script's REST call funnels
+    // through this one function, so hooking window.scpBeginNetworkActivity()/
+    // scpEndNetworkActivity() (scp-ui-kit.js) HERE shows a single page-level
+    // progress bar for as long as ANY request is in flight, without each
+    // panel script having to wire up its own button/spinner state. Guarded
+    // with typeof checks since script load order between this file and
+    // scp-ui-kit.js isn't guaranteed (both enqueued with empty dependency
+    // arrays - see inc/assets.php) - harmless no-op if scp-ui-kit.js hasn't
+    // defined them yet, which in practice never happens since scpApiFetch()
+    // is only ever called from an event handler, well after every enqueued
+    // script has already run.
+    if (typeof scpBeginNetworkActivity === 'function') {
+        scpBeginNetworkActivity();
+    }
+
+    function endActivity(value) {
+        if (typeof scpEndNetworkActivity === 'function') {
+            scpEndNetworkActivity();
+        }
+
+        return value;
+    }
+
+    function endActivityAndRethrow(error) {
+        if (typeof scpEndNetworkActivity === 'function') {
+            scpEndNetworkActivity();
+        }
+
+        throw error;
+    }
+
     return fetch(scpPanel.restUrl + path, options).then(function (response) {
         return response.json().then(function (data) {
             if (response.status === 401 && data && data.code === 'rest_cookie_invalid_nonce') {
@@ -35,7 +66,7 @@ function scpApiFetch(path, options) {
 
             return { ok: response.ok, status: response.status, data: data };
         });
-    });
+    }).then(endActivity, endActivityAndRethrow);
 }
 
 /**
@@ -53,6 +84,10 @@ function scpUploadMedia(file) {
     var formData = new FormData();
     formData.append('file', file);
 
+    if (typeof scpBeginNetworkActivity === 'function') {
+        scpBeginNetworkActivity();
+    }
+
     return fetch(scpPanel.wpRestRoot + 'wp/v2/media', {
         method: 'POST',
         headers: { 'X-WP-Nonce': scpPanel.nonce },
@@ -62,5 +97,17 @@ function scpUploadMedia(file) {
         return response.json().then(function (data) {
             return { ok: response.ok, status: response.status, data: data };
         });
+    }).then(function (value) {
+        if (typeof scpEndNetworkActivity === 'function') {
+            scpEndNetworkActivity();
+        }
+
+        return value;
+    }, function (error) {
+        if (typeof scpEndNetworkActivity === 'function') {
+            scpEndNetworkActivity();
+        }
+
+        throw error;
     });
 }

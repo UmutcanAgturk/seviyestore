@@ -31,6 +31,45 @@
         return host;
     }
 
+    // ---- Ağ etkinliği göstergesi (sayfanın üstünde ince ilerleme çubuğu) ----
+
+    /**
+     * "Kaydet düğmesi yükleniyor durumu" - a per-button spinner would need
+     * to guess which button triggered which request; instead this hooks
+     * the ONE shared choke point every panel script's REST call already
+     * goes through (scp-api-fetch.js's scpApiFetch()) and shows a single
+     * page-level indicator for as long as ANY request is in flight - works
+     * for every fetch (GET list-loads included, not just POST submits)
+     * with zero per-panel wiring. A counter (not a boolean) so two
+     * overlapping requests don't have the second one's completion hide the
+     * bar while the first is still running.
+     */
+    var scpNetworkActivityCount = 0;
+    var scpNetworkActivityBar = null;
+
+    function networkActivityBar() {
+        if (!scpNetworkActivityBar) {
+            scpNetworkActivityBar = document.createElement('div');
+            scpNetworkActivityBar.className = 'scp-network-bar';
+            document.body.appendChild(scpNetworkActivityBar);
+        }
+
+        return scpNetworkActivityBar;
+    }
+
+    window.scpBeginNetworkActivity = function () {
+        scpNetworkActivityCount += 1;
+        networkActivityBar().classList.add('scp-network-bar--active');
+    };
+
+    window.scpEndNetworkActivity = function () {
+        scpNetworkActivityCount = Math.max(0, scpNetworkActivityCount - 1);
+
+        if (scpNetworkActivityCount === 0) {
+            networkActivityBar().classList.remove('scp-network-bar--active');
+        }
+    };
+
     /**
      * @param {string} message
      * @param {'default'|'success'|'error'} [variant]
@@ -473,6 +512,62 @@
         });
     }
 
+    // ---- Mobil kart görünümlü tablolar ----
+
+    /**
+     * "Mobil kart görünümlü tablolar" - a `<td data-label="…">` per cell
+     * (read from the table's own `<thead th>` text) lets panel.css's
+     * `.scp-table` narrow-viewport rule show each row as a labeled card
+     * instead of a horizontally-scrolled table - no per-panel-script
+     * changes needed. Almost every panel builds its table body via its OWN
+     * REST fetch (asynchronously, well after DOMContentLoaded) - some fill
+     * an already-present-but-empty `<tbody>` (the table itself is in the
+     * initial HTML, just `hidden`), a couple (orders-panel.js,
+     * admin-orders-panel.js's order line-items table) build the whole
+     * `<table>` element from scratch and insert it later. A single
+     * document-wide MutationObserver (rather than one per table) covers
+     * both: any DOM change anywhere in the page re-scans every
+     * `.scp-table` currently present and (re)labels its rows, cheap enough
+     * for how infrequently panels actually mutate their own markup.
+     * `scp-table--responsive-cards` is only added once labeling actually
+     * finds header text, so a table with no `<thead>` keeps the existing,
+     * safe horizontal-scroll fallback instead of showing unlabeled cards.
+     */
+    function labelTableCells(table) {
+        var headers = Array.prototype.map.call(table.querySelectorAll('thead th'), function (th) {
+            return th.textContent.trim();
+        });
+
+        if (headers.length === 0) {
+            return;
+        }
+
+        table.querySelectorAll('tbody tr').forEach(function (row) {
+            Array.prototype.forEach.call(row.children, function (cell, index) {
+                if (headers[index]) {
+                    cell.setAttribute('data-label', headers[index]);
+                }
+            });
+        });
+
+        table.classList.add('scp-table--responsive-cards');
+    }
+
+    function initResponsiveTables() {
+        if (typeof MutationObserver === 'undefined') {
+            return;
+        }
+
+        function labelAllTables() {
+            document.querySelectorAll('.scp-table').forEach(labelTableCells);
+        }
+
+        labelAllTables();
+
+        var observer = new MutationObserver(labelAllTables);
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     // ---- Mini sepet (slide-out cart drawer) ----
 
     /**
@@ -668,5 +763,6 @@
         initOrderCelebration();
         initQuickView();
         initScrollToTop();
+        initResponsiveTables();
     });
 })();

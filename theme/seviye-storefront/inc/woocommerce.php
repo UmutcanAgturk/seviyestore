@@ -56,6 +56,17 @@ add_action('woocommerce_before_shop_loop', 'scp_render_shop_filters', 5);
 // nowhere in this theme).
 add_action('woocommerce_before_shop_loop_item_title', 'scp_render_low_stock_badge', 15);
 
+// "Ürün rozetleri: Yeni" - top-RIGHT corner (öncelik farketmiyor - WC'nin
+// kendi "İndirimde" rozeti ile bu tema hiç dokunulmamış "Son N adet!"
+// rozeti ikisi de sol üstte; onları saran/yeniden konumlandıran bir
+// değişiklik YAPILMADI, çünkü WC'nin bu iki varsayılan hook'unun (thumbnail
+// + sale flash) TAM önceliğini bu sandbox'ta canlı bir WooCommerce
+// kurulumu olmadan doğrulayamıyoruz - onları bir sarmalayıcıya almaya
+// çalışmak, o önceliği yanlış tahmin edersek ürün görselini bile
+// sarmalayıp mağaza ızgarasını bozabilirdi. Ayrı bir köşe kullanmak bu
+// riski tamamen ortadan kaldırıyor.
+add_action('woocommerce_before_shop_loop_item_title', 'scp_render_new_badge', 12);
+
 // "Ürün hızlı önizleme" - priority 15, WC'nin kendi sepete-ekleme
 // linkinin (priority 10, scp_replace_loop_add_to_cart_link() ile
 // "Öğrenci Seç"e çevrilmiş) HEMEN ardından.
@@ -500,6 +511,38 @@ function scp_render_low_stock_badge(): void
                 $quantity
             )
         )
+    );
+}
+
+/**
+ * "Ürün rozetleri: Yeni" - ürün yayınlanma tarihinden bu yana geçen süre
+ * 14 günden azsa gösteriliyor. WooCommerce'in "yeni ürün" kavramı yok -
+ * bu, WordPress'in kendi post_date'ini (her ürün zaten bir WP post) 14
+ * günlük sabit bir eşikle karşılaştıran basit bir sezgisel.
+ */
+function scp_render_new_badge(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    $publishedTimestamp = get_post_time('U', true, $product->get_id());
+
+    if ($publishedTimestamp === false) {
+        return;
+    }
+
+    $daysSincePublished = (time() - (int) $publishedTimestamp) / DAY_IN_SECONDS;
+
+    if ($daysSincePublished > 14) {
+        return;
+    }
+
+    printf(
+        '<span class="scp-new-badge">%s</span>',
+        esc_html__('Yeni', 'seviye-storefront')
     );
 }
 
