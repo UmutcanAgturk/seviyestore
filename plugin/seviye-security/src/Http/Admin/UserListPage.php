@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Seviye\Security\Http\Admin;
 
 use Seviye\Core\Rbac\Role;
+use Seviye\Security\Auth\MustChangePasswordGatewayInterface;
 use Seviye\Security\Auth\TcNumber;
 use Seviye\Security\Identity\IdentityGatewayInterface;
 use WP_User;
@@ -21,6 +22,13 @@ use WP_User;
  * unreachable to Genel Merkez - were the only options). Not unit tested,
  * same as every other WordPress-touching adapter in this codebase (see
  * docs/ARCHITECTURE.md, "Test stratejisi").
+ *
+ * Every password set here (creation, or a reset typed/generated into the
+ * existing-user row below) is chosen by the ADMIN, not the account holder -
+ * both handleCreate() and handleSave() flag the account via
+ * {@see MustChangePasswordGatewayInterface} so the platform's own login
+ * flow forces a self-chosen replacement on that person's next successful
+ * login (see AuthRestController::completeFirstLogin()).
  */
 final class UserListPage
 {
@@ -29,8 +37,10 @@ final class UserListPage
     private const NONCE_ACTION = 'scp_user_list';
     private const MIN_PASSWORD_LENGTH = 8;
 
-    public function __construct(private readonly IdentityGatewayInterface $identities)
-    {
+    public function __construct(
+        private readonly IdentityGatewayInterface $identities,
+        private readonly MustChangePasswordGatewayInterface $mustChangePassword
+    ) {
     }
 
     public function registerActions(): void
@@ -358,12 +368,14 @@ final class UserListPage
             $this->redirectWithNotice($redirectSlug, 'error', $exception->getMessage());
         }
 
+        $this->mustChangePassword->flag((int) $userId);
+
         $this->redirectWithNotice(
             $redirectSlug,
             'success',
             sprintf(
                 /* translators: %s: the new plaintext password, shown once so it can be handed to the user */
-                __('Kullanıcı oluşturuldu. Şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek.', 'seviye-security'),
+                __('Kullanıcı oluşturuldu. Şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek. Kullanıcı ilk girişte kendi şifresini oluşturmak zorunda kalacak.', 'seviye-security'),
                 $passwordInput
             )
         );
@@ -483,6 +495,7 @@ final class UserListPage
 
         if ($passwordInput !== '') {
             wp_set_password($passwordInput, $userId);
+            $this->mustChangePassword->flag($userId);
 
             // wp_set_password() destroys every session token for this
             // user, including the one behind the browser tab that just
@@ -502,7 +515,7 @@ final class UserListPage
                 'success',
                 sprintf(
                     /* translators: %s: the new plaintext password, shown once so it can be handed to the user */
-                    __('Kaydedildi. Yeni şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek.', 'seviye-security'),
+                    __('Kaydedildi. Yeni şifre: %s — bu şifreyi ilgili kişiye iletin, sayfa yenilendiğinde bir daha gösterilmeyecek. Kullanıcı bir sonraki girişte kendi şifresini oluşturmak zorunda kalacak.', 'seviye-security'),
                     $passwordInput
                 )
             );

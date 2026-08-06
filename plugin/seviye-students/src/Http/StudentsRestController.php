@@ -7,6 +7,8 @@ namespace Seviye\Students\Http;
 use InvalidArgumentException;
 use Seviye\Branches\Contracts\BranchLookupInterface;
 use Seviye\Branches\Contracts\BranchMembershipInterface;
+use Seviye\Core\Events\Event;
+use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Rbac\Role;
@@ -34,7 +36,8 @@ final class StudentsRestController extends AbstractRestController
         private readonly StudentParentRepositoryInterface $studentParents,
         private readonly BranchMembershipInterface $branchMemberships,
         private readonly BranchLookupInterface $branchLookup,
-        private readonly StudentImportParser $importParser
+        private readonly StudentImportParser $importParser,
+        private readonly EventBusInterface $eventBus
     ) {
     }
 
@@ -388,6 +391,15 @@ final class StudentsRestController extends AbstractRestController
      * yalnızca BU yanıtta bir kez görünür - `credentials` alanı bu yüzden
      * var, admin panelde "bir kerelik" bir bilgilendirme kartında gösterilir.
      *
+     * Bu üretilen şifre de "kurum tarafından oluşturulan şifre" - Security'nin
+     * `security.must_change_password` bayrağını (bkz.
+     * Seviye\Security\Auth\MustChangePasswordGatewayInterface) buradan
+     * DOĞRUDAN işaretleyemeyiz (yukarıdaki aynı döngüsel bağımlılık
+     * kısıtı), bu yüzden `students.parent_password_generated` event'i
+     * yayınlanır - SecurityModule bunu dinleyip bayrağı kendi işaretler
+     * (bkz. HakedisEventListener'ın Commerce→Finance için kullandığı AYNI
+     * gevşek bağlama deseni).
+     *
      * Öğrenci zaten oluşturulduktan SONRA çalışır; burada bir hata olması
      * öğrenci kaydını geri almaz (bu kod tabanında hiçbir yerde DB
      * transaction kullanılmıyor) - başarısızlık durumunda çağıran,
@@ -462,6 +474,8 @@ final class StudentsRestController extends AbstractRestController
                 'email' => $email,
                 'password' => $password,
             ];
+
+            $this->eventBus->dispatch(new Event('students.parent_password_generated', ['user_id' => $userId]));
         }
 
         try {

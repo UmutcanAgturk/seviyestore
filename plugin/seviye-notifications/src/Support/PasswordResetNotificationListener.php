@@ -10,19 +10,26 @@ use Seviye\Notifications\Domain\NotificationChannel;
 
 /**
  * Listens for `security.password_reset_requested`, dispatched by
- * Seviye\Security\Http\AuthRestController::forgotPassword() - this module
- * never depends on Seviye Security's classes or Contracts, only on that
- * documented event name/payload shape (`user_id`, `token`, `purpose`),
- * exactly mirroring Finance's HakedisEventListener's relationship to
- * Commerce (see docs/ARCHITECTURE.md, bölüm 15). This is the delivery this
- * repo's own docs (root README.md, theme/README.md) have flagged as
- * "Planlandı (Seviye Notifications'ın sorumluluğu)" since the password
- * token system was first built.
+ * Seviye\Security\Http\AuthRestController::forgotPassword() ("Şifremi
+ * Unuttum" - a T.C. Kimlik No is looked up against
+ * scp_user_identities, and if it matches an account, this fires with that
+ * account's user_id) - this module never depends on Seviye Security's
+ * classes or Contracts, only on that documented event name/payload shape
+ * (`user_id`, `token`, `purpose`), exactly mirroring Finance's
+ * HakedisEventListener's relationship to Commerce (see
+ * docs/ARCHITECTURE.md, bölüm 15). This is the delivery this repo's own
+ * docs (root README.md, theme/README.md) have flagged as "Planlandı
+ * (Seviye Notifications'ın sorumluluğu)" since the password token system
+ * was first built.
  *
- * `purpose` is `'first_setup'` or `'reset'` (see
- * Seviye\Security\Support\PasswordTokenService) - only the subject line
- * differs; both land the recipient on the same `?scp_token=...` login-screen
- * flow (theme/inc/assets.php's scp_requested_password_token()).
+ * `purpose` is always `'reset'` now (see
+ * Seviye\Security\Token\PasswordTokenPurpose) - there used to be a second,
+ * self-serve "İlk Şifre Oluştur" purpose sharing this same event/listener,
+ * removed in favour of a mandatory post-login password-change gate (see
+ * Seviye\Security\Auth\MustChangePasswordGatewayInterface) that never goes
+ * through email at all. The `purpose` field/branch below is kept rather
+ * than collapsed to a hardcoded subject line, since this listener has no
+ * way to know Security won't reintroduce a second purpose later.
  */
 final class PasswordResetNotificationListener
 {
@@ -56,15 +63,15 @@ final class PasswordResetNotificationListener
      */
     private function subjectFor(string $purpose): string
     {
-        if ($purpose === 'first_setup') {
+        if ($purpose === 'reset') {
             return function_exists('__')
-                ? __('Seviye - İlk Şifre Oluşturma', 'seviye-notifications')
-                : 'Seviye - İlk Şifre Oluşturma';
+                ? __('Seviye - Şifre Sıfırlama', 'seviye-notifications')
+                : 'Seviye - Şifre Sıfırlama';
         }
 
         return function_exists('__')
-            ? __('Seviye - Şifre Sıfırlama', 'seviye-notifications')
-            : 'Seviye - Şifre Sıfırlama';
+            ? __('Seviye - Şifre İşlemi', 'seviye-notifications')
+            : 'Seviye - Şifre İşlemi';
     }
 
     private function bodyFor(string $token): string
@@ -75,8 +82,8 @@ final class PasswordResetNotificationListener
         // enough to be meaningful would not fit on one line within that
         // constraint.
         $intro = function_exists('__')
-            ? __('Şifrenizi oluşturmak/sıfırlamak için bağlantıyı kullanın:', 'seviye-notifications')
-            : 'Şifrenizi oluşturmak/sıfırlamak için bağlantıyı kullanın:';
+            ? __('Şifrenizi sıfırlamak için bağlantıyı kullanın:', 'seviye-notifications')
+            : 'Şifrenizi sıfırlamak için bağlantıyı kullanın:';
 
         $outro = function_exists('__')
             ? __('Bu bağlantıyı siz talep etmediyseniz, bu e-postayı yok sayabilirsiniz.', 'seviye-notifications')

@@ -7,6 +7,7 @@ namespace Seviye\Security\Http;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Security\Auth\CredentialGatewayInterface;
+use Seviye\Security\Auth\MustChangePasswordGatewayInterface;
 use Seviye\Security\Auth\PasswordPolicy;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -33,8 +34,10 @@ use WP_REST_Response;
  */
 final class AccountRestController extends AbstractRestController
 {
-    public function __construct(private readonly CredentialGatewayInterface $credentials)
-    {
+    public function __construct(
+        private readonly CredentialGatewayInterface $credentials,
+        private readonly MustChangePasswordGatewayInterface $mustChangePassword
+    ) {
     }
 
     public function registerRoutes(): void
@@ -72,6 +75,7 @@ final class AccountRestController extends AbstractRestController
         wp_set_password($newPassword, $userId);
         wp_set_current_user($userId);
         wp_set_auth_cookie($userId);
+        $this->mustChangePassword->clear($userId);
 
         return new WP_REST_Response(['success' => true]);
     }

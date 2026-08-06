@@ -29,7 +29,7 @@ final class PasswordTokenServiceTest extends TestCase
     {
         $service = new PasswordTokenService(new FakeTokenGateway(), new FakeClock());
 
-        $token = $service->issue(42, PasswordTokenPurpose::FIRST_SETUP);
+        $token = $service->issue(42, PasswordTokenPurpose::RESET);
         $service->redeem($token);
 
         self::assertNull($service->redeem($token));
@@ -61,7 +61,7 @@ final class PasswordTokenServiceTest extends TestCase
         $service = new PasswordTokenService(new FakeTokenGateway(), new FakeClock());
 
         $tokenA = $service->issue(1, PasswordTokenPurpose::RESET);
-        $tokenB = $service->issue(2, PasswordTokenPurpose::FIRST_SETUP);
+        $tokenB = $service->issue(2, PasswordTokenPurpose::RESET);
 
         self::assertSame(1, $service->redeem($tokenA)?->userId);
         self::assertSame(2, $service->redeem($tokenB)?->userId);

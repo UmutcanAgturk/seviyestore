@@ -3796,6 +3796,113 @@ tekrarlanan aynı ortam kısıtı) - özellikle `WC_Tax::_insert_tax_rate()`
 ailesinin tam davranışı kullanıcının kendi WooCommerce sürümünde
 doğrulanmalı.
 
+### 71. "İlk Şifremi Oluştur" kaldırıldı: kurum tarafından oluşturulan şifreyle ilk giriş + giriş sonrası zorunlu şifre değişimi
+
+Kullanıcının isteği üç parçaydı: (1) "İlk Şifremi Oluştur" bölümünü
+kaldır, (2) bunun yerine kurum tarafından oluşturulan şifreyle ilk giriş
+yapılsın, giriş yapıldıktan hemen sonra kullanıcı kendi şifresini
+oluştursun, (3) "Şifremi Unuttum"da T.C. Kimlik No girilince eşleşen
+hesabın e-postasına bir şifre değiştirme e-postası gitsin, bunun için bir
+şifre değiştirme sayfası kurulsun.
+
+Araştırma (bkz. bölüm 12'nin "first-setup" notu) üçüncü maddenin ZATEN
+tam olarak istenen şekilde çalıştığını ortaya çıkardı: `forgotPassword()`
+zaten yalnızca T.C. Kimlik No alıyor, `IdentityGatewayInterface::
+findUserIdByTcNumber()` ile eşleşen hesabı buluyor, bir token üretip
+`security.password_reset_requested` event'i yayınlıyor,
+`PasswordResetNotificationListener` bunu dinleyip eşleşen hesabın
+e-postasına bir sıfırlama bağlantısı gönderiyor, `templates/login.php`'nin
+`set-password` görünümü de zaten o bağlantıyla açılan bir "şifre
+değiştirme sayfası". Bu turda dokunulmadı - yalnızca birinci/ikinci
+maddeler yeni iş.
+
+**Hesap oluşturmada zaten gerçek bir şifre vardı**: hem
+`UserListPage::handleCreate()` (personel hesapları) hem
+`StudentsRestController::maybeCreateAndLinkParent()` (otomatik veli
+hesabı) zaten oluşturma anında gerçek, kullanılabilir bir şifre
+üretiyor/istiyordu - "İlk Şifremi Oluştur" hiçbir zaman hesap oluşturma
+akışına bağlanmamıştı, kullanıcının kendi başına tetikleyebileceği ayrı,
+kullanılmayan bir self-servis bağlantıydı. Yani asıl eksik "giriş
+yapıldıktan hemen sonra kendi şifresini oluşturması zorunlu kılınması"
+kısmıydı - bu daha önce hiç yoktu (`must_change_password`/
+`force_password_change` gibi bir bayrak aranıp bulunamadı).
+
+**Yeni mekanizma**: `plugin/seviye-security/src/Auth/
+MustChangePasswordGatewayInterface.php` + `WpdbMustChangePasswordGateway`
+(yeni `scp_must_change_password_flags` tablosu, tek sütun `user_id` -
+satırın VARLIĞI bayrağın kendisi). İşaretlenme noktaları:
+- `UserListPage::handleCreate()` - her yeni personel hesabı.
+- `UserListPage::handleSave()` - bir personelin şifresi admin tarafından
+  sıfırlandığında (satır formundaki "Şifre" alanı doldurulursa).
+- Students'ın otomatik veli hesabı oluşturma akışı - ama Students,
+  Security'nin PHP sınıflarına DOĞRUDAN bağımlı olamaz (tam tersi yön
+  zaten var, döngüsel bağımlılık olurdu) - bu yüzden
+  `StudentsRestController` yeni bir `students.parent_password_generated`
+  event'i yayınlıyor, `SecurityModule::boot()` bunu dinleyip bayrağı kendi
+  işaretliyor (HakedisEventListener'ın Commerce→Finance için kullandığı
+  AYNI gevşek bağlama deseni).
+
+Temizlenme noktaları (şifreyi ARTIK kullanıcının kendisi seçtiği her yer):
+`AuthRestController::setPassword()` (token redemption - hem "Şifremi
+Unuttum" hem aşağıdaki zorunlu değişim akışı buradan geçiyor) ve
+`AccountRestController::update()` (Profilim'deki kendi kendine şifre
+değiştirme).
+
+**"Giriş yapıldıktan hemen sonra"**: `finishLogin()` (hem `login()` hem
+`login2fa()`'nın ortak son adımı) artık yanıtına `must_change_password`
+ekliyor; true ise AYRICA `PasswordTokenService::issue()` ile normal bir
+şifre sıfırlama token'ı üretip `password_change_token` alanında DOĞRUDAN
+bu yanıtta döndürüyor (e-postayla DEĞİL - zaten aynı tarayıcı sekmesinde,
+zaten kimliği doğrulanmış bir isteğe cevap veriyoruz). Tema'nın
+`require-password-change` görünümü bu token'ı `set-password` uç
+noktasına postluyor - yani zorunlu ilk-değişim akışı, "Şifremi Unuttum"un
+redemption adımıyla AYNI kodu kullanıyor, ayrı bir uç nokta değil.
+
+Neden ayrı, oturum tabanlı ("zaten giriş yaptın, sadece yeni şifreyi
+gönder") bir REST uç noktası KURULMADI: `wp_set_auth_cookie()` çağrısı bu
+İSTEĞİN kendi `$_COOKIE` superglobal'ini güncellemiyor (tarayıcıya bir
+sonraki istek için Set-Cookie başlığı gönderiyor, ama şu anki PHP
+isteğinin `$_COOKIE`'si aynı kalıyor) - yani AYNI istekte hemen
+`wp_create_nonce('wp_rest')` çağırmak, `wp_get_session_token()`'ın henüz
+görmediği (boş/eski) bir oturum token'ına bağlı bir nonce üretirdi; bu
+nonce, bir SONRAKİ istekte (tarayıcı artık gerçek çerezi taşırken)
+`wp_verify_nonce()` tarafından reddedilirdi - "aynı istekte üretilen
+nonce, farklı bir sonraki istekte doğrulanamıyor" tuzağı. Zaten
+kanıtlanmış, oturumdan bağımsız token mekanizmasını yeniden kullanmak bu
+sınıfı tamamen ortadan kaldırıyor.
+
+`PasswordTokenPurpose::FIRST_SETUP` case'i tamamen silindi (yalnızca
+`RESET` kaldı) - `/auth/first-password` uç noktası artık hiç yok, enum
+değeri hiçbir yerde üretilmiyordu. `PasswordResetNotificationListener`in
+`subjectFor()`'ı buna göre sadeleştirildi (bilinmeyen bir `purpose` için
+genel bir başlığa düşüyor, gelecekte üçüncü bir amaç eklenirse diye
+`if`/`else` yapısı korundu, hardcode edilmedi).
+
+**Tema**: `templates/login.php`'den "İlk Şifremi Oluştur" linki ve
+görünümü tamamen kaldırıldı. Yerine, `set-password` görünümüyle aynı
+alan yapısını (yeni şifre + tekrar) kullanan ama "vazgeç"/girişe dön
+linki OLMAYAN yeni bir `require-password-change` görünümü eklendi -
+zorunlu bir geçit, ayrı bir akış değil (hesap zaten oturum açık,
+`finishSession()` bu görünümü göstermeden ÖNCE `redirect_url`'i asla
+takip etmiyor). Başarıdan sonra `/`'ye yönlendiriyor - kullanıcı zaten
+çerezle giriş yapmış olduğundan `inc/access-gate.php`'nin rol-bölge
+zorlaması onu doğru panele (RoleRouter'ın hesapladığı gerçek `redirect_url`
+DEĞİL, çünkü set-password'ün token-redemption yanıtı bunu taşımıyor -
+ama `/`'ye düşmek zaten aynı sonucu veriyor) otomatik gönderiyor.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (değişen dosyalar ve tüm
+repo) temiz - kalan uyarılar önceki turlardan bilinen, kabul edilmiş
+uyarılarla birebir aynı (`UserListPage.php` hâlâ 9, değişmedi).
+`seviye-security` (78 test), `seviye-notifications` (48 test, FIRST_SETUP
+testi genel-purpose bir "bilinmeyen purpose" testine dönüştürüldü),
+`seviye-students` (47 test) yeşil. `node --check` `auth.js`'de temiz. Yeni
+`WpdbMustChangePasswordGateway` için ayrı birim testi YAZILMADI - aynı
+"WP çalışma zamanına sarılı adaptörler test edilmez" kuralı
+(`WpdbIdentityGateway`'in kendisi de test edilmemiş). Gerçek bir
+WordPress/WooCommerce kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam
+kısıtı) - özellikle nonce/çerez zamanlama akıl yürütmesi kullanıcının
+kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

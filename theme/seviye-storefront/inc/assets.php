@@ -849,6 +849,7 @@ function scp_enqueue_auth_assets(): void
         'passwordMismatch' => __('Şifreler eşleşmiyor.', 'seviye-storefront'),
         'resetLinkSent' => __('T.C. Kimlik No sistemde kayıtlıysa, bağlantı gönderildi.', 'seviye-storefront'),
         'passwordSet' => __('Şifreniz oluşturuldu. Giriş ekranına yönlendiriliyorsunuz...', 'seviye-storefront'),
+        'passwordChanged' => __('Şifreniz kaydedildi. Yönlendiriliyorsunuz...', 'seviye-storefront'),
         'invalidCode' => __('Kod hatalı.', 'seviye-storefront'),
         'twoFactorSessionExpired' => __('Doğrulama süresi doldu, lütfen tekrar giriş yapın.', 'seviye-storefront'),
     ]);

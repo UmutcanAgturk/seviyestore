@@ -1,14 +1,29 @@
 /**
  * Login screen behaviour: view switching between login / 2fa /
- * forgot-password / first-password / set-password, and talking to Seviye
- * Security's seviye/v1/auth/* REST endpoints. No framework/build step -
- * this is a single, small, self-contained screen.
+ * forgot-password / require-password-change / set-password, and talking to
+ * Seviye Security's seviye/v1/auth/* REST endpoints. No framework/build
+ * step - this is a single, small, self-contained screen.
  *
  * The 2fa view only ever appears as a redirect from a successful `login`
  * call whose response carries `requires_2fa: true` - a password match
  * alone never sets the auth cookie for an account with 2FA enabled (see
  * Seviye\Security\Http\AuthRestController::login()). Its pending_token
  * hidden field is populated from that response, not typed by the user.
+ *
+ * The require-password-change view is the same kind of server-driven
+ * redirect, not something a user navigates to directly: both `login` and
+ * `2fa`'s success responses carry `must_change_password` (see
+ * AuthRestController::finishLogin()) - true means the account holder is
+ * currently on a password someone ELSE chose for them (see
+ * MustChangePasswordGatewayInterface) and must replace it, right here,
+ * before finishSession() below ever follows `redirect_url`. That same
+ * response also carries `password_change_token` in that case - the view
+ * posts it to the SAME `set-password` endpoint the token-based
+ * "Şifremi Unuttum" flow uses (see pendingPasswordChangeToken below), not
+ * a separate one. There is no self-serve "İlk Şifre Oluştur" flow anymore -
+ * every account is created with a real password already (see
+ * UserListPage/StudentsRestController), this gate is what used to be that
+ * flow's job.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
  *   scpAuth     { restUrl, token }
@@ -85,6 +100,9 @@
         if (view === 'set-password') {
             return scpAuthText.invalidToken;
         }
+        if (view === 'require-password-change' && result.data && result.data.reason === 'weak_password') {
+            return scpAuthText.weakPassword;
+        }
         return scpAuthText.genericError;
     }
 
@@ -137,6 +155,29 @@
         });
     }
 
+    // Populated by finishSession() below when must_change_password is true
+    // - the require-password-change form has no T.C. Kimlik No/token field
+    // of its own to read this from (see AuthRestController::finishLogin()'s
+    // own docblock on why this reuses set-password's token mechanism
+    // instead of a session-gated endpoint).
+    var pendingPasswordChangeToken = null;
+
+    /**
+     * Shared by `login` and `2fa`'s success handlers: a session now exists
+     * either way (the auth cookie was set server-side in both cases - see
+     * AuthRestController::finishLogin()), so both funnel through the same
+     * must_change_password check before ever following redirect_url.
+     */
+    function finishSession(data) {
+        if (data.must_change_password) {
+            pendingPasswordChangeToken = data.password_change_token;
+            showView('require-password-change');
+            return;
+        }
+
+        window.location.href = data.redirect_url || '/';
+    }
+
     bindForm(
         'login',
         'login',
@@ -159,7 +200,7 @@
                 return;
             }
 
-            window.location.href = data.redirect_url || '/';
+            finishSession(data);
         }
     );
 
@@ -172,9 +213,7 @@
                 code: form.code.value.trim()
             };
         },
-        function (data) {
-            window.location.href = data.redirect_url || '/';
-        }
+        finishSession
     );
 
     bindForm(
@@ -188,14 +227,29 @@
         }
     );
 
+    /**
+     * Same success behaviour as the token-based `set-password` view below
+     * (message, then redirect to `/`) - the account IS already logged in
+     * here (the auth cookie was set back in finishSession()'s login/2fa
+     * call), so `/` immediately bounces to the right landing page via
+     * inc/access-gate.php's role-zone enforcement rather than showing the
+     * login screen again.
+     */
     bindForm(
-        'first-password',
-        'first-password',
+        'require-password-change',
+        'set-password',
         function (form) {
-            return { tc_no: form.tc_no.value.trim() };
+            if (form.password.value !== form.password_confirm.value) {
+                setStatus(scpAuthText.passwordMismatch, true);
+                return null;
+            }
+            return { token: pendingPasswordChangeToken, password: form.password.value };
         },
         function () {
-            setStatus(scpAuthText.resetLinkSent);
+            setStatus(scpAuthText.passwordChanged);
+            window.setTimeout(function () {
+                window.location.href = '/';
+            }, 1500);
         }
     );
 

@@ -64,7 +64,6 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
 
             <div class="scp-auth-links">
                 <a href="#" data-scp-switch="forgot-password"><?php esc_html_e('Şifremi Unuttum', 'seviye-storefront'); ?></a>
-                <a href="#" data-scp-switch="first-password"><?php esc_html_e('İlk Şifre Oluştur', 'seviye-storefront'); ?></a>
             </div>
         </form>
 
@@ -100,21 +99,6 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
             </div>
         </form>
 
-        <form class="scp-auth-form" data-scp-view="first-password" hidden>
-            <p class="scp-auth-hint"><?php esc_html_e('Hesabınız için henüz bir şifre belirlenmediyse, T.C. Kimlik No\'nuzu girin.', 'seviye-storefront'); ?></p>
-
-            <label class="scp-auth-field">
-                <span><?php esc_html_e('T.C. Kimlik No', 'seviye-storefront'); ?></span>
-                <input type="text" name="tc_no" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" required>
-            </label>
-
-            <button type="submit" class="scp-auth-submit"><?php esc_html_e('İlk Şifremi Oluştur', 'seviye-storefront'); ?></button>
-
-            <div class="scp-auth-links">
-                <a href="#" data-scp-switch="login"><?php esc_html_e('Girişe dön', 'seviye-storefront'); ?></a>
-            </div>
-        </form>
-
         <form
             class="scp-auth-form"
             data-scp-view="set-password"
@@ -133,6 +117,42 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
             </label>
 
             <button type="submit" class="scp-auth-submit"><?php esc_html_e('Şifreyi Kaydet', 'seviye-storefront'); ?></button>
+        </form>
+
+        <?php
+        /**
+         * "Kurum tarafından oluşturulan şifreyle ilk giriş yapılacak, giriş
+         * yapıldıktan hemen sonra ilk şifresini oluştursun" - shown instead
+         * of redirecting away, right after a successful login/2fa response
+         * carries `must_change_password: true` (see auth.js). Deliberately
+         * no "Girişe dön"/vazgeç link and no cancel path - the account is
+         * already authenticated at this point (the session cookie is set),
+         * this is a mandatory gate before scpAuth's redirect_url is
+         * followed, not a separate auth flow. Posts to
+         * seviye/v1/auth/complete-first-login, which needs no T.C. Kimlik
+         * No/current password - the active session already proves the
+         * caller knows the institution-issued one.
+         */
+        ?>
+        <form class="scp-auth-form" data-scp-view="require-password-change" hidden>
+            <p class="scp-auth-hint">
+                <?php esc_html_e(
+                    'Bu hesaba kurum tarafından oluşturulan bir şifreyle giriş yaptınız. Devam etmeden önce kendi şifrenizi belirleyin.',
+                    'seviye-storefront'
+                ); ?>
+            </p>
+
+            <label class="scp-auth-field">
+                <span><?php esc_html_e('Yeni Şifre', 'seviye-storefront'); ?></span>
+                <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+            </label>
+
+            <label class="scp-auth-field">
+                <span><?php esc_html_e('Yeni Şifre (Tekrar)', 'seviye-storefront'); ?></span>
+                <input type="password" name="password_confirm" autocomplete="new-password" minlength="8" required>
+            </label>
+
+            <button type="submit" class="scp-auth-submit"><?php esc_html_e('Şifreyi Kaydet ve Devam Et', 'seviye-storefront'); ?></button>
         </form>
     </div>
 </main>

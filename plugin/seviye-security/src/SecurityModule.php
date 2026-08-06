@@ -9,6 +9,7 @@ use Seviye\Core\Cache\CacheInterface;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
+use Seviye\Core\Events\Event;
 use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
@@ -19,7 +20,10 @@ use Seviye\Core\Settings\SettingsRepositoryInterface;
 use Seviye\Parents\Contracts\ParentContactLookupInterface;
 use Seviye\Security\Auth\AuthService;
 use Seviye\Security\Auth\CredentialGatewayInterface;
+use Seviye\Security\Auth\MustChangePasswordGatewayInterface;
 use Seviye\Security\Auth\WpCredentialGateway;
+use Seviye\Security\Auth\WpdbMustChangePasswordGateway;
+use Seviye\Security\Database\Migrations\CreateMustChangePasswordFlagsTable;
 use Seviye\Security\Database\Migrations\CreatePasswordTokensTable;
 use Seviye\Security\Database\Migrations\CreatePrivacyRequestsTable;
 use Seviye\Security\Database\Migrations\CreateTwoFactorSecretsTable;
@@ -81,6 +85,13 @@ final class SecurityModule implements ModuleInterface
         $container->singleton(
             CredentialGatewayInterface::class,
             static fn (): WpCredentialGateway => new WpCredentialGateway()
+        );
+
+        $container->singleton(
+            MustChangePasswordGatewayInterface::class,
+            static fn (ServiceContainer $c): WpdbMustChangePasswordGateway => new WpdbMustChangePasswordGateway(
+                $c->get(ConnectionInterface::class)
+            )
         );
 
         $container->singleton(
@@ -151,6 +162,7 @@ final class SecurityModule implements ModuleInterface
         $container->get(MigrationRunner::class)->register(new CreatePasswordTokensTable());
         $container->get(MigrationRunner::class)->register(new CreateTwoFactorSecretsTable());
         $container->get(MigrationRunner::class)->register(new CreatePrivacyRequestsTable());
+        $container->get(MigrationRunner::class)->register(new CreateMustChangePasswordFlagsTable());
 
         $container->get(RestApiRegistrar::class)->register(static fn (): AuthRestController => new AuthRestController(
             $container->get(AuthService::class),
@@ -159,7 +171,8 @@ final class SecurityModule implements ModuleInterface
             $container->get(EventBusInterface::class),
             $container->get(RateLimiter::class),
             $container->get(TwoFactorService::class),
-            $container->get(PendingTwoFactorLoginService::class)
+            $container->get(PendingTwoFactorLoginService::class),
+            $container->get(MustChangePasswordGatewayInterface::class)
         ));
 
         $container->get(RestApiRegistrar::class)->register(
@@ -171,7 +184,8 @@ final class SecurityModule implements ModuleInterface
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): AccountRestController => new AccountRestController(
-                $container->get(CredentialGatewayInterface::class)
+                $container->get(CredentialGatewayInterface::class),
+                $container->get(MustChangePasswordGatewayInterface::class)
             )
         );
 
@@ -230,9 +244,27 @@ final class SecurityModule implements ModuleInterface
         $identities = $container->get(IdentityGatewayInterface::class);
 
         (new SeviyeUsersMenu(
-            new UserListPage($identities),
+            new UserListPage($identities, $container->get(MustChangePasswordGatewayInterface::class)),
             new UserAuthorizationAdminPage($identities),
             new StudentDirectoryPage($container)
         ))->register();
+
+        // "Kurum tarafından oluşturulan şifreyle ilk giriş" - Students'
+        // maybeCreateAndLinkParent() dispatches this when it auto-creates a
+        // veli account with a generated password (see that method's own
+        // docblock on why it can't call MustChangePasswordGatewayInterface
+        // directly - the same Students→Security dependency-direction
+        // constraint as every other cross-module EventBus listener in this
+        // codebase). Registered directly in boot(), not deferred to `init`
+        // like Notifications' listeners: the closure below only resolves
+        // Security's OWN binding (registered earlier in this same boot()
+        // call), never a Contract from a module that may not have booted
+        // yet.
+        $container->get(EventBusInterface::class)->listen(
+            'students.parent_password_generated',
+            static function (Event $event) use ($container): void {
+                $container->get(MustChangePasswordGatewayInterface::class)->flag((int) $event->get('user_id'));
+            }
+        );
     }
 }

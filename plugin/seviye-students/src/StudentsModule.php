@@ -9,6 +9,7 @@ use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
+use Seviye\Core\Events\EventBusInterface;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
@@ -133,7 +134,8 @@ final class StudentsModule implements ModuleInterface
                 $container->get(StudentParentRepositoryInterface::class),
                 $container->get(BranchMembershipInterface::class),
                 $container->get(BranchLookupInterface::class),
-                $container->get(StudentImportParser::class)
+                $container->get(StudentImportParser::class),
+                $container->get(EventBusInterface::class)
             )
         );
     }

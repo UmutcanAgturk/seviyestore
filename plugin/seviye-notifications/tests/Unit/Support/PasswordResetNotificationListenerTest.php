@@ -31,7 +31,7 @@ final class PasswordResetNotificationListenerTest extends TestCase
         self::assertStringContainsString('scp_token=abc123', $call['body']);
     }
 
-    public function testFirstSetupPurposeUsesADifferentSubject(): void
+    public function testAnUnrecognizedPurposeFallsBackToTheGenericSubject(): void
     {
         $dispatcher = new FakeNotificationDispatcher();
         $listener = new PasswordResetNotificationListener($dispatcher);
@@ -39,10 +39,10 @@ final class PasswordResetNotificationListenerTest extends TestCase
         $listener->onPasswordResetRequested(new Event('security.password_reset_requested', [
             'user_id' => 12,
             'token' => 'abc123',
-            'purpose' => 'first_setup',
+            'purpose' => 'something_unexpected',
         ]));
 
-        self::assertStringContainsString('İlk Şifre', $dispatcher->calls[0]['subject']);
+        self::assertStringContainsString('Şifre İşlemi', $dispatcher->calls[0]['subject']);
     }
 
     public function testResetPurposeUsesTheResetSubject(): void
