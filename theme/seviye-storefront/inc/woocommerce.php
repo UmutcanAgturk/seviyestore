@@ -144,6 +144,12 @@ function scp_render_student_picker(): void
  * Renders above the product loop on the shop page and every product
  * category archive - not on the single product page, where a search/filter
  * bar has no product grid below it to act on.
+ *
+ * "Mağaza sayfasını daha iyi yap kullanıcı dostu olsun" - a category chip
+ * had no way back to the unfiltered shop other than the browser's back
+ * button, so a "Tümü" chip is prepended whenever a category is active
+ * (`wp_list_categories()`'s own `current_category` only highlights the
+ * ACTIVE category, it never adds an "all" option itself).
  */
 function scp_render_shop_filters(): void
 {
@@ -154,15 +160,27 @@ function scp_render_shop_filters(): void
     <div class="scp-shop-filters">
         <?php get_product_search_form(); ?>
         <nav class="scp-shop-filters__categories" aria-label="<?php esc_attr_e('Kategoriler', 'seviye-storefront'); ?>">
-            <?php
-            wp_list_categories([
-                'taxonomy' => 'product_cat',
-                'title_li' => '',
-                'hide_empty' => true,
-                'show_count' => true,
-                'current_category' => is_product_taxonomy() ? get_queried_object_id() : 0,
-            ]);
-            ?>
+            <span class="scp-shop-filters__categories-label">
+                <?php esc_html_e('Kategoriler', 'seviye-storefront'); ?>
+            </span>
+            <ul>
+                <?php if (is_product_taxonomy()) : ?>
+                    <li>
+                        <a href="<?php echo esc_url(get_permalink(wc_get_page_id('shop'))); ?>">
+                            <?php esc_html_e('Tümü', 'seviye-storefront'); ?>
+                        </a>
+                    </li>
+                <?php endif; ?>
+                <?php
+                wp_list_categories([
+                    'taxonomy' => 'product_cat',
+                    'title_li' => '',
+                    'hide_empty' => true,
+                    'show_count' => true,
+                    'current_category' => is_product_taxonomy() ? get_queried_object_id() : 0,
+                ]);
+                ?>
+            </ul>
         </nav>
     </div>
     <?php

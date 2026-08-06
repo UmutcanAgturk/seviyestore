@@ -80,6 +80,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  height: 100%;
   background: var(--scp-surface);
   border: 1px solid var(--scp-border);
   border-radius: var(--scp-radius);
@@ -99,13 +100,29 @@
   text-decoration: none;
 }
 
+/*
+ * A subtle centered "photo" glyph as the <img>'s own CSS background, so a
+ * product with a broken/missing image reads as an intentional placeholder
+ * rather than a blank white gap. A real (opaque) photo fully covers it as
+ * before - this only becomes visible when there is nothing painted on top
+ * of it (a failed/missing src). No wrapper markup needed: `background`
+ * paints the element's own box, independent of `object-fit`.
+ */
 .woocommerce ul.products li.product img {
+  display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: var(--scp-radius-sm);
   margin: 0 0 14px;
-  background: var(--scp-surface-alt);
+  background: var(--scp-surface-alt)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c7ccd6' stroke-width='1.5'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Ccircle cx='8.5' cy='9.5' r='1.5'/%3E%3Cpath d='M21 16l-5.5-5.5a2 2 0 0 0-2.8 0L3 20'/%3E%3C/svg%3E")
+    no-repeat center / 40px 40px;
+  transition: transform 0.25s ease;
+}
+
+.woocommerce ul.products li.product:hover img {
+  transform: scale(1.04);
 }
 
 .woocommerce ul.products li.product .woocommerce-loop-product__title {
@@ -207,8 +224,11 @@
   border-color: var(--scp-primary);
 }
 
-.woocommerce-ordering select,
+.woocommerce-ordering,
 .woocommerce-result-count {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 16px 16px 0;
   font-size: 0.8125rem;
   color: var(--scp-text-muted);
 }
@@ -482,10 +502,11 @@
   justify-content: space-between;
   gap: 16px;
   margin: 0 0 24px;
-  padding: 16px;
+  padding: 18px 20px;
   background: var(--scp-surface);
   border: 1px solid var(--scp-border);
   border-radius: var(--scp-radius);
+  box-shadow: var(--scp-shadow);
 }
 
 .scp-shop-filters .woocommerce-product-search {
@@ -495,13 +516,15 @@
 }
 
 .scp-shop-filters .woocommerce-product-search input[type="search"] {
-  padding: 8px 12px;
+  min-width: 220px;
+  padding: 9px 14px;
   font-family: inherit;
   font-size: 0.875rem;
   color: var(--scp-text);
   background: var(--scp-surface);
   border: 1px solid var(--scp-border);
-  border-radius: var(--scp-radius-sm);
+  border-radius: 999px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .scp-shop-filters .woocommerce-product-search input[type="search"]:focus {
@@ -511,14 +534,43 @@
 }
 
 .scp-shop-filters .woocommerce-product-search button {
-  padding: 8px 14px;
+  padding: 9px 18px;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
   background: var(--scp-primary);
   border: none;
-  border-radius: var(--scp-radius-sm);
+  border-radius: 999px;
   cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.scp-shop-filters .woocommerce-product-search button:hover {
+  filter: brightness(1.1);
+}
+
+/*
+ * `wp_list_categories()` only ever emits bare <li> elements - the calling
+ * template is responsible for the surrounding <ul> (see WordPress' own
+ * documented usage). inc/woocommerce.php's scp_render_shop_filters() now
+ * supplies that wrapper explicitly; every selector below assumes it
+ * exists. Without it, the <li>s render with no list-style reset at all
+ * (the browser's own default disc bullets, unstyled) - "kategoriler bir
+ * madde işaretli liste gibi görünüyordu" was exactly this.
+ */
+.scp-shop-filters__categories {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.scp-shop-filters__categories-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--scp-text-muted);
 }
 
 .scp-shop-filters__categories ul {
@@ -530,18 +582,27 @@
   list-style: none;
 }
 
+.scp-shop-filters__categories li {
+  margin: 0;
+}
+
 .scp-shop-filters__categories a {
-  display: inline-block;
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
   font-size: 0.8125rem;
+  font-weight: 600;
   color: var(--scp-text-muted);
   text-decoration: none;
   background: var(--scp-surface-alt);
-  border-radius: var(--scp-radius-sm);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .scp-shop-filters__categories a:hover {
   color: var(--scp-primary-dark);
+  border-color: var(--scp-primary-light);
 }
 
 .scp-shop-filters__categories .current-cat > a {
@@ -553,5 +614,10 @@
   .scp-shop-filters {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .scp-shop-filters .woocommerce-product-search input[type="search"] {
+    min-width: 0;
+    flex: 1;
   }
 }

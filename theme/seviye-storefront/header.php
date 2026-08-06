@@ -36,7 +36,17 @@ if (!defined('ABSPATH')) {
     <?php esc_html_e('İçeriğe geç', 'seviye-storefront'); ?>
 </a>
 <header class="scp-site-header">
-    <?php $scp_header_logo_url = scp_logo_url('thumbnail'); ?>
+    <?php
+    // 'thumbnail' is WordPress' one HARD-CROPPED image size (square by
+    // default, regardless of the uploaded logo's own aspect ratio) - a wide
+    // logo came out visibly clipped ("logoyu da tam görünür şekilde
+    // olsun"), and no amount of CSS on the <img> can recover pixels the
+    // crop already discarded server-side. 'medium' (like templates/login.php
+    // already uses) is a proportional resize, no cropping - object-fit:
+    // contain + the header's own max-height/max-width below still keep it
+    // small on screen.
+    $scp_header_logo_url = scp_logo_url('medium');
+    ?>
     <div class="scp-site-header__brand">
         <a class="scp-site-header__brand-link" href="<?php echo esc_url(scp_current_user_landing_path()); ?>">
             <?php if ($scp_header_logo_url !== null) : ?>

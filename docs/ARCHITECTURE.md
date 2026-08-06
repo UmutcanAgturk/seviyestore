@@ -3644,6 +3644,68 @@ personel durumu elle `completed`'e çevirmiş gibi doğru çalışıyor;
 zaten `completed` olan bir siparişi teslim edildi işaretlemek (personel
 önce tamamlandı demiş, günler sonra teslim etmiş) no-op kalıyor.
 
+### 69. Mağaza sayfası kullanılabilirlik turu + header logosu kırpma düzeltmesi
+
+Kullanıcı iki ekran görüntüsü paylaştı (tekli ürün sayfası + Mağaza arşiv
+sayfası) ve "Mağaza sayfasını daha iyi yap kullanıcı dostu olsun, header'daki
+logoyu da tam görünür şekilde olsun" dedi. İki ayrı, ilgisiz kök nedeni olan
+iki görsel hata:
+
+**1) Header logosu kırpılıyordu.** `header.php`, logoyu
+`scp_logo_url('thumbnail')` ile çekiyordu. WordPress'in `'thumbnail'` boyutu
+- `'medium'`/`'large'`/`'full'`'ün aksine - varsayılan olarak HER ZAMAN kare
+olacak şekilde SUNUCU TARAFINDA kırpılır (yüklenen logonun kendi en-boy
+oranı ne olursa olsun). `.scp-site-header__logo`'nun CSS'i (önceki bir
+turda "yarım görünüyor" hatası için zaten `max-height`/`object-fit:
+contain` olarak düzeltilmişti) buradan sonra hiçbir şey yapamaz - kırpılan
+pikseller kaynak dosyadan zaten silinmiş. Düzeltme: `templates/login.php`
+ile aynı boyuta, `'medium'`e (oranı koruyan, kırpmasız bir yeniden
+boyutlandırma) geçildi.
+
+**2) Kategori filtresi düz bir madde imi listesi olarak görünüyordu**
+(ekran görüntüsünde "• Dijital (1)  • Genel (2)"). Kök neden:
+`scp_render_shop_filters()` (`inc/woocommerce.php`), `wp_list_categories()`u
+doğrudan bir `<nav>` içine, SARAN bir `<ul>` OLMADAN çağırıyordu.
+`wp_list_categories()` yalnızca çıplak `<li>` elemanları basar - saran
+`<ul>`'u çağıran şablonun sağlaması WordPress'in dokümante edilmiş API
+sözleşmesidir. `<ul>` DOM'da hiç var olmadığından mevcut `.scp-shop-
+filters__categories ul { list-style: none; ... }` CSS kuralı hiçbir zaman
+eşleşmiyordu, tarayıcının varsayılan disk madde imine geri düşülüyordu.
+Düzeltme: eksik `<ul>` eklendi; ayrıca bir kategori seçiliyken (`product_cat`
+arşivinde) listenin başına, filtreyi temizleyip Mağaza'ya dönen bir "Tümü"
+linki eklendi (`wp_list_categories()`'in kendi `current_category` parametresi
+yalnızca AKTİF kategoriyi vurgular, bir "tümü" seçeneği eklemez - geri
+dönmenin tek yolu tarayıcı geri tuşuyken).
+
+**Genel görsel cila** (`assets/css/woocommerce.css`, aynı tur): ürün
+kartları artık `height: 100%` ile eşit yükseklikte; fotoğrafsız ürünler
+için düz gri kutu yerine ortalanmış bir "fotoğraf" ikonlu placeholder arka
+plan (inline SVG data URI, yeni markup/wrapper class'ına bağımlı olmadan
+doğrudan mevcut `img` selector'üne uygulandı); kart üzerine gelince hafif
+bir `scale(1.04)` büyütme; kategori linkleri artık hap (pill) biçimli
+düğmeler (`border-radius: 999px`, hover'da kenarlık rengi değişimi); arama
+kutusu/düğmesi de hap biçimine getirildi; sıralama/sonuç sayısı satırı ve
+filtre paneli için boşluk/gölge iyileştirmeleri.
+
+Bir ara adımda, ürün resmi placeholder'ı için WooCommerce'in varsayılan
+`content-product.php` şablonunun ürettiğini VARSAYDIĞIM (`.scp-product-
+thumb` sarmalayıcı div'i, `a.woocommerce-LoopProduct-link` gibi) ama yerel
+WC kaynağı/internet erişimi olmadığı için DOĞRULAYAMADIĞIM class adlarına
+dayanan bir CSS yaklaşımı yazıldı, sonra bu risk fark edilip geri alındı -
+bunun yerine zaten önceki bölümlerde kanıtlanmış, gerçekten var olan
+`.woocommerce ul.products li.product img` selector'ü doğrudan
+genişletildi (yeni markup bağımlılığı yok).
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (değişen 2 PHP dosyası ve
+tüm repo) temiz - repo genelinde kalan tek uyarılar önceki turlardan
+bilinen, kabul edilmiş `MissingTranslatorsComment` uyarıları
+(`inc/plugin-installer.php`). CSS/HTML görsel değişiklikleri gerçek bir
+tarayıcıda test EDİLEMEDİ (bu platform hiç uçtan uca görsel olarak test
+edilmedi - bkz. bölüm 68'in aynı notu); kullanıcının ekran görüntüsündeki
+belirtilere karşı kod okuma yoluyla doğrulandı. PHP dosyası dışında sadece
+tema (`header.php`, `inc/woocommerce.php`, `assets/css/woocommerce.css`)
+değişti - plugin zip'leri yeniden derlenmedi, sadece tema zip'i.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
