@@ -4234,6 +4234,70 @@ verisiyle davranışı, "Yeni" rozetinin gerçek ürün yayın tarihleriyle
 görünümü ve ağ etkinliği çubuğunun gerçek bir tarayıcıda zamanlaması
 kullanıcının kendi ortamında doğrulanmalı.
 
+### 76. Görsel/UX Tur 5: manuel karanlık mod, baş harf avatarı, klavye kısayolları yardımı, sipariş durum sekmeleri
+
+Beşinci tur - tema-only kalmaya devam edildi.
+
+**Manuel karanlık mod anahtarı**: header.php'ye bir açma/kapama düğmesi
+eklendi, seçim `localStorage.scpTheme`'e yazılıyor. Asıl kritik kısım
+ERKEN uygulama: `assets/js/scp-ui-kit.js`'in `initThemeToggle()`'ı bir
+FOOTER script'i (`in_footer: true`) olduğundan, tercih orada uygulansaydı
+sayfa YANLIŞ temayla bir kare boyandıktan SONRA doğru temaya geçerdi
+(görünür bir "flaş"). Bunun yerine `inc/setup.php`'nin yeni
+`scp_theme_preload_script()`'i `<head>`'e, `wp_head()`'DEN (CSS
+`<link>`'lerin basıldığı yer) ÖNCE, satır içi bir `<script>` olarak
+basılıyor - `header.php` VE `templates/login.php`'nin İKİSİNDE de (giriş
+ekranında düğme YOK, ama saklanan tercih orada da saygı görüyor,
+`auth.css`'in kendi ayrı token bloklarına `[data-theme]` desteği
+eklenerek). CSS tarafı: `@media (prefers-color-scheme: dark)` bloğu
+`:not([data-theme="light"])` ile daraltıldı (açık moda zorlanmışsa OS
+karanlık dese bile kazansın), `[data-theme="dark"]` ayrı bir blok da
+aynı token değerlerini taşıyor (OS açık modda bile karanlığa
+zorlanabilsin) - plain CSS'te mixin olmadığından iki blok da AYNI değerleri
+tekrarlıyor, tıpkı auth.css'in kendi (farklı) token setini zaten
+tekrarladığı gibi.
+
+**Kullanıcı/öğrenci baş harf avatarı**: `inc/setup.php`'nin
+`scp_render_avatar()`'ı (sunucu tarafı, header.php'nin kullanıcı adı için)
+ve `scp-ui-kit.js`'in `scpAvatar()`'ı (istemci tarafı, Öğrenciler
+tablosunun adı JS'te render ettiği için) AYNI görünümü üretiyor ama
+BİREBİR aynı renk sonucu üretmeye ÇALIŞILMADI - PHP'nin UTF-8 byte'ları ile
+JS'in UTF-16 code unit'leri Türkçe karakterli adlarda (İ, ş, ğ, ü, ö, ç)
+aynı hash'i güvenilir şekilde üretemez; her bağlamın kendi içinde tutarlı
+olması (aynı ad her zaman aynı rengi alır) yeterli görüldü.
+
+**Klavye kısayolları yardım ekranı**: "?" tuşu (`event.key === '?'`,
+klavye düzeninden bağımsız) `.scp-modal-overlay`/`.scp-modal`'ı (command
+palette/quick view'ın da yaptığı gibi elle kurulmuş) yeniden kullanan bir
+liste açıyor - mevcut ⌘K/Esc kısayollarını + "?" tuşunun kendisini
+belgeliyor (uygulamada başka klavye kısayolu YOK, araştırma bunu
+doğruladı). Bir metin alanına yazarken "?" karakterinin kendisini
+yakalamaması için odaklı öğe input/textarea/select/contenteditable ise
+hiç tetiklenmiyor.
+
+**Sipariş listesi durum sekmeleri**: araştırma, admin sipariş
+panelindeki filtre formunun ZATEN tam bir durum `<select>`'ine sahip
+olduğunu (sunucu tarafında, `AdminOrdersRestController`'a giden bir GET
+parametresi) ortaya çıkardı - istemci tarafında AYRI bir filtreleme
+mekanizması kurmak hem gereksiz hem de iki kaynak arasında tutarsızlık
+riski taşırdı. Bunun yerine `renderStatusTabs()`, o AYNI `<select>`'in
+kendi `<option>`'larından (ikinci bir sabit durum listesi icat edilmeden)
+tıklanabilir sekmeler üretiyor - bir sekmeye tıklamak `select.value`'yu
+ayarlayıp `loadOrders()`'ı (formun kendi submit'inin çağırdığı AYNI
+fonksiyon) çağırıyor. Yalnızca admin/şube sipariş paneline uygulandı -
+veli'nin "Siparişlerim" sayfasında zaten bir durum filtre formu yok.
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar) temiz
+- kalan uyarı (`inc/assets.php` satır uzunluğu) önceki turdan, yeni değil.
+`node --check` (`admin-orders-panel.js`, `scp-ui-kit.js`,
+`students-panel.js`) temiz. Bu turda hiçbir eklenti dosyasına
+dokunulmadığından PHPUnit çalıştırılmadı. Gerçek bir WordPress/WooCommerce
+kurulumunda uçtan uca test EDİLEMEDİ (aynı ortam kısıtı) - özellikle
+karanlık mod anahtarının gerçek bir tarayıcıda flaşsız geçiş yapıp
+yapmadığı, avatar renklerinin gerçek Türkçe adlarla görünümü ve durum
+sekmelerinin gerçek sipariş verisiyle davranışı kullanıcının kendi
+ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

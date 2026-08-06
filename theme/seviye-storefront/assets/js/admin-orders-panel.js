@@ -57,6 +57,8 @@
     var branchField = root.querySelector('[data-scp-admin-orders-branch-field]');
     var branchSelect = branchField.querySelector('select');
     var listEl = root.querySelector('[data-scp-admin-orders-list]');
+    var statusTabsEl = root.querySelector('[data-scp-admin-orders-status-tabs]');
+    var statusSelect = form.status;
     var apiFetch = scpApiFetch;
 
     function setStatus(message, isError) {
@@ -443,6 +445,51 @@
         return card;
     }
 
+    /**
+     * "Sipariş listesi durum sekmeleri" - a faster, more visual shortcut
+     * to the SAME `name="status"` dropdown the filter form already has
+     * (built FROM that dropdown's own `<option>`s, not a second hardcoded
+     * status list) - clicking a tab just sets the dropdown's value and
+     * re-fetches through the exact same `currentParams()`/`loadOrders()`
+     * path the form's own submit already uses; no separate client-side
+     * filtering or new REST call shape.
+     */
+    function renderStatusTabs() {
+        if (!statusTabsEl) {
+            return;
+        }
+
+        statusTabsEl.innerHTML = '';
+
+        Array.prototype.forEach.call(statusSelect.options, function (option) {
+            var tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'scp-status-tabs__tab';
+            tab.textContent = option.textContent;
+            tab.setAttribute('aria-pressed', String(option.value === statusSelect.value));
+
+            tab.addEventListener('click', function () {
+                statusSelect.value = option.value;
+                updateActiveStatusTab();
+                loadOrders();
+            });
+
+            statusTabsEl.appendChild(tab);
+        });
+    }
+
+    function updateActiveStatusTab() {
+        if (!statusTabsEl) {
+            return;
+        }
+
+        Array.prototype.forEach.call(statusTabsEl.children, function (tab, index) {
+            var isActive = statusSelect.options[index].value === statusSelect.value;
+            tab.classList.toggle('scp-status-tabs__tab--active', isActive);
+            tab.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
     function loadOrders() {
         var params = currentParams();
 
@@ -468,6 +515,7 @@
 
     form.addEventListener('submit', function (event) {
         event.preventDefault();
+        updateActiveStatusTab();
         loadOrders();
     });
 
@@ -479,5 +527,6 @@
         });
     }
 
+    renderStatusTabs();
     loadOrders();
 })();

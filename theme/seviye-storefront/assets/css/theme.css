@@ -114,8 +114,21 @@
   }
 }
 
+/*
+ * "Manuel karanlık mod anahtarı" - assets/js/scp-ui-kit.js's
+ * initThemeToggle() stamps `data-theme="dark"`/`"light"` on <html> from a
+ * localStorage choice, overriding whatever prefers-color-scheme says (a
+ * user on a dark-OS machine can still force light, and vice versa). The
+ * media-query block below is scoped with `:not([data-theme="light"])` so
+ * an explicit light override wins even while the OS reports dark; the
+ * `[data-theme="dark"]` block below it covers the opposite case (force
+ * dark on a light-OS machine) - same token VALUES in both places since
+ * plain CSS has no mixin to share them from, matching how auth.css's own
+ * light/dark blocks already duplicate their (different) token set for the
+ * same reason.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --scp-bg: #0e1116;
     --scp-surface: #171b22;
     --scp-surface-alt: #1c212a;
@@ -145,6 +158,37 @@
     --scp-shadow: var(--scp-shadow-0);
     --scp-shadow-raised: var(--scp-shadow-2);
   }
+}
+
+:root[data-theme="dark"] {
+  --scp-bg: #0e1116;
+  --scp-surface: #171b22;
+  --scp-surface-alt: #1c212a;
+  --scp-text: #f2f3f5;
+  --scp-text-muted: #9aa1ac;
+  --scp-border: #2c313a;
+  --scp-primary: #5b8def;
+  --scp-primary-dark: #3f6fce;
+  --scp-primary-light: #7ea6f2;
+  --scp-primary-bg: #182740;
+  --scp-accent: #34d399;
+  --scp-accent-dark: #10b981;
+  --scp-accent-bg: #10291f;
+  --scp-danger: #f87171;
+  --scp-danger-bg: #341615;
+  --scp-warning: #fbbf24;
+  --scp-warning-bg: #332309;
+  --scp-info: #60a5fa;
+  --scp-info-bg: #122236;
+  --scp-success-bg: #10291f;
+  --scp-success-text: #86efac;
+  --scp-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  --scp-shadow-0: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --scp-shadow-1: 0 2px 6px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --scp-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --scp-shadow-3: 0 20px 48px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --scp-shadow: var(--scp-shadow-0);
+  --scp-shadow-raised: var(--scp-shadow-2);
 }
 
 * {
@@ -247,8 +291,28 @@ body {
 }
 
 .scp-site-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--scp-text-muted);
   font-weight: 500;
+}
+
+/* "Kullanıcı/öğrenci baş harf avatarı" - inc/setup.php's
+   scp_render_avatar() (server-rendered contexts, e.g. this header) and
+   assets/js/scp-ui-kit.js's scpAvatar() (JS-rendered lists, e.g. the
+   Öğrenciler table) both output this same shape/class. */
+.scp-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
 .scp-site-header__nav a {
@@ -278,6 +342,28 @@ body {
 
 .scp-site-header__nav a:hover::after {
   right: 0;
+}
+
+/* "Manuel karanlık mod anahtarı" - header.php's [data-scp-theme-toggle],
+   wired by assets/js/scp-ui-kit.js's initThemeToggle(). Same shape as
+   .scp-notif-bell__toggle right below it, for a consistent utility-button
+   look in the header. */
+.scp-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--scp-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.scp-theme-toggle:hover {
+  border-color: var(--scp-primary);
+  color: var(--scp-primary);
 }
 
 .scp-notif-bell {

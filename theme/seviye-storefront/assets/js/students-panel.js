@@ -153,9 +153,23 @@
 
         students.forEach(function (student) {
             var row = document.createElement('tr');
+            var fullName = student.first_name + ' ' + student.last_name;
+
+            var nameCell = document.createElement('td');
+            var nameGroup = document.createElement('span');
+            nameGroup.className = 'scp-table__name-group';
+
+            if (typeof window.scpAvatar === 'function') {
+                nameGroup.appendChild(window.scpAvatar(fullName));
+            }
+
+            var nameLabel = document.createElement('span');
+            nameLabel.textContent = fullName;
+            nameGroup.appendChild(nameLabel);
+            nameCell.appendChild(nameGroup);
+            row.appendChild(nameCell);
 
             [
-                student.first_name + ' ' + student.last_name,
                 student.branch_name || '',
                 student.tc_no || scpPanelTextData.summaryNotSet,
                 student.education_year,

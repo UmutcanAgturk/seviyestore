@@ -22,6 +22,7 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title><?php echo esc_html(get_bloginfo('name')); ?> &mdash; <?php esc_html_e('Giriş Yap', 'seviye-storefront'); ?></title>
+    <?php scp_theme_preload_script(); ?>
     <?php wp_head(); ?>
 </head>
 <body <?php body_class('scp-auth-body'); ?>>

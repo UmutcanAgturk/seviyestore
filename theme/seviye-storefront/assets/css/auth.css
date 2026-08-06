@@ -20,8 +20,17 @@
   --scp-radius: 14px;
 }
 
+/*
+ * "Manuel karanlık mod anahtarı" (bkz. theme.css'in aynı adı taşıyan
+ * bloğu) - bu ekranda bir açma/kapama düğmesi YOK (giriş öncesi, sade bir
+ * ekran; ekstra bir kontrol eklemek gereksiz karmaşıklık), ama panele
+ * giriş yapmış bir kullanıcının SEÇTİĞİ tercih (localStorage) burada da
+ * saygı görüyor - inc/setup.php'nin scp_theme_preload_script()'i her iki
+ * ekranda da AYNI, sayfa boyanmadan önce çalışan satır içi script'i
+ * basıyor.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --scp-bg: #0e1116;
     --scp-card-bg: #171b22;
     --scp-text: #f2f3f5;
@@ -35,6 +44,21 @@
     --scp-warning: #f0b429;
     --scp-success: #34d399;
   }
+}
+
+:root[data-theme="dark"] {
+  --scp-bg: #0e1116;
+  --scp-card-bg: #171b22;
+  --scp-text: #f2f3f5;
+  --scp-text-muted: #9aa1ac;
+  --scp-border: #2c313a;
+  --scp-primary: #5b8def;
+  --scp-primary-dark: #3f6fce;
+  --scp-primary-hover: #7ea3f2;
+  --scp-error: #f87171;
+  --scp-error-bg: #341615;
+  --scp-warning: #f0b429;
+  --scp-success: #34d399;
 }
 
 * {

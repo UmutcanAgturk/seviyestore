@@ -167,6 +167,54 @@
         }, 900);
     };
 
+    // ---- Avatar (baş harf rozeti) ----
+
+    /**
+     * @see inc/setup.php's scp_render_avatar() for the server-rendered
+     * counterpart and why the two don't try to produce IDENTICAL colors
+     * for the same name.
+     */
+    var scpAvatarPalette = ['#14326b', '#0f9d63', '#b45309', '#0f5c96', '#7e3af2', '#c0271e', '#0b7a4c'];
+
+    function scpAvatarColorForName(name) {
+        var hash = 0;
+
+        for (var i = 0; i < name.length; i++) {
+            hash = (hash * 31 + name.charCodeAt(i)) % scpAvatarPalette.length;
+        }
+
+        return scpAvatarPalette[Math.abs(hash) % scpAvatarPalette.length];
+    }
+
+    function scpAvatarInitials(name) {
+        var parts = name.trim().split(/\s+/).filter(Boolean);
+
+        if (parts.length === 0) {
+            return '';
+        }
+
+        var initials = parts[0].charAt(0);
+
+        if (parts.length > 1) {
+            initials += parts[parts.length - 1].charAt(0);
+        }
+
+        return initials.toUpperCase();
+    }
+
+    /**
+     * @param {string} name
+     * @return {HTMLSpanElement}
+     */
+    window.scpAvatar = function (name) {
+        var span = document.createElement('span');
+        span.className = 'scp-avatar';
+        span.style.backgroundColor = scpAvatarColorForName(name || '');
+        span.textContent = scpAvatarInitials(name || '');
+
+        return span;
+    };
+
     // ---- Modal (a Promise-based confirm() replacement) ----
 
     /**
@@ -418,6 +466,101 @@
         if (trigger) {
             openCommandPalette();
         }
+    });
+
+    // ---- Klavye kısayolları yardım ekranı ----
+
+    /**
+     * "?" tuşu (Shift olmadan da event.key her zaman '?' döner, klavye
+     * düzeninden bağımsız) bu listeyi açıyor - reuses .scp-modal-overlay/
+     * .scp-modal (scpModal()'ın da kullandığı) ama gövdesi düz metin
+     * olmadığından scpModal()'ın kendi API'si kullanılamıyor, bu yüzden
+     * command palette/quick view'ın da yaptığı gibi kendi overlay'ini
+     * elle kuruyor. Bir metin alanına yazarken "?" karakterinin kendisini
+     * yakalamaması için odaklı öğe input/textarea/select/contenteditable
+     * ise hiç tetiklenmiyor.
+     */
+    function openShortcutsHelp() {
+        var textData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-modal-overlay';
+
+        var modal = document.createElement('div');
+        modal.className = 'scp-modal scp-shortcuts-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        var title = document.createElement('h2');
+        title.textContent = textData.shortcutsTitle || 'Klavye Kısayolları';
+        modal.appendChild(title);
+
+        var list = document.createElement('dl');
+        list.className = 'scp-shortcuts-modal__list';
+
+        [
+            ['⌘K / Ctrl+K', textData.shortcutsCommandPalette || 'Hızlı arama / komut paletini aç'],
+            ['?', textData.shortcutsHelp || 'Bu yardım ekranını aç'],
+            ['Esc', textData.shortcutsEscape || 'Açık pencereyi/paneli kapat']
+        ].forEach(function (pair) {
+            var dt = document.createElement('dt');
+            dt.textContent = pair[0];
+            var dd = document.createElement('dd');
+            dd.textContent = pair[1];
+            list.appendChild(dt);
+            list.appendChild(dd);
+        });
+
+        modal.appendChild(list);
+
+        var actions = document.createElement('div');
+        actions.className = 'scp-modal__actions';
+
+        var closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'scp-btn';
+        closeButton.textContent = textData.shortcutsClose || 'Kapat';
+        actions.appendChild(closeButton);
+        modal.appendChild(actions);
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+            }
+        }
+
+        closeButton.addEventListener('click', close);
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        closeButton.focus();
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== '?' || event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+        }
+
+        var target = event.target;
+        var tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || (target && target.isContentEditable)) {
+            return;
+        }
+
+        event.preventDefault();
+        openShortcutsHelp();
     });
 
     // ---- Sidebar group flyout - click/tap toggle (bölüm 66, inc/sidebar.php).
@@ -715,6 +858,64 @@
         }, 4000);
     }
 
+    // ---- Manuel karanlık mod anahtarı ----
+
+    /**
+     * header.php'nin `[data-scp-theme-toggle]` düğmesi - gerçek erken
+     * uygulama inc/setup.php'nin scp_theme_preload_script()'inde (sayfa
+     * boyanmadan ÖNCE, `<head>`'de) oluyor; bu yalnızca tıklamayı işleyip
+     * `<html data-theme>`'i tersine çeviriyor ve seçimi
+     * `localStorage.scpTheme`'e yazıyor, sonraki her sayfa yüklemesinde o
+     * satır içi script'in okuyacağı yer. `scpPanelText` yoksa (bu
+     * dosyanın kendi docblock'u - paylaşılan temel dosya, tüketici değil)
+     * sabit bir Türkçe fallback'e düşüyor, initScrollToTop()'un
+     * `scrollToTop` etiketini okuma şekliyle AYNI.
+     */
+    function initThemeToggle() {
+        var button = document.querySelector('[data-scp-theme-toggle]');
+
+        if (!button) {
+            return;
+        }
+
+        var textData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        function currentTheme() {
+            var stamped = document.documentElement.getAttribute('data-theme');
+
+            if (stamped === 'dark' || stamped === 'light') {
+                return stamped;
+            }
+
+            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+                ? 'dark'
+                : 'light';
+        }
+
+        function updateLabel() {
+            button.textContent = currentTheme() === 'dark'
+                ? (textData.themeToggleToLight || 'Aydınlık Mod')
+                : (textData.themeToggleToDark || 'Koyu Mod');
+        }
+
+        button.addEventListener('click', function () {
+            var next = currentTheme() === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+
+            try {
+                localStorage.setItem('scpTheme', next);
+            } catch (e) {
+                // Privacy-mode/iframe contexts can block localStorage - the
+                // toggle still works for the rest of THIS page view, it
+                // just won't be remembered on the next load.
+            }
+
+            updateLabel();
+        });
+
+        updateLabel();
+    }
+
     // ---- Yukarı kaydır düğmesi ----
 
     /**
@@ -764,5 +965,6 @@
         initQuickView();
         initScrollToTop();
         initResponsiveTables();
+        initThemeToggle();
     });
 })();

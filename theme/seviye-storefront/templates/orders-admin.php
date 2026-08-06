@@ -29,6 +29,12 @@ if (!defined('ABSPATH')) {
     <section class="scp-card" id="scp-admin-orders-panel">
         <p class="scp-status" data-scp-admin-orders-status></p>
 
+        <nav
+            class="scp-status-tabs"
+            data-scp-admin-orders-status-tabs
+            aria-label="<?php esc_attr_e('Durum', 'seviye-storefront'); ?>"
+        ></nav>
+
         <form class="scp-form scp-form--inline" data-scp-admin-orders-form>
             <label data-scp-admin-orders-branch-field hidden>
                 <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>

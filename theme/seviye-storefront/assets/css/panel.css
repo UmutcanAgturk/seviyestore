@@ -87,6 +87,40 @@
   border-color: var(--scp-primary-light);
 }
 
+/* "Sipariş listesi durum sekmeleri" - assets/js/admin-orders-panel.js's
+   renderStatusTabs(), built from the filter form's own status <select>
+   options (see that function's own comment). Empty (no children) until
+   JS renders it, so no extra CSS needed for the empty state - an empty
+   flex container just takes no visual space. */
+.scp-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.scp-status-tabs__tab {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  background: var(--scp-surface-alt);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.scp-status-tabs__tab:hover {
+  color: var(--scp-primary-dark);
+  border-color: var(--scp-primary-light);
+}
+
+.scp-status-tabs__tab--active {
+  color: #fff;
+  background: var(--scp-primary);
+}
+
 .scp-status {
   min-height: 1.25em;
   font-size: 0.875rem;
@@ -139,6 +173,16 @@
 
 .scp-table tbody tr:hover {
   background: var(--scp-primary-bg);
+}
+
+/* Avatar + name pairing inside a table cell (assets/js/students-panel.js's
+   renderStudents()) - kept as ONE flex item so it stays paired together
+   even under panel.css's mobile .scp-table--responsive-cards rule, where
+   each <td> itself becomes a flex row against its own data-label. */
+.scp-table__name-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* A row whose click opens an edit structure (see products-panel.js) -
@@ -1151,6 +1195,34 @@ button.scp-badge:hover {
   margin: 0 0 20px;
   color: var(--scp-text-muted);
   font-size: var(--scp-text-base);
+}
+
+/* "Klavye kısayolları yardım ekranı" - assets/js/scp-ui-kit.js's
+   openShortcutsHelp(), triggered by the "?" key. */
+.scp-shortcuts-modal__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  margin: 0 0 20px;
+}
+
+.scp-shortcuts-modal__list dt {
+  padding: 2px 10px;
+  font-family: var(--scp-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--scp-text);
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  white-space: nowrap;
+}
+
+.scp-shortcuts-modal__list dd {
+  margin: 0;
+  align-self: center;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
 }
 
 .scp-modal__actions {

@@ -28,6 +28,7 @@ if (!defined('ABSPATH')) {
 <head>
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?php scp_theme_preload_script(); ?>
     <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>
@@ -104,7 +105,11 @@ if (!defined('ABSPATH')) {
                 <ul class="scp-list" data-scp-notif-list></ul>
             </div>
         </div>
-        <span class="scp-site-header__user"><?php echo esc_html(wp_get_current_user()->display_name); ?></span>
+        <button type="button" class="scp-theme-toggle" data-scp-theme-toggle></button>
+        <span class="scp-site-header__user">
+            <?php scp_render_avatar(wp_get_current_user()->display_name); ?>
+            <?php echo esc_html(wp_get_current_user()->display_name); ?>
+        </span>
         <a href="<?php echo esc_url(wp_logout_url(home_url('/'))); ?>">
             <?php esc_html_e('Çıkış Yap', 'seviye-storefront'); ?>
         </a>
