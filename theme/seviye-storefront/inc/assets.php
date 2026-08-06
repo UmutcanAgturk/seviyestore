@@ -123,6 +123,8 @@ function scp_enqueue_panel_assets(): void
         'noNotifications' => __('Bildirim yok.', 'seviye-storefront'),
         'smsConfigured' => __('NetGSM bağlantısı yapılandırıldı.', 'seviye-storefront'),
         'smsNotConfigured' => __('NetGSM bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
+        'whatsappConfigured' => __('WhatsApp bağlantısı yapılandırıldı.', 'seviye-storefront'),
+        'whatsappNotConfigured' => __('WhatsApp bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
         'emailConfigured' => __('Gmail bağlantısı yapılandırıldı.', 'seviye-storefront'),
         'emailNotConfigured' => __('Gmail bağlantısı henüz yapılandırılmadı.', 'seviye-storefront'),
         'passwordChanged' => __('Şifreniz güncellendi.', 'seviye-storefront'),
@@ -269,6 +271,7 @@ function scp_enqueue_panel_assets(): void
         'orderItemTotalLabel' => __('Ara Toplam', 'seviye-storefront'),
         'orderCustomerLabel' => __('Veli', 'seviye-storefront'),
         'orderCustomerEmailLabel' => __('Veli E-posta', 'seviye-storefront'),
+        'orderStatusLabel' => __('Durum', 'seviye-storefront'),
         'orderRefundedTotalLabel' => __('İade Edilen', 'seviye-storefront'),
         'cancelOrderAction' => __('İptal Et', 'seviye-storefront'),
         'refundOrderAction' => __('İade Et', 'seviye-storefront'),
@@ -745,6 +748,21 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/notifications-settings-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/notifications-settings-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    $canManageNotificationSettings = current_user_can('scp_manage_notification_settings');
+
+    if ($zone === 'admin' && $zonePath === 'whatsapp-ayarlari' && $canManageNotificationSettings) {
+        $handle = 'scp-whatsapp-settings-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/whatsapp-settings-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/whatsapp-settings-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

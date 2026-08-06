@@ -20,6 +20,7 @@ use Seviye\Notifications\Channel\EmailChannel;
 use Seviye\Notifications\Channel\GmailSmtpConfigurator;
 use Seviye\Notifications\Channel\NetgsmSmsChannel;
 use Seviye\Notifications\Channel\PanelChannel;
+use Seviye\Notifications\Channel\WhatsAppChannel;
 use Seviye\Notifications\Database\Migrations\CreateNotificationsTable;
 use Seviye\Notifications\Database\Migrations\CreateScheduledBroadcastsTable;
 use Seviye\Notifications\Dispatch\NotificationDispatcher;
@@ -101,6 +102,9 @@ final class NotificationsModule implements ModuleInterface
                     NotificationChannel::EMAIL->value => new EmailChannel(),
                     NotificationChannel::PANEL->value => new PanelChannel(),
                     NotificationChannel::SMS->value => new NetgsmSmsChannel(
+                        $c->get(SettingsRepositoryInterface::class)
+                    ),
+                    NotificationChannel::WHATSAPP->value => new WhatsAppChannel(
                         $c->get(SettingsRepositoryInterface::class)
                     ),
                 ]

@@ -8,18 +8,23 @@ use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Settings\SettingsRepositoryInterface;
 use Seviye\Notifications\Channel\NetgsmSmsChannel;
+use Seviye\Notifications\Channel\WhatsAppChannel;
 use Seviye\Notifications\Rbac\NotificationCapability;
 use WP_REST_Request;
 use WP_REST_Response;
 
 /**
  * seviye/v1/notifications/sms-settings - read/write the NetGSM SMS gateway
- * credentials (see {@see NetgsmSmsChannel}). Genel Merkez only
+ * credentials (see {@see NetgsmSmsChannel}). seviye/v1/notifications/
+ * whatsapp-settings - the same for the WhatsApp Business Cloud API (see
+ * {@see WhatsAppChannel}), added to this SAME controller rather than a new
+ * one since it's the identical "read/write one third-party gateway's
+ * credentials" shape. Genel Merkez only
  * ({@see NotificationCapability::MANAGE_NOTIFICATION_SETTINGS}).
  *
- * The password is a write-only secret: GET never returns it (only
- * `usercode`, `msgheader`, and a `configured` boolean), and PUT leaves the
- * stored password untouched when the request omits it - the same "don't
+ * The password/access token is a write-only secret: GET never returns it
+ * (only the non-secret fields and a `configured` boolean), and PUT leaves
+ * the stored secret untouched when the request omits it - the same "don't
  * blank out a secret the caller isn't trying to change" UX every panel form
  * with a password field needs, first applied here since no earlier REST
  * endpoint in this platform has stored a third-party credential.
@@ -53,6 +58,27 @@ final class NotificationsSettingsRestController extends AbstractRestController
                 ],
             ],
         ]);
+
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/notifications/whatsapp-settings', [
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'showWhatsApp'],
+                'permission_callback' => $this->requireCapability(
+                    NotificationCapability::MANAGE_NOTIFICATION_SETTINGS->value
+                ),
+            ],
+            [
+                'methods' => 'PUT',
+                'callback' => [$this, 'updateWhatsApp'],
+                'permission_callback' => $this->requireCapability(
+                    NotificationCapability::MANAGE_NOTIFICATION_SETTINGS->value
+                ),
+                'args' => [
+                    'phone_number_id' => ['required' => true, 'type' => 'string'],
+                    'access_token' => ['required' => false, 'type' => 'string'],
+                ],
+            ],
+        ]);
     }
 
     public function show(): WP_REST_Response
@@ -82,5 +108,30 @@ final class NotificationsSettingsRestController extends AbstractRestController
         }
 
         return $this->show();
+    }
+
+    public function showWhatsApp(): WP_REST_Response
+    {
+        $phoneNumberId = (string) ($this->settings->get(WhatsAppChannel::SETTING_PHONE_NUMBER_ID) ?? '');
+        $accessToken = $this->settings->get(WhatsAppChannel::SETTING_ACCESS_TOKEN);
+
+        return new WP_REST_Response([
+            'phone_number_id' => $phoneNumberId,
+            'configured' => $phoneNumberId !== '' && $accessToken !== null && $accessToken !== '',
+        ]);
+    }
+
+    public function updateWhatsApp(WP_REST_Request $request): WP_REST_Response
+    {
+        $phoneNumberId = sanitize_text_field((string) $request->get_param('phone_number_id'));
+        $accessToken = $request->get_param('access_token');
+
+        $this->settings->set(WhatsAppChannel::SETTING_PHONE_NUMBER_ID, $phoneNumberId);
+
+        if ($accessToken !== null && $accessToken !== '') {
+            $this->settings->set(WhatsAppChannel::SETTING_ACCESS_TOKEN, (string) $accessToken);
+        }
+
+        return $this->showWhatsApp();
     }
 }

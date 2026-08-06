@@ -57,6 +57,10 @@ if (!defined('ABSPATH')) {
                     <input type="checkbox" name="channel_sms">
                     <span><?php esc_html_e('SMS', 'seviye-storefront'); ?></span>
                 </label>
+                <label class="scp-checkbox">
+                    <input type="checkbox" name="channel_whatsapp">
+                    <span><?php esc_html_e('WhatsApp', 'seviye-storefront'); ?></span>
+                </label>
             </fieldset>
             <label>
                 <span><?php esc_html_e('Zamanla (opsiyonel - boş bırakılırsa hemen gönderilir)', 'seviye-storefront'); ?></span>

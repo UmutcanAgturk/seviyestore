@@ -75,6 +75,9 @@ if (!defined('ABSPATH')) {
 
             <div class="scp-form__actions">
                 <button type="submit" class="scp-btn"><?php esc_html_e('Getir', 'seviye-storefront'); ?></button>
+                <button type="button" class="scp-btn scp-btn--ghost" data-scp-admin-orders-export>
+                    <?php esc_html_e('CSV İndir', 'seviye-storefront'); ?>
+                </button>
             </div>
         </form>
 

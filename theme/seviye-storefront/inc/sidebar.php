@@ -122,6 +122,7 @@ function scp_sidebar_sections(): array
 
     if (scp_current_zone() === 'admin' && current_user_can('scp_manage_notification_settings')) {
         $groups['hesap'][scp_menu_page_path('sms-ayarlari')] = __('SMS Ayarları', 'seviye-storefront');
+        $groups['hesap'][scp_menu_page_path('whatsapp-ayarlari')] = __('WhatsApp Ayarları', 'seviye-storefront');
         $groups['hesap'][scp_menu_page_path('eposta-ayarlari')] = __('E-posta Ayarları', 'seviye-storefront');
     }
 

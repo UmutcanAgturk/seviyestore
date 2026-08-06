@@ -406,6 +406,11 @@ function scp_menu_pages(): array
             'capability' => static fn (): bool => current_user_can('scp_manage_notification_settings'),
             'template' => 'sms-settings-admin.php',
         ],
+        'whatsapp-ayarlari' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_notification_settings'),
+            'template' => 'whatsapp-settings-admin.php',
+        ],
         'eposta-ayarlari' => [
             'zones' => ['admin'],
             'capability' => static fn (): bool => current_user_can('scp_manage_notification_settings'),

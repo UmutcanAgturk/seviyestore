@@ -4298,6 +4298,77 @@ yapmadığı, avatar renklerinin gerçek Türkçe adlarla görünümü ve durum
 sekmelerinin gerçek sipariş verisiyle davranışı kullanıcının kendi
 ortamında doğrulanmalı.
 
+### 77. Görsel/UX Tur 6: WhatsApp bildirim kanalı, ürün etiketi filtre çipleri, sipariş listesi CSV dışa aktarma
+
+Altıncı tur - bu turda ilk kez tema-only sınırının dışına çıkılıp
+`seviye-notifications` eklentisine de dokunuldu.
+
+**WhatsApp bildirim kanalı (backend)**: `WhatsAppChannel` (yeni),
+`NetgsmSmsChannel`'ın BİREBİR aynı desenini izliyor - Settings-backed
+kimlik bilgileri (`SETTING_PHONE_NUMBER_ID`, `SETTING_ACCESS_TOKEN`),
+`wp_remote_post` ile `POST https://graph.facebook.com/v20.0/{phone_number_id}/messages`,
+"boş = devre dışı" kapısı, SDK bağımlılığı yok. `NotificationChannel`
+enum'una `WHATSAPP` case'i eklendi; bu, `WpRecipientResolver::resolve()`'ın
+`$channel` üzerindeki (default kolu OLMAYAN) exhaustive `match()`'ini
+BOZARDI - tüm eklenti genelinde grep ile bu match'in TEK exhaustive match
+olduğu doğrulandı, `WHATSAPP` mevcut `SMS` koluna eklenerek çözüldü (ikisi
+de aynı kaynaktan, `ParentContactLookupInterface::phoneFor()`'dan telefon
+numarası istiyor). `NotificationsSettingsRestController`'a
+`/notifications/whatsapp-settings` GET/PUT rotaları eklendi (mevcut
+`show()`/`update()` deseniyle birebir - `phone_number_id` gizli değil,
+`access_token` yalnızca yazılabilir sır).
+
+**WhatsApp'ın gerçek dünya kısıtı bilinçli olarak GİZLENMEDİ**: WhatsApp
+Business Cloud API, serbest metin (`type: text`) bir mesajı yalnızca
+alıcının işletmeyle son 24 saat içinde yazışmış olması durumunda TESLİM
+EDİYOR; bunun dışında Meta tarafından önceden onaylanmış bir ŞABLON mesajı
+gerekiyor (şablon onayı, Meta İşletme Hesabı'nda ayrıca yapılması gereken
+ve bu kod tabanının erişemeyeceği bir kurulum adımı). Bu kısıt HEM
+`WhatsAppChannel`'ın kendi docblock'unda HEM DE
+`templates/whatsapp-settings-admin.php`'deki ekran üstü ipucu metninde
+açıkça belgelendi - sessizce çalışıyormuş gibi görünüp sık sık teslim
+edilmeyen bir özellik olarak bırakılmadı.
+
+**WhatsApp ayar sayfası (tema)**: `sms-ayarlari` deseninin birebir
+kopyası - `inc/zones.php`'ye yeni `whatsapp-ayarlari` menü sayfası,
+`assets/js/whatsapp-settings-panel.js` (`notifications-settings-panel.js`
+ile aynı yapı, `/notifications/whatsapp-settings` hedefli),
+`inc/sidebar.php`'de "SMS Ayarları" ile "E-posta Ayarları" arasına link.
+Toplu duyuru formuna (`broadcast-admin.php`) da `channel_whatsapp`
+onay kutusu eklendi (`broadcast-panel.js`'in `selectedChannels()`'ı
+`'whatsapp'`'ı da gönderiyor).
+
+**Ürün etiketi (tags) filtre çipleri**: `scp_render_shop_filters()`'a
+ikinci bir `<nav>` bloğu eklendi - kategori çiplerinin AYNI deseni,
+ama `product_tag` taksonomisi için. `get_terms()` çağrısı
+`hide_empty => true` VE `number => 20` sınırıyla korunuyor (mağazada
+onlarca etiket varsa filtre satırının sonsuza taşmaması için); hiç
+etiket yoksa blok hiç basılmıyor.
+
+**Sipariş listesi CSV dışa aktarma**: yeni bir REST endpoint'i YOK -
+"CSV İndir" düğmesi, `admin-orders-panel.js`'in `loadOrders()`'ının EN
+SON başarılı çağrıda zaten aldığı diziyi (`lastLoadedOrders`) doğrudan
+CSV'ye çeviriyor. Yani dışa aktarılan veri her zaman filtre formunun o
+anki sonucudur - ayrı bir "tüm siparişleri getir" isteği yok. UTF-8 BOM
+(`'﻿'`) önekiyle başlıyor, çünkü bu dosyanın en olası açılacağı araç
+Excel ve BOM olmadan Türkçe karakterler (ş, ğ, ü, ö, ç, ı, İ) bozuk
+görünür. İndirme, `Blob` + `URL.createObjectURL` + geçici bir
+`<a download>` tıklaması ile tetikleniyor (sunucuya gitmeyen, tamamen
+istemci tarafı bir işlem).
+
+**Doğrulama**: `php -l` + `vendor/bin/phpcs` (tüm değişen dosyalar, hem
+`seviye-notifications` hem tema) temiz - kalan uyarılar (`inc/assets.php`
+satır uzunluğu, `inc/woocommerce.php`'nin GET tabanlı mağaza filtreleri
+için nonce uyarıları) önceki turlardan, yeni değil. `node --check`
+(`whatsapp-settings-panel.js`, `broadcast-panel.js`,
+`admin-orders-panel.js`) temiz. `seviye-notifications`'ta PHPUnit: 55/55
+geçti (yeni `WhatsAppChannelTest.php` dahil, önceki tur 48 testti). Gerçek
+bir WordPress/WooCommerce + gerçek bir Meta İşletme Hesabı kurulumunda
+uçtan uca test EDİLEMEDİ (aynı ortam kısıtı) - özellikle WhatsApp
+mesajının gerçekten teslim edilip edilmediği, 24 saatlik pencerenin
+gerçek davranışı ve CSV'nin gerçek Excel'de Türkçe karakterlerle açılışı
+kullanıcının kendi ortamında doğrulanmalı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

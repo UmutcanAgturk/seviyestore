@@ -14,12 +14,13 @@ use Seviye\Parents\Contracts\ParentContactLookupInterface;
  * scp_notifications row itself, keyed by user_id already) - the user ID
  * itself is passed through as a non-empty placeholder so
  * {@see \Seviye\Notifications\Dispatch\NotificationDispatcher} doesn't treat
- * it as "no recipient". SMS resolves through Seviye Parents' published
- * {@see ParentContactLookupInterface} - today the platform's only source of
- * a phone number outside wp_users - so it only ever succeeds for veli
- * accounts with a phone on file; every other role (staff, HQ) honestly gets
- * "no recipient", recorded FAILED by the dispatcher rather than a
- * silently-pretended success.
+ * it as "no recipient". SMS and WHATSAPP both resolve through Seviye
+ * Parents' published {@see ParentContactLookupInterface} (the same phone
+ * number - a WhatsApp message needs an MSISDN too) - today the platform's
+ * only source of a phone number outside wp_users - so both only ever
+ * succeed for veli accounts with a phone on file; every other role (staff,
+ * HQ) honestly gets "no recipient", recorded FAILED by the dispatcher
+ * rather than a silently-pretended success.
  */
 final class WpRecipientResolver implements RecipientResolverInterface
 {
@@ -32,7 +33,7 @@ final class WpRecipientResolver implements RecipientResolverInterface
         return match ($channel) {
             NotificationChannel::EMAIL => $this->emailFor($userId),
             NotificationChannel::PANEL => (string) $userId,
-            NotificationChannel::SMS => $this->parentContacts->phoneFor($userId),
+            NotificationChannel::SMS, NotificationChannel::WHATSAPP => $this->parentContacts->phoneFor($userId),
         };
     }
 

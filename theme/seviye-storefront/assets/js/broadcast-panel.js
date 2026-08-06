@@ -87,6 +87,10 @@
             channels.push('sms');
         }
 
+        if (form.channel_whatsapp.checked) {
+            channels.push('whatsapp');
+        }
+
         return channels;
     }
 

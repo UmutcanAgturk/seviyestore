@@ -9,4 +9,5 @@ enum NotificationChannel: string
     case EMAIL = 'email';
     case SMS = 'sms';
     case PANEL = 'panel';
+    case WHATSAPP = 'whatsapp';
 }

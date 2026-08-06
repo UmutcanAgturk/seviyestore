@@ -370,6 +370,35 @@ function scp_render_shop_filters(): void
                 ?>
             </ul>
         </nav>
+        <?php if (get_terms(['taxonomy' => 'product_tag', 'hide_empty' => true, 'fields' => 'count']) > 0) : ?>
+            <nav
+                class="scp-shop-filters__categories"
+                aria-label="<?php esc_attr_e('Etiketler', 'seviye-storefront'); ?>"
+            >
+                <span class="scp-shop-filters__categories-label">
+                    <?php esc_html_e('Etiketler', 'seviye-storefront'); ?>
+                </span>
+                <ul>
+                    <?php if (is_tax('product_tag')) : ?>
+                        <li>
+                            <a href="<?php echo esc_url(get_permalink(wc_get_page_id('shop'))); ?>">
+                                <?php esc_html_e('Tümü', 'seviye-storefront'); ?>
+                            </a>
+                        </li>
+                    <?php endif; ?>
+                    <?php
+                    wp_list_categories([
+                        'taxonomy' => 'product_tag',
+                        'title_li' => '',
+                        'hide_empty' => true,
+                        'show_count' => true,
+                        'number' => 20,
+                        'current_category' => is_tax('product_tag') ? get_queried_object_id() : 0,
+                    ]);
+                    ?>
+                </ul>
+            </nav>
+        <?php endif; ?>
         <form class="scp-shop-filters__advanced" method="get">
             <?php if (get_search_query() !== '') : ?>
                 <input type="hidden" name="s" value="<?php echo esc_attr(get_search_query()); ?>">

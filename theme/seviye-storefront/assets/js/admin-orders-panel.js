@@ -58,6 +58,7 @@
     var branchSelect = branchField.querySelector('select');
     var listEl = root.querySelector('[data-scp-admin-orders-list]');
     var statusTabsEl = root.querySelector('[data-scp-admin-orders-status-tabs]');
+    var exportButton = root.querySelector('[data-scp-admin-orders-export]');
     var statusSelect = form.status;
     var apiFetch = scpApiFetch;
 
@@ -490,6 +491,12 @@
         });
     }
 
+    // "Sipariş listesi CSV dışa aktarma" - exports whatever is CURRENTLY
+    // loaded (i.e. whatever the filter form's own query already narrowed
+    // it down to), not a separate REST call - lastLoadedOrders is just
+    // the same array loadOrders() already fetched and rendered.
+    var lastLoadedOrders = [];
+
     function loadOrders() {
         var params = currentParams();
 
@@ -500,6 +507,7 @@
             }
 
             listEl.innerHTML = '';
+            lastLoadedOrders = result.data;
 
             if (result.data.length === 0) {
                 setStatus(scpPanelTextData.noOrders);
@@ -513,11 +521,64 @@
         });
     }
 
+    function csvCell(value) {
+        var text = value === null || value === undefined ? '' : String(value);
+
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function exportOrdersToCsv() {
+        if (lastLoadedOrders.length === 0) {
+            setStatus(scpPanelTextData.noOrders);
+            return;
+        }
+
+        var headers = [
+            scpPanelTextData.orderNumberLabel,
+            scpPanelTextData.orderCustomerLabel,
+            scpPanelTextData.orderCustomerEmailLabel,
+            scpPanelTextData.orderDateLabel,
+            scpPanelTextData.orderStatusLabel,
+            scpPanelTextData.orderSubtotalLabel,
+            scpPanelTextData.orderTaxLabel,
+            scpPanelTextData.orderTotalLabel
+        ];
+
+        var rows = lastLoadedOrders.map(function (order) {
+            return [
+                order.number,
+                order.customer_name || '',
+                order.customer_email || '',
+                order.date || '',
+                order.status_label || order.status,
+                order.subtotal,
+                order.total_tax,
+                order.total
+            ].map(csvCell).join(',');
+        });
+
+        // "﻿" (UTF-8 BOM) so Excel (still the most likely tool this
+        // gets opened in) detects the encoding correctly instead of
+        // mangling Turkish characters.
+        var csvContent = '﻿' + headers.map(csvCell).join(',') + '\r\n' + rows.join('\r\n');
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'siparisler-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
     form.addEventListener('submit', function (event) {
         event.preventDefault();
         updateActiveStatusTab();
         loadOrders();
     });
+
+    exportButton.addEventListener('click', exportOrdersToCsv);
 
     if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {
