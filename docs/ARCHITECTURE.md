@@ -4656,6 +4656,45 @@ edilecek tutar kalmadı), 14 günden eski bir sipariş (422, pencere
 dolmuş) ve BAŞKA bir velinin siparişi (404, sahiplik sızdırılmıyor) -
 dördü de beklenen sonucu üretti.
 
+### 82. "Sipariş alındı" (order-received) sayfası: görsel gözden geçirme
+
+Kullanıcı "Sipariş alındı bölümü daha güzel olsun" dedi - bu sayfa hiç
+template override edilmemişti (bkz. `inc/woocommerce.php`'nin kendi
+docblock'u, "no template overrides") ve WooCommerce'in kendi
+`checkout/thankyou.php`'sinin ürettiği ham HTML'e bugüne kadar HİÇBİR
+CSS uygulanmamıştı - `.woocommerce-order`/`.woocommerce-order-overview`/
+`.woocommerce-table--order-details`/`.woocommerce-customer-details`
+sınıflarının hiçbiri `woocommerce.css`'te yoktu, bu yüzden tarayıcının
+çıplak varsayılan stiliyle (siyah metin, süssüz madde işaretli liste,
+kenarlıksız tablo) render oluyordu.
+
+`woocommerce.css`'e, dosyanın kendi kuralına uygun şekilde (template
+override yok, yalnızca WooCommerce'in stabil sınıf adları hedefleniyor)
+yeni bir bölüm eklendi: "Teşekkür ederiz..." metni yeşil, işaretli bir
+`.scp-card`-tarzı kutuya alındı; sipariş no/tarih/e-posta/toplam/ödeme
+yöntemi artık düz bir liste değil, platformun her yerinde kullandığı kart
+görünümünde bir özet şeridi; sipariş detay tablosu `.scp-table`'ın aynı
+görsel dilini (gri başlık satırı, hücre kenarlıkları, toplam satırı
+vurgusu) kullanıyor; fatura/gönderim adresleri iki ayrı kart olarak yan
+yana diziliyor.
+
+Özet şeridi ilk denemede CSS Grid (`auto-fit, minmax(160px,1fr)`) ile
+yazılmıştı - 5 öğeli (sipariş no/tarih/e-posta/toplam/ödeme yöntemi) bir
+listede bazı tarayıcı genişliklerinde son sütunun daralıp "Toplam"
+değerinin bir önceki hücrenin üstüne bindiği (metin taşması) gerçek bir
+görsel hata üretti; bu, gerçek bir tarayıcıda (Playwright/Chromium,
+gerçek bir WordPress kurulumuna karşı) ekran görüntüsü alınarak
+YAKALANDI. `flex-wrap` tabanlı bir düzene (`flex: 1 1 160px` her öğede)
+geçilerek düzeltildi - grid'in `auto-fit` sütun sayısı hesaplamasındaki
+köşe durumlarına hiç girmiyor.
+
+**Doğrulama**: değişiklik `/var/www/seviyestore` test kurulumuna
+dağıtılıp gerçek bir sipariş (`WC_Order`, tamamlanmış, fatura/gönderim
+adresli) oluşturuldu, veli oturumuyla `checkout/order-received/{id}/`
+sayfası hem masaüstü (1000px) hem mobil (390px) genişlikte Playwright ile
+ekran görüntüsü alınarak doğrulandı - kart/tablo/adres düzeni her iki
+genişlikte de taşmadan, üst üste binmeden render oluyor.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

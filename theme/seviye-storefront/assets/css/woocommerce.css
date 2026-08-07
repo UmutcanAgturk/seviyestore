@@ -1170,3 +1170,184 @@
   font-size: var(--scp-text-sm);
   color: var(--scp-text-muted);
 }
+
+/* ---- "Sipariş alındı" (order-received/thank-you) sayfası - WooCommerce'in
+   kendi checkout/thankyou.php şablonu hiçbir zaman override edilmedi
+   (dosyanın en üstündeki not), önceden hiç stil verilmemişti (bare tarayıcı
+   varsayılanları: siyah metin, süssüz madde işaretli liste, kenarlıksız
+   tablo). Aşağıdaki kurallar yalnızca WooCommerce'in kendi, stabil sınıf
+   adlarını (woocommerce-thankyou-order-received/woocommerce-order-overview/
+   woocommerce-table--order-details/woocommerce-customer-details) hedefliyor
+   - platformun geri kalanıyla aynı .scp-card/.scp-table görsel dilini
+   kullanıyor. ---- */
+
+.woocommerce-order {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.woocommerce-thankyou-order-received {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 18px 20px;
+  background: var(--scp-accent-bg);
+  border: 1px solid var(--scp-accent);
+  border-radius: var(--scp-radius);
+  color: var(--scp-success-text);
+  font-size: var(--scp-text-md);
+  font-weight: 600;
+}
+
+.woocommerce-thankyou-order-received::before {
+  content: "\2713";
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--scp-accent);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.woocommerce-order-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 0;
+  padding: 20px 24px;
+  list-style: none;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  box-shadow: var(--scp-shadow);
+}
+
+.woocommerce-order-overview li {
+  display: flex;
+  flex: 1 1 160px;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text-muted);
+}
+
+.woocommerce-order-overview li strong {
+  font-size: var(--scp-text-md);
+  font-weight: 700;
+  color: var(--scp-primary-dark);
+}
+
+.woocommerce-order-details__title,
+.woocommerce-column__title {
+  margin: 0 0 12px;
+  font-size: var(--scp-text-lg);
+  font-weight: 800;
+  letter-spacing: var(--scp-tracking-tight);
+  color: var(--scp-primary-dark);
+}
+
+.woocommerce-table--order-details {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  font-size: var(--scp-text-sm);
+}
+
+.woocommerce-table--order-details th,
+.woocommerce-table--order-details td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.woocommerce-table--order-details thead th {
+  background: var(--scp-surface-alt);
+  color: var(--scp-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.woocommerce-table--order-details tbody td a {
+  color: var(--scp-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.woocommerce-table--order-details tbody td a:hover {
+  text-decoration: underline;
+}
+
+.woocommerce-table--order-details tfoot th,
+.woocommerce-table--order-details tfoot td {
+  font-weight: 600;
+}
+
+.woocommerce-table--order-details tfoot tr:last-child th,
+.woocommerce-table--order-details tfoot tr:last-child td {
+  border-bottom: none;
+  font-size: var(--scp-text-md);
+  font-weight: 800;
+  color: var(--scp-primary-dark);
+}
+
+.woocommerce-table--order-details tr:last-child td,
+.woocommerce-table--order-details tr:last-child th {
+  border-bottom: none;
+}
+
+.woocommerce-customer-details {
+  padding-top: 4px;
+}
+
+.woocommerce-columns--addresses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.woocommerce-column--billing-address,
+.woocommerce-column--shipping-address {
+  padding: 20px 24px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+  box-shadow: var(--scp-shadow);
+}
+
+.woocommerce-column--billing-address address,
+.woocommerce-column--shipping-address address {
+  margin: 0;
+  font-style: normal;
+  font-size: var(--scp-text-sm);
+  line-height: var(--scp-leading-normal);
+  color: var(--scp-text);
+}
+
+@media (max-width: 640px) {
+  .woocommerce-order-overview,
+  .woocommerce-column--billing-address,
+  .woocommerce-column--shipping-address {
+    padding: 16px;
+  }
+
+  .woocommerce-table--order-details {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
