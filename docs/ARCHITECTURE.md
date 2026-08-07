@@ -4574,6 +4574,88 @@ denemesini tekrarlayarak açığın kapandığı, 2FA'sız bir hesabın hâlâ
 normal giriş yapabildiği ve CSV hücrelerinin artık tek tırnakla
 sabitlendiği doğrudan gözlemlendi.
 
+### 81. Üç kullanıcı raporu: sınıf bazlı ürün görünürlüğü (WooCommerce Coming Soon), kargo/teslimat e-posta karışıklığı, veli self-servis iade
+
+Kullanıcının bildirdiği üç sorun ayrı ayrı incelendi; ikisi zaten farklı
+kök nedenlere sahip çıktı, biri de gerçekten eksik bir özellikti.
+
+**1. "Şube ürün eklediğinde şubenin öğrencisi ürünü göremiyor (aynı sınıfta
+olsa bile)"** - `ProductVisibilityHooks::isActiveForCurrentUser()`/
+`isVisibleForCurrentUsersGradeLevel()` kodu (bölüm 187'nin ürünü) satır
+satır okunup gerçek bir WordPress+MariaDB+WooCommerce kurulumunda uçtan
+uca test edildi: bir şube, bir veli, o şubede/sınıfta bir öğrenci ve o
+sınıfa kısıtlı bir ürün oluşturulup veli girişiyle mağaza sayfası
+çekildiğinde ürün GÖRÜNÜYORDU - kod tarafında bir hata YOK. Asıl neden:
+WooCommerce'in "Coming Soon" (Yakında Açılıyor) modu `woocommerce_coming_soon`
+seçeneği `yes` olarak (WooCommerce'in kendi kurulum sihirbazının varsayılanı)
+kalmıştı - bu, sınıf/şube filtresinden BAĞIMSIZ olarak TÜM ürünleri HER
+ziyaretçiden (veli dahil) gizleyip yerine "Mağazamız yakında açılıyor"
+placeholder'ı gösteriyor; sınıf eşleşse de eşleşmese de aynı sonucu
+üretiyor, bu yüzden "sınıf filtresi bozuk" gibi görünüyordu. Bu platformun
+hiçbir zaman gerçek bir "mağaza lansmanı" anı yok (veli hesapları zaten
+okul tarafından önceden oluşturuluyor) - `inc/woocommerce.php`'ye
+`scp_ensure_shop_page_exists()`/`scp_ensure_cart_page_exists()` ile aynı
+desende (`admin_init`'te kendi kendini onaran) bir
+`scp_ensure_store_not_coming_soon()` eklendi; her wp-admin yüklemesinde
+seçenek `yes` ise `no`'ya çekiliyor. **Doğrulama**: seçenek elle `yes`'e
+geri alınıp fonksiyon doğrudan çağrıldı, `no`'ya döndüğü gözlemlendi.
+
+**2. "Ürün kargoya verilme butonuna tıklandığında e-posta gitmiyor, onun
+yerine teslim edilince 'kargoya verildi' maili gidiyor"** -
+`AdminOrdersRestController::ship()`/`deliver()`'ın olay isimleri
+(`commerce.order_shipped`/`commerce.order_delivered`) ve
+`OrderStatusNotificationListener`'ın bu olaylara karşılık gelen
+konu/metin çiftleri satır satır izlendi: kodda bir TAKAS yok, her olay
+kendi doğru metnini üretiyor (bu, 2026-08-05 tarihli, oldukça yakın bir
+düzeltmeden beri böyle). Bulunan gerçek, tekrarlanabilir hata: kargoya
+verme butonu (`admin-orders-panel.js`'deki `shipOrder()`), tıklanınca
+kargo takip numarası için bir `window.prompt()` açıyordu; takip numarası
+olmayan biri (ki bu alan zaten "(isteğe bağlı)" diye işaretli) doğal
+olarak İptal'e bassa, kod bunu "işlemi tamamen iptal et" olarak
+yorumluyor, hiçbir API çağrısı yapmadan sessizce çıkıyordu - "butona
+bastım, hiçbir şey olmadı" hissi tam olarak buradan geliyor.
+`trackingNumber === null` (İptal) artık boş string ile AYNI şekilde
+("takip numarası yok, yine de kargoya ver") ele alınıyor; sunucu
+tarafında zaten opsiyonel olan bu alanın davranışı böylece istemcide de
+tutarlı hale geldi.
+
+**3. "Velinin siparişlerim bölümünde ürünü iade et diye bir özellik yok"**
+- gerçekten eksikti; `AdminOrdersRestController::refund()`'ün
+personel-tetikli akışının yanına, veliye kendi tamamlanmış siparişini
+KENDİSİ iade edebileceği bir self-servis uç nokta eklendi:
+`OrdersRestController::returnOrder()` (`POST
+/commerce/orders/mine/{id}/return`), sahiplik kontrolü (sipariş
+`customer_id`'si oturum sahibiyle eşleşmiyorsa 404, varlığı sızdırmadan),
+`OrderPresenter::canReturn()`'ün merkezi kuralına göre 14 gün penceresi
+ve iade edilecek tutar kalıp kalmadığı kontrolü, ardından
+`AdminOrdersRestController::refund()` ile TAMAMEN AYNI `wc_create_refund()`
+çağrısı (gateway'e gerçek bir iade talebi göndermiyor - bu platformun her
+ödeme yöntemi zaten WooCommerce dışında elle yürütülüyor, bkz. `refund()`'ün
+kendi docblock'u). Bu tasarımın kazandırdığı: WooCommerce'in native
+`woocommerce_order_refunded` hook'u zaten hem hakediş ters kaydını hem de
+velinin "iade yapıldı" e-postasını `OrderPersistenceHooks`/Notifications
+üzerinden OTOMATİK tetikliyor - hangi controller'ın `wc_create_refund()`'ü
+çağırdığından bağımsız - bu yüzden self-servis iade, admin iadesiyle
+BİREBİR aynı defter tutma davranışını sıfır tekrar kodla elde ediyor.
+14 günlük pencere `OrderPresenter::RETURN_WINDOW_DAYS` tek bir sabitte
+tanımlı ve hem `can_return` bayrağını (butonun etkin/pasif durumu) hem de
+`returnOrder()`'ın sunucu tarafı reddini besliyor - ikisi asla
+birbirinden sapamaz. Tema tarafında `orders-panel.js`'e her tamamlanmış
+siparişte bir "İade Et" düğmesi eklendi; `can_return === false` iken
+düğme pasif ama GÖRÜNÜR kalıyor (neden pasif olduğunu açıklayan bir
+`title` tooltip'iyle), sessizce kaybolmuyor.
+
+**Doğrulama**: `php -l`/`node --check` (değişen tüm dosyalar) temiz,
+`seviye-commerce`'de PHPUnit 23/23. Üçü de gerçek bir
+WordPress+MariaDB+WooCommerce kurulumunda uçtan uca doğrulandı: (1) için
+mağaza sayfası gerçek bir HTTP isteğiyle veli oturumuyla çekilip ürünün
+göründüğü gözlemlendi; (3) için `rest_do_request()` ile dört senaryo
+test edildi - kendi tamamlanmış siparişini iade etme (200, durum
+`refunded`), aynı siparişi ikinci kez iade etmeye çalışma (422, iade
+edilecek tutar kalmadı), 14 günden eski bir sipariş (422, pencere
+dolmuş) ve BAŞKA bir velinin siparişi (404, sahiplik sızdırılmıyor) -
+dördü de beklenen sonucu üretti.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

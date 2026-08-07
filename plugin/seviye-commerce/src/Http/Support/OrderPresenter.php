@@ -6,6 +6,7 @@ namespace Seviye\Commerce\Http\Support;
 
 use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Students\Contracts\StudentLookupInterface;
+use WC_DateTime;
 use WC_Order;
 use WC_Order_Item_Product;
 
@@ -26,6 +27,15 @@ use WC_Order_Item_Product;
 final class OrderPresenter
 {
     private const STUDENT_META_KEY = '_scp_student_id';
+
+    /**
+     * "Velinin siparişlerim bölümünde ürünü iade et... ürün satın alımından
+     * 14 gün sonra o buton pasif olsun" - {@see OrdersRestController::returnOrder()}
+     * enforces this same window server-side; exposed here too so the
+     * button's disabled state (and any "N gün kaldı" hint) never has to
+     * re-derive the cutoff date/timezone math independently in JS.
+     */
+    private const RETURN_WINDOW_DAYS = 14;
 
     public function __construct(
         private readonly StudentLookupInterface $students,
@@ -72,6 +82,7 @@ final class OrderPresenter
             'total_tax' => (float) $order->get_total_tax(),
             'total' => (float) $order->get_total(),
             'refunded_total' => (float) $order->get_total_refunded(),
+            'can_return' => $this->canReturn($order),
             'items' => array_values($items),
         ];
 
@@ -84,6 +95,30 @@ final class OrderPresenter
         }
 
         return $presented;
+    }
+
+    /**
+     * Shared by the `can_return` flag above (drives the "İade Et" button's
+     * disabled state) and {@see \Seviye\Commerce\Http\OrdersRestController::returnOrder()}
+     * (the actual server-side gate on the request) - one definition of the
+     * window so the button's enabled/disabled state can never drift from
+     * what the endpoint itself will actually accept.
+     */
+    public function canReturn(WC_Order $order): bool
+    {
+        $createdAt = $order->get_date_created();
+
+        if ($order->get_status() !== 'completed' || $createdAt === null) {
+            return false;
+        }
+
+        if ((float) $order->get_remaining_refund_amount() <= 0.0) {
+            return false;
+        }
+
+        $deadline = $createdAt->getTimestamp() + self::RETURN_WINDOW_DAYS * DAY_IN_SECONDS;
+
+        return time() <= $deadline;
     }
 
     /**

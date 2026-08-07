@@ -224,11 +224,12 @@
     }
 
     function shipOrder(order) {
-        var trackingNumber = window.prompt(scpPanelTextData.trackingNumberPrompt, '');
-
-        if (trackingNumber === null) {
-            return;
-        }
+        // trackingNumberPrompt itself says "(isteğe bağlı)" (optional), so
+        // dismissing the native prompt (Cancel/Esc -> null) when the sender
+        // simply has no tracking number yet must NOT silently abort the
+        // whole ship action - only an empty tracking number, same as
+        // leaving the field blank and clicking OK.
+        var trackingNumber = window.prompt(scpPanelTextData.trackingNumberPrompt, '') || '';
 
         apiFetch('commerce/orders/' + order.id + '/ship', {
             method: 'POST',

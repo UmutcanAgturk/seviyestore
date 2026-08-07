@@ -260,6 +260,16 @@ function scp_enqueue_panel_assets(): void
         'orderNumberCopied' => __('Sipariş numarası kopyalandı.', 'seviye-storefront'),
         'orderPrintLabel' => __('Yazdır', 'seviye-storefront'),
         'orderPrintTitle' => __('Sipariş Fişi', 'seviye-storefront'),
+        'returnOrderAction' => __('İade Et', 'seviye-storefront'),
+        'confirmReturnOrder' => __(
+            'Bu siparişi iade etmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'orderReturned' => __('Sipariş iade edildi.', 'seviye-storefront'),
+        'returnWindowExpiredHint' => __(
+            'Bu sipariş satın alımdan 14 gün geçtiği için (veya iade edilecek bir tutar kalmadığı için) artık iade edilemiyor.',
+            'seviye-storefront'
+        ),
         'recentlyViewedHeading' => __('Son Görüntülenen Ürünler', 'seviye-storefront'),
         'stockSubscribeAction' => __('Stok Gelince Haber Ver', 'seviye-storefront'),
         'stockUnsubscribeAction' => __('Aboneliği İptal Et', 'seviye-storefront'),

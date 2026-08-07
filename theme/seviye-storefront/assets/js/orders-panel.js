@@ -1,8 +1,13 @@
 /**
  * Veli's own past orders (/siparislerim) - see
  * plugin/seviye-commerce/src/Http/OrdersRestController.php's
- * seviye/v1/commerce/orders/mine endpoint. Read-only, no forms: this page
- * only ever shows the current user's own order history.
+ * seviye/v1/commerce/orders/mine endpoint. Mostly read-only: the one write
+ * action is "İade Et" (renderReturnButton()), a self-service return of a
+ * completed order within its 14-day window - the server (see
+ * OrdersRestController::returnOrder()/OrderPresenter::canReturn()) is what
+ * actually enforces both the ownership and the 14-day cutoff; `can_return`
+ * here only decides the button's enabled/disabled state so a veli isn't
+ * left clicking a button that can only ever 422.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
  *   scpPanel     { restUrl, nonce }
@@ -178,6 +183,51 @@
         return button;
     }
 
+    function returnOrder(order) {
+        if (!window.confirm(scpPanelTextData.confirmReturnOrder)) {
+            return;
+        }
+
+        apiFetch('commerce/orders/mine/' + order.id + '/return', { method: 'POST' }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelTextData.orderReturned);
+            loadOrders();
+        });
+    }
+
+    /**
+     * Only rendered for a completed order at all - a pending/cancelled/
+     * already-fully-refunded order has nothing to return. `can_return ===
+     * false` (window expired, or nothing left to refund) still renders the
+     * button so its presence doesn't just vanish without explanation, but
+     * disables it with a title tooltip instead.
+     */
+    function renderReturnButton(order) {
+        if (order.status !== 'completed') {
+            return null;
+        }
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-btn scp-btn--danger scp-btn--small';
+        button.textContent = scpPanelTextData.returnOrderAction;
+
+        if (!order.can_return) {
+            button.disabled = true;
+            button.title = scpPanelTextData.returnWindowExpiredHint;
+        } else {
+            button.addEventListener('click', function () {
+                returnOrder(order);
+            });
+        }
+
+        return button;
+    }
+
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
@@ -233,6 +283,15 @@
         card.appendChild(meta);
 
         card.appendChild(renderItemsTable(order.items));
+
+        var returnButton = renderReturnButton(order);
+
+        if (returnButton) {
+            var actions = document.createElement('div');
+            actions.className = 'scp-form__actions';
+            actions.appendChild(returnButton);
+            card.appendChild(actions);
+        }
 
         return card;
     }

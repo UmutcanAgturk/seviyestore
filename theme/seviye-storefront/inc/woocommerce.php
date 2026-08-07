@@ -36,6 +36,7 @@ if (!class_exists('WooCommerce')) {
 
 add_action('admin_init', 'scp_ensure_shop_page_exists');
 add_action('admin_init', 'scp_ensure_cart_page_exists');
+add_action('admin_init', 'scp_ensure_store_not_coming_soon');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
@@ -159,6 +160,30 @@ function scp_ensure_cart_page_exists(): void
         _x('Sepetim', 'Page title', 'seviye-storefront'),
         '[woocommerce_cart]'
     );
+}
+
+/**
+ * WooCommerce (since the "coming soon" onboarding checklist landed) ships
+ * fresh installs with `woocommerce_coming_soon` set to `yes`, which replaces
+ * every storefront page - shop, single product, cart - with a bare "Store is
+ * launching soon" placeholder for every visitor, Veli included, regardless
+ * of that Veli's own branch/grade-level product visibility. Unlike the shop
+ * page above, WooCommerce's own installer does turn this off once someone
+ * manually clicks "Launch your store" in wp-admin, but nothing ever prompts
+ * for that click on THIS platform (there is no public storefront-launch
+ * moment - a school's Veli accounts are provisioned long before anyone
+ * would think to check WooCommerce Settings > General for an unrelated
+ * onboarding toggle) - so it can silently sit at its "yes" default
+ * indefinitely, making every product invisible to every Veli and reading
+ * exactly like a broken grade-level/branch visibility filter. Self-healed on
+ * every wp-admin load, the same "never blocks on a one-time human step"
+ * reasoning as scp_ensure_shop_page_exists().
+ */
+function scp_ensure_store_not_coming_soon(): void
+{
+    if (get_option('woocommerce_coming_soon') === 'yes') {
+        update_option('woocommerce_coming_soon', 'no');
+    }
 }
 
 function scp_render_student_picker(): void
