@@ -339,5 +339,73 @@ if (!defined('ABSPATH')) {
                 </div>
             </form>
         </div>
+
+        <div class="scp-card scp-card--nested">
+            <div class="scp-card__header">
+                <h3><?php esc_html_e('Depo Transferleri', 'seviye-storefront'); ?></h3>
+                <button type="button" class="scp-btn" data-scp-new-stock-transfer>
+                    <?php esc_html_e('Yeni Transfer', 'seviye-storefront'); ?>
+                </button>
+            </div>
+
+            <p class="scp-hint">
+                <?php esc_html_e(
+                    'Bir depodan fazla stoğu başka bir depoya (Genel Merkez\'e ya da bir şubeye) aktarın. Hedef depo teslim aldığını onaylayana kadar stok değişmez.',
+                    'seviye-storefront'
+                ); ?>
+            </p>
+
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Kaynak Ürün', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Kaynak Depo', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Hedef Ürün', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Hedef Depo', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Miktar', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody data-scp-stock-transfers-body></tbody>
+                </table>
+            </div>
+
+            <form class="scp-form" data-scp-stock-transfer-form hidden>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Kaynak Ürün ID', 'seviye-storefront'); ?></span>
+                        <input type="number" min="1" name="from_product_id" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Hedef Ürün ID', 'seviye-storefront'); ?></span>
+                        <input type="number" min="1" name="to_product_id" required>
+                    </label>
+                    <label>
+                        <span><?php esc_html_e('Miktar', 'seviye-storefront'); ?></span>
+                        <input type="number" min="1" name="quantity" required>
+                    </label>
+                </div>
+                <div class="scp-form__row">
+                    <label>
+                        <span><?php esc_html_e('Not (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                        <input type="text" name="note">
+                    </label>
+                </div>
+                <p class="scp-hint">
+                    <?php esc_html_e(
+                        'Kaynak ve hedef ürün, WooCommerce kataloğundaki iki AYRI ürün kaydı olmalı - genelde hedef şubenin kendi kataloğuna daha önce eklediği "aynı ürün"ün kendi kaydı.',
+                        'seviye-storefront'
+                    ); ?>
+                </p>
+                <div class="scp-form__actions">
+                    <button type="submit" class="scp-btn"><?php esc_html_e('Transfer Aç', 'seviye-storefront'); ?></button>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-cancel-stock-transfer-form>
+                        <?php esc_html_e('Vazgeç', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
     </section>
 </div>

@@ -4854,6 +4854,66 @@ uca doğrulama YAPILAMADI - doğrulama `php -l`, tüm birim test paketleri
 `seviye/branches` bağımlılığının lock dosyasına doğru kilitlendiğinin
 teyidi) ile sınırlı kaldı.
 
+### 85. Şubeler arası stok transferi (Depo Faz 4'ün doğal devamı)
+
+Kullanıcıya "Depo Faz 4 bittiğine göre sırada ne olsun?" diye soruldu,
+"Şubeler arası stok transferi" seçildi - bir şube fazla stoğunu başka bir
+depoya (Genel Merkez'e ya da başka bir şubeye) aktarabilsin.
+
+**WooCommerce'in tek stok alanı, iki farklı ürün kaydı gerektiriyor.**
+Depo başına ayrı bir stok havuzu yok - her SKU'nun WC'de tek bir
+`stock_quantity`'si var (bkz. "Kural"). Bu yüzden bir transfer, aynı
+ürünün iki FARKLI kaydı arasında çalışıyor: `from_product_id` (kaynak
+depodaki kayıt) ve `to_product_id` (hedef depodaki kayıt - genelde hedef
+şubenin kendi kataloğuna daha önce eklediği "aynı ürün"ün kendi kaydı).
+`from_branch_id`/`to_branch_id` kullanıcıdan İSTENMİYOR - her iki ürünün
+kendi sahiplik meta'sından (`scp_commerce_product_owner_branch_id` filtre
+köprüsü) yazma anında çözülüp donduruluyor, satın alma siparişinin
+`branch_id`'siyle aynı desen.
+
+**Yeni tablo: `scp_stock_transfers`** (`from_product_id`, `to_product_id`,
+`quantity`, `from_branch_id`/`to_branch_id` nullable, `status`
+pending/completed/cancelled, `note`, `requested_by`/`completed_by`).
+Ayrı bir `completed_at` sütunu yok - `scp_purchase_orders`'ın "durum
+geçişine özel zaman damgası yok" ilkesi burada da geçerli.
+
+**PENDING -> COMPLETED/CANCELLED, PurchaseOrder'ın send()/receive()
+ayrımıyla aynı gerekçe.** `store()` hiçbir stok değiştirmez - fiziksel
+mal henüz yola çıkmamıştır, yalnızca bir kayıt açılır. `complete()`
+(hedef depo tarafının "teslim aldım" onayı) hem kaynaktan
+`wc_update_product_stock(..., 'decrease')` ile düşürür hem hedefe
+`'increase'` ile ekler, VE `StockMovementRepositoryInterface`'e biri
+`TRANSFER_OUT` biri `TRANSFER_IN` olmak üzere iki defter satırı yazar -
+her iki depo da kendi tarafında "neden değiştiğini" görebilsin. Kaynakta
+yeterli stok yoksa (kontrol `complete()` anında yapılır, `store()`
+anında değil - miktar iki adım arasında değişmiş olabilir) 422 döner.
+
+**RBAC: üç farklı yetki sınırı, üç farklı eylem.** Platform-wide
+`MANAGE_STOCK_TRANSFERS` her şeyi yapabilir. Own-branch
+`MANAGE_OWN_BRANCH_STOCK_TRANSFERS`'a sahip bir Şube Müdürü için üç ayrı
+kural var: `store()`'da yalnızca KENDİ şubesi kaynak olacak şekilde
+transfer açabilir (hedef herhangi bir depo olabilir - vermek her zaman
+serbest); `complete()`'te yalnızca KENDİ şubesi HEDEF olduğunda
+tamamlayabilir (başkasının deposuna izinsiz stok itilmesin diye -
+`canCompleteTransfer()`); görüntüleme/iptal etmede ise HER İKİ taraf da
+"kendi" transferi sayılır (`canAccessTransfer()`) - bir depo hem giden
+hem gelen transferle ilgilenir.
+`StockTransferRepositoryInterface::all()`'ın `branch_id` filtresi de aynı
+"her iki taraf" mantığını SQL'e taşıyor (`from_branch_id = ? OR
+to_branch_id = ?`) - Depo'nun diğer tüm `all()` metotlarının aksine
+(onlarda tek bir taraf var).
+
+**Tema paneli.** Depo panelinde yeni "Depo Transferleri" alt bölümü:
+liste (kaynak/hedef ürün+depo, miktar, durum), "Yeni Transfer" formu
+(kaynak/hedef ürün ID + miktar + not), bekleyen her satırda Tamamla/İptal
+Et düğmeleri. Var olan depo seçici (branchQueryString()) buraya da
+uygulanıyor - HQ bir depo seçtiğinde transfer listesi de filtreleniyor.
+
+**Doğrulama.** 9 yeni birim testi (`WpdbStockTransferRepositoryTest`) +
+tüm mevcut 58 testin yeşil kalması (toplam 67/67), `phpcs` 0 hata. Gerçek
+WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
+yok) yine yapılamadı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

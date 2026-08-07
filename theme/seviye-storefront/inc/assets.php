@@ -237,6 +237,18 @@ function scp_enqueue_panel_assets(): void
         'confirmDismissSuggestion' => __('Bu öneriyi reddetmek istediğinize emin misiniz?', 'seviye-storefront'),
         'suggestionDismissed' => __('Öneri reddedildi.', 'seviye-storefront'),
         'suggestionConverted' => __('Öneri satın alma siparişine çevrildi.', 'seviye-storefront'),
+        'transferStatus_pending' => __('Bekliyor', 'seviye-storefront'),
+        'transferStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
+        'transferStatus_cancelled' => __('İptal Edildi', 'seviye-storefront'),
+        'complete' => __('Tamamla', 'seviye-storefront'),
+        'cancelStockTransfer' => __('İptal Et', 'seviye-storefront'),
+        'confirmCompleteStockTransfer' => __(
+            'Bu transferi teslim aldığınızı onaylıyor musunuz? Kaynak depodan düşülüp hedef depoya eklenecek.',
+            'seviye-storefront'
+        ),
+        'stockTransferCompleted' => __('Transfer tamamlandı, stok güncellendi.', 'seviye-storefront'),
+        'confirmCancelStockTransfer' => __('Bu transferi iptal etmek istediğinize emin misiniz?', 'seviye-storefront'),
+        'noStockTransfers' => __('Henüz bir stok transferi açılmadı.', 'seviye-storefront'),
         'convertToOrder' => __('Siparişe Çevir', 'seviye-storefront'),
         'dismiss' => __('Reddet', 'seviye-storefront'),
         'noPurchaseSuggestions' => __('Bekleyen bir satın alma önerisi yok.', 'seviye-storefront'),
@@ -551,7 +563,9 @@ function scp_enqueue_panel_assets(): void
         || current_user_can('scp_manage_stock_counts')
         || current_user_can('scp_manage_own_branch_stock_counts')
         || current_user_can('scp_manage_purchase_suggestions')
-        || current_user_can('scp_manage_own_branch_purchase_suggestions');
+        || current_user_can('scp_manage_own_branch_purchase_suggestions')
+        || current_user_can('scp_manage_stock_transfers')
+        || current_user_can('scp_manage_own_branch_stock_transfers');
 
     if ($zonePath === 'depo' && in_array($zone, ['admin', 'sube'], true) && $canAccessDepo) {
         $handle = 'scp-depo-panel';

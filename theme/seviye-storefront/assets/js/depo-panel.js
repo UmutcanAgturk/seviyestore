@@ -103,6 +103,7 @@
             loadPurchaseOrders();
             loadStockCounts();
             loadPurchaseSuggestions();
+            loadStockTransfers();
         });
     }
 
@@ -916,7 +917,152 @@
         });
     });
 
+    // ---- Depo Transferleri ----
+
+    var transferTableBody = root.querySelector('[data-scp-stock-transfers-body]');
+    var transferForm = root.querySelector('[data-scp-stock-transfer-form]');
+
+    function transferStatusLabel(status) {
+        return scpPanelText['transferStatus_' + status] || status;
+    }
+
+    function transferStatusBadgeClass(status) {
+        if (status === 'completed') {
+            return 'scp-badge--active';
+        }
+
+        if (status === 'cancelled') {
+            return 'scp-badge--inactive';
+        }
+
+        return 'scp-badge--info';
+    }
+
+    function loadStockTransfers() {
+        apiFetch('depo/stock-transfers' + branchQueryString()).then(function (result) {
+            if (!result.ok) {
+                setStatus(scpPanelTextData.loadError, true);
+                return;
+            }
+
+            renderStockTransfers(result.data);
+        });
+    }
+
+    function renderStockTransfers(transfers) {
+        transferTableBody.innerHTML = '';
+
+        transfers.forEach(function (transfer) {
+            var row = document.createElement('tr');
+
+            [
+                String(transfer.from_product_id),
+                transfer.from_branch_name,
+                String(transfer.to_product_id),
+                transfer.to_branch_name,
+                String(transfer.quantity)
+            ].forEach(function (text) {
+                var cell = document.createElement('td');
+                cell.textContent = text;
+                row.appendChild(cell);
+            });
+
+            var statusCell = document.createElement('td');
+            var badge = document.createElement('span');
+            badge.className = 'scp-badge ' + transferStatusBadgeClass(transfer.status);
+            badge.textContent = transferStatusLabel(transfer.status);
+            statusCell.appendChild(badge);
+            row.appendChild(statusCell);
+
+            var actionsCell = document.createElement('td');
+
+            if (transfer.status === 'pending') {
+                var completeButton = document.createElement('button');
+                completeButton.type = 'button';
+                completeButton.className = 'scp-btn scp-btn--small';
+                completeButton.textContent = scpPanelTextData.complete;
+                completeButton.addEventListener('click', function () {
+                    if (!window.confirm(scpPanelTextData.confirmCompleteStockTransfer)) {
+                        return;
+                    }
+
+                    apiFetch('depo/stock-transfers/' + transfer.id + '/complete', { method: 'POST' }).then(
+                        function (result) {
+                            if (!result.ok) {
+                                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                                return;
+                            }
+
+                            setStatus(scpPanelTextData.stockTransferCompleted);
+                            loadStockTransfers();
+                        }
+                    );
+                });
+                actionsCell.appendChild(completeButton);
+
+                var cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                cancelButton.textContent = scpPanelTextData.cancelStockTransfer;
+                cancelButton.addEventListener('click', function () {
+                    if (!window.confirm(scpPanelTextData.confirmCancelStockTransfer)) {
+                        return;
+                    }
+
+                    apiFetch('depo/stock-transfers/' + transfer.id + '/cancel', { method: 'POST' }).then(
+                        function (result) {
+                            if (!result.ok) {
+                                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                                return;
+                            }
+
+                            setStatus(scpPanelTextData.saved);
+                            loadStockTransfers();
+                        }
+                    );
+                });
+                actionsCell.appendChild(cancelButton);
+            }
+
+            row.appendChild(actionsCell);
+            transferTableBody.appendChild(row);
+        });
+    }
+
+    root.querySelector('[data-scp-new-stock-transfer]').addEventListener('click', function () {
+        transferForm.hidden = false;
+        setStatus('');
+        transferForm.reset();
+    });
+
+    root.querySelector('[data-scp-cancel-stock-transfer-form]').addEventListener('click', function () {
+        transferForm.hidden = true;
+    });
+
+    transferForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var payload = {
+            from_product_id: parseInt(transferForm.from_product_id.value, 10),
+            to_product_id: parseInt(transferForm.to_product_id.value, 10),
+            quantity: parseInt(transferForm.quantity.value, 10),
+            note: transferForm.note.value
+        };
+
+        apiFetch('depo/stock-transfers', { method: 'POST', body: JSON.stringify(payload) }).then(function (result) {
+            if (!result.ok) {
+                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                return;
+            }
+
+            setStatus(scpPanelTextData.saved);
+            transferForm.hidden = true;
+            loadStockTransfers();
+        });
+    });
+
     loadSuppliers().then(loadPurchaseOrders);
     loadStockCounts();
     loadPurchaseSuggestions();
+    loadStockTransfers();
 })();

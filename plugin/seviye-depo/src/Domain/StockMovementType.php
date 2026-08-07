@@ -17,4 +17,10 @@ enum StockMovementType: string
 
     /** A customer/branch return added stock back. */
     case RETURN_IN = 'return_in';
+
+    /** Faz 4: a stock transfer left this depo for another (see StockTransfer). */
+    case TRANSFER_OUT = 'transfer_out';
+
+    /** Faz 4: a stock transfer arrived at this depo from another. */
+    case TRANSFER_IN = 'transfer_in';
 }

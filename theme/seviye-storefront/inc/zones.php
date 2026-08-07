@@ -361,7 +361,9 @@ function scp_menu_pages(): array
                 || current_user_can('scp_manage_stock_counts')
                 || current_user_can('scp_manage_own_branch_stock_counts')
                 || current_user_can('scp_manage_purchase_suggestions')
-                || current_user_can('scp_manage_own_branch_purchase_suggestions'),
+                || current_user_can('scp_manage_own_branch_purchase_suggestions')
+                || current_user_can('scp_manage_stock_transfers')
+                || current_user_can('scp_manage_own_branch_stock_transfers'),
             'template' => 'depo-admin.php',
         ],
         'cari-bakiye' => [

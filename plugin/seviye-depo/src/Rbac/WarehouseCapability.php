@@ -52,4 +52,18 @@ enum WarehouseCapability: string
 
     /** Faz 4: Şube Müdürü - yalnızca kendi şubesinin düşük stok önerileri. */
     case MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS = 'scp_manage_own_branch_purchase_suggestions';
+
+    /**
+     * "Şubeler arası stok transferi" - platform-wide: herhangi iki depo
+     * arasında transfer açma/tamamlama/iptal etme (bkz. Domain\StockTransfer).
+     */
+    case MANAGE_STOCK_TRANSFERS = 'scp_manage_stock_transfers';
+
+    /**
+     * Şube Müdürü - yalnızca kendi şubesi KAYNAK ya da HEDEF olduğunda:
+     * kendi deposundan giden bir transfer açabilir, kendi deposuna gelen
+     * bir transferi tamamlayabilir (teslim aldım onayı) - bkz.
+     * StockTransfersRestController'ın kendi docblock'u.
+     */
+    case MANAGE_OWN_BRANCH_STOCK_TRANSFERS = 'scp_manage_own_branch_stock_transfers';
 }

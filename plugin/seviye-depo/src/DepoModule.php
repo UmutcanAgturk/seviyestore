@@ -24,23 +24,27 @@ use Seviye\Depo\Database\Migrations\CreatePurchaseSuggestionsTable;
 use Seviye\Depo\Database\Migrations\CreateStockCountItemsTable;
 use Seviye\Depo\Database\Migrations\CreateStockCountsTable;
 use Seviye\Depo\Database\Migrations\CreateStockMovementsTable;
+use Seviye\Depo\Database\Migrations\CreateStockTransfersTable;
 use Seviye\Depo\Database\Migrations\CreateSuppliersTable;
 use Seviye\Depo\Http\PurchaseOrdersRestController;
 use Seviye\Depo\Http\PurchaseSuggestionsRestController;
 use Seviye\Depo\Http\StockCountsRestController;
 use Seviye\Depo\Http\StockMovementsRestController;
+use Seviye\Depo\Http\StockTransfersRestController;
 use Seviye\Depo\Http\SuppliersRestController;
 use Seviye\Depo\Rbac\WarehouseCapability;
 use Seviye\Depo\Repository\PurchaseOrderRepositoryInterface;
 use Seviye\Depo\Repository\PurchaseSuggestionRepositoryInterface;
 use Seviye\Depo\Repository\StockCountRepositoryInterface;
 use Seviye\Depo\Repository\StockMovementRepositoryInterface;
+use Seviye\Depo\Repository\StockTransferRepositoryInterface;
 use Seviye\Depo\Repository\SupplierRepositoryInterface;
 use Seviye\Depo\Repository\WpdbPurchaseOrderRepository;
 use Seviye\Depo\Repository\WpdbPurchaseSuggestionRepository;
 use Seviye\Depo\Repository\WpdbPurchaseSuggestionSummary;
 use Seviye\Depo\Repository\WpdbStockCountRepository;
 use Seviye\Depo\Repository\WpdbStockMovementRepository;
+use Seviye\Depo\Repository\WpdbStockTransferRepository;
 use Seviye\Depo\Repository\WpdbSupplierLookup;
 use Seviye\Depo\Repository\WpdbSupplierRepository;
 use Seviye\Depo\Repository\WpdbWarehouseReportQuery;
@@ -108,6 +112,13 @@ final class DepoModule implements ModuleInterface
             )
         );
 
+        $container->singleton(
+            StockTransferRepositoryInterface::class,
+            static fn (ServiceContainer $c): WpdbStockTransferRepository => new WpdbStockTransferRepository(
+                $c->get(ConnectionInterface::class)
+            )
+        );
+
         // Published Contract (bkz. Contracts\WarehouseReportQueryInterface'in
         // docblock'u) - Reports'un "Depo Raporları" bölümü bu arayüz
         // üzerinden okur, Domain\PurchaseOrder'a asla doğrudan bağımlı
@@ -144,6 +155,7 @@ final class DepoModule implements ModuleInterface
         $container->get(MigrationRunner::class)->register(new CreateStockCountsTable());
         $container->get(MigrationRunner::class)->register(new CreateStockCountItemsTable());
         $container->get(MigrationRunner::class)->register(new CreatePurchaseSuggestionsTable());
+        $container->get(MigrationRunner::class)->register(new CreateStockTransfersTable());
 
         $rbac = $container->get(RbacManager::class);
 
@@ -154,6 +166,7 @@ final class DepoModule implements ModuleInterface
             $rbac->grantCapability($role, WarehouseCapability::VIEW_STOCK_MOVEMENTS->value);
             $rbac->grantCapability($role, WarehouseCapability::MANAGE_STOCK_COUNTS->value);
             $rbac->grantCapability($role, WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value);
+            $rbac->grantCapability($role, WarehouseCapability::MANAGE_STOCK_TRANSFERS->value);
         }
 
         // Faz 4: "şube kendi ürününü eklemiş ise şubenin kendi deposundan
@@ -167,6 +180,7 @@ final class DepoModule implements ModuleInterface
         $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::VIEW_OWN_BRANCH_STOCK_MOVEMENTS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_STOCK_COUNTS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_STOCK_TRANSFERS->value);
 
         // "Tedarikçi portalı" - Security (AuthRestController) ve tema
         // (access-gate.php/zones.php) bu filtre üzerinden "bu kullanıcı bir
@@ -244,6 +258,15 @@ final class DepoModule implements ModuleInterface
                 $container->get(PurchaseSuggestionRepositoryInterface::class),
                 $container->get(PurchaseOrderRepositoryInterface::class),
                 $container->get(SupplierRepositoryInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
+            )
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): StockTransfersRestController => new StockTransfersRestController(
+                $container->get(StockTransferRepositoryInterface::class),
+                $container->get(StockMovementRepositoryInterface::class),
                 $container->get(BranchLookupInterface::class),
                 $container->get(BranchMembershipInterface::class)
             )
