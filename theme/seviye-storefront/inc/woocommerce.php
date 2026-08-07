@@ -38,6 +38,7 @@ add_action('admin_init', 'scp_ensure_shop_page_exists');
 add_action('admin_init', 'scp_ensure_cart_page_exists');
 add_action('admin_init', 'scp_ensure_store_not_coming_soon');
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker');
+add_action('woocommerce_before_add_to_cart_button', 'scp_render_size_guide_trigger', 5);
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
 // "Kategori banner'ları" - öncelik 4, scp_render_shop_filters()'ten (5)
@@ -357,6 +358,120 @@ function scp_render_quick_view_trigger(): void
         </div>
     </template>
     <?php
+}
+
+/**
+ * "Beden Rehberi" - tekil ürün sayfasında, öğrenci seçicisinden (öncelik 10)
+ * ÖNCE (öncelik 5) bir "Beden Rehberi" tetikleyici düğmesi + Hızlı
+ * Bakış'la AYNI modal markup kalıbını (`.scp-quick-view__*` sınıfları,
+ * `data-scp-quick-view-*` öznitelikleri) kullanan gizli bir `<template>`
+ * basar - assets/js/scp-ui-kit.js'in initQuickView()'ı zaten bu genel
+ * delege edilmiş tıklama dinleyicisiyle çalıştığı için burada YENİ BİR JS
+ * GEREKMİYOR. İçerik `scp_commerce_size_guide_rows` filtre köprüsü
+ * üzerinden okunuyor (bkz. CommerceModule::boot()) - Depo'nun
+ * scp_depo_supplier_id_for_user'ı ve ProductOwnershipBridge'in
+ * scp_commerce_product_owner_branch_id'siyle AYNI gevşek filtre köprüsü
+ * ilkesi, tema hiçbir DI container'a bağımlı olmadan plugin verisini
+ * okuyabiliyor.
+ *
+ * Tablo mağaza geneli tek bir içerik olduğundan (ürün başına değil), yalnızca
+ * o ürünün gerçekten bir beden varyantı varsa gösteriliyor - `pa_beden`
+ * global özniteliği taşımayan bir üründe (ör. defter, kalem) beden rehberi
+ * anlamsız olurdu (bkz. ProductsRestController'ın kendi "beden/renk"
+ * varyant docblock'u).
+ */
+function scp_render_size_guide_trigger(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    if ($product->get_attribute('pa_beden') === '') {
+        return;
+    }
+
+    $rows = apply_filters('scp_commerce_size_guide_rows', []);
+
+    if (!is_array($rows) || $rows === []) {
+        return;
+    }
+
+    ?>
+    <button
+        type="button"
+        class="scp-quick-view-trigger scp-size-guide-trigger"
+        data-scp-quick-view-trigger
+        data-scp-quick-view-target="scp-size-guide"
+    >
+        <?php esc_html_e('Beden Rehberi', 'seviye-storefront'); ?>
+    </button>
+    <template id="scp-size-guide">
+        <div class="scp-quick-view__header">
+            <button
+                type="button"
+                class="scp-quick-view__close"
+                data-scp-quick-view-close
+                aria-label="<?php esc_attr_e('Kapat', 'seviye-storefront'); ?>"
+            >&times;</button>
+        </div>
+        <div class="scp-quick-view__body">
+            <h2><?php esc_html_e('Beden Rehberi', 'seviye-storefront'); ?></h2>
+            <div class="scp-table-wrapper">
+                <table class="scp-table">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Beden', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Yaş', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Boy (cm)', 'seviye-storefront'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($rows as $row) : ?>
+                            <tr>
+                                <td><?php echo esc_html((string) ($row['label'] ?? '')); ?></td>
+                                <td><?php echo esc_html(scp_format_size_guide_range(
+                                    $row['age_min'] ?? null,
+                                    $row['age_max'] ?? null
+                                )); ?></td>
+                                <td><?php echo esc_html(scp_format_size_guide_range(
+                                    $row['height_min_cm'] ?? null,
+                                    $row['height_max_cm'] ?? null
+                                )); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+    <?php
+}
+
+/**
+ * "4-5 yaş", "4 yaş ve üzeri", "5 yaş ve altı" ya da her ikisi de boşsa "-".
+ */
+function scp_format_size_guide_range(mixed $min, mixed $max): string
+{
+    $min = $min === null || $min === '' ? null : (string) $min;
+    $max = $max === null || $max === '' ? null : (string) $max;
+
+    if ($min !== null && $max !== null) {
+        return $min === $max ? $min : $min . '-' . $max;
+    }
+
+    if ($min !== null) {
+        /* translators: %s: minimum age or height value */
+        return sprintf(__('%s ve üzeri', 'seviye-storefront'), $min);
+    }
+
+    if ($max !== null) {
+        /* translators: %s: maximum age or height value */
+        return sprintf(__('%s ve altı', 'seviye-storefront'), $max);
+    }
+
+    return '-';
 }
 
 /**

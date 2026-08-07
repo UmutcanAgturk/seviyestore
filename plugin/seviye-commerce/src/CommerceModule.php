@@ -23,6 +23,7 @@ use Seviye\Commerce\Http\ProductOwnershipBridge;
 use Seviye\Commerce\Http\ProductReviewGate;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
+use Seviye\Commerce\Http\SizeGuideRestController;
 use Seviye\Commerce\Http\SpendingLimitCartHooks;
 use Seviye\Commerce\Http\SpendingLimitRestController;
 use Seviye\Commerce\Http\StorefrontPriceDisplayHooks;
@@ -46,6 +47,8 @@ use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Commerce\Support\OrderPayloadBuilder;
 use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
+use Seviye\Commerce\Support\SizeGuide;
+use Seviye\Commerce\Support\SizeGuideRow;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
 use Seviye\Commerce\Support\StudentSpendingCalculator;
 use Seviye\Commerce\Support\TaxRateGateway;
@@ -57,6 +60,7 @@ use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Core\Module\ModuleInterface;
 use Seviye\Core\Rbac\RbacManager;
 use Seviye\Core\Rbac\Role;
+use Seviye\Core\Settings\SettingsRepositoryInterface;
 use Seviye\Core\Support\Environment;
 use Seviye\Pricing\Contracts\PriceResolverInterface;
 use Seviye\Students\Contracts\ParentBranchLookupInterface;
@@ -212,6 +216,39 @@ final class CommerceModule implements ModuleInterface
         // docblock.
         $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_TAX_RATES->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_TAX_RATES->value);
+
+        // "Beden Rehberi" - aynı "store-wide setting, HQ-only" şekli, bkz.
+        // ProductCapability::MANAGE_SIZE_GUIDE'ın kendi docblock'u.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_SIZE_GUIDE->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_SIZE_GUIDE->value);
+
+        // Tema, DI container'ına hiç bağımlı olmadan bu içeriği okuyabilsin
+        // diye - Depo'nun scp_depo_supplier_id_for_user'ı ve
+        // ProductOwnershipBridge'in scp_commerce_product_owner_branch_id'siyle
+        // AYNI gevşek filtre köprüsü ilkesi (bkz. o sınıfların docblock'u).
+        // Ürün sayfasındaki tetikleyici (inc/woocommerce.php'deki
+        // scp_render_size_guide_trigger()) bu filtreyi çağırıp içerik boşsa
+        // hiçbir şey basmıyor.
+        add_filter(
+            'scp_commerce_size_guide_rows',
+            static function (array $default) use ($container): array {
+                $settings = $container->get(SettingsRepositoryInterface::class);
+                $rows = SizeGuide::parse($settings->get(SizeGuide::SETTING_KEY));
+
+                return $rows === [] ? $default : array_map(
+                    static fn (SizeGuideRow $row): array => $row->toArray(),
+                    $rows
+                );
+            },
+            10,
+            1
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): SizeGuideRestController => new SizeGuideRestController(
+                $container->get(SettingsRepositoryInterface::class)
+            )
+        );
 
         $container->singleton(
             OrderFulfillment::class,

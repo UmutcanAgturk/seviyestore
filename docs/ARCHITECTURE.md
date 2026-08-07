@@ -4914,6 +4914,61 @@ tüm mevcut 58 testin yeşil kalması (toplam 67/67), `phpcs` 0 hata. Gerçek
 WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
 yok) yine yapılamadı.
 
+### 86. Beden Rehberi (yaş/boy → beden tablosu)
+
+Kullanıcıya arka arkaya üç kez "daha ne yapılabilir" soruldu, üçünde de
+somut bir seçenek yerine "başka" cevabı geldi - dördüncü bir seçenek turu
+sormak yerine kendi önerim olan Beden Rehberi'ne (kullanıcı deneyimini
+yükseltecek, en önceki turda kullanıcının kendi belirttiği yön) geçildi.
+Amaç: velinin ürün sayfasında çocuğunun yaşına/boyuna göre doğru bedeni
+seçmesine yardımcı olup yanlış beden alımı/iade oranını azaltmak.
+
+**Tek bir `SettingsRepositoryInterface` anahtarında JSON, yeni tablo
+yok.** İçerik küçük, ilişkisel bir ihtiyacı yok, mağaza geneli TEK bir
+liste (ürün başına değil) - Security'nin `/admin` IP allowlist'i için
+zaten kullandığı "yapı çağıranın kendi encode/decode'una ait" ilkesiyle
+aynı (bkz. `IpAllowlist`'in kendi docblock'u), farkı satır başına birden
+çok alan olduğu için newline-separated yerine JSON kullanılması.
+`Support\SizeGuideRow` (label, age_min/max, height_min/max_cm - hepsi
+opsiyonel boy/yaş dışında) ve `Support\SizeGuide` (parse/serialize,
+`array_is_list()` ile geçerli bir JSON DİZİSİ mi yoksa nesne mi ayrımı)
+bu encode/decode'u tek bir yerde topluyor - hem yazan REST controller hem
+okuyan tema hook'u aynı şekle sürüklenemez.
+
+**RBAC + REST: `TaxRatesRestController`/`SecuritySettingsRestController`
+ile aynı kalıp.** `ProductCapability::MANAGE_SIZE_GUIDE` -
+`MANAGE_TAX_RATES` ile aynı "mağaza geneli ayar, yalnızca HQ, Şube
+Müdürü katmanı yok" şekli. `Http\SizeGuideRestController` -
+`SecuritySettingsRestController`'ın GET/PUT tek-ayar kalıbı: GET tüm
+listeyi döner, PUT TÜM listeyi DEĞİŞTİRİR (satırların vergi oranlarının
+aksine doğal bir id/slug'ı yok, bu yüzden tek tek POST/PUT/DELETE değil).
+
+**Tema, DI container'a bağımlı olmadan filtre köprüsüyle okuyor.**
+`CommerceModule::boot()` `scp_commerce_size_guide_rows` filtresini
+kaydediyor (Depo'nun `scp_depo_supplier_id_for_user`'ı ve
+`ProductOwnershipBridge`'in `scp_commerce_product_owner_branch_id`'siyle
+AYNI gevşek köprü ilkesi). Tekil ürün sayfasında
+`scp_render_size_guide_trigger()` (öncelik 5, öğrenci seçicisinden -
+öncelik 10 - önce) bu filtreyi çağırıp bir "Beden Rehberi" düğmesi + Hızlı
+Bakış'la (bölüm 214) AYNI `.scp-quick-view__*`/`data-scp-quick-view-*`
+markup kalıbını taşıyan gizli bir `<template>` basıyor - REST çağrısı YOK,
+`initQuickView()` zaten var olan genel delege tıklama dinleyicisi hiçbir
+yeni JS gerektirmeden çalışıyor. İçerik boşsa (HQ henüz hiç satır
+girmemişse) ya da üründe `pa_beden` global özniteliği yoksa (defter, kalem
+gibi bedensiz ürünlerde rehber anlamsız) hiçbir şey basılmıyor.
+
+**Tema paneli.** Yeni `/admin/beden-rehberi` sayfası
+(`scp_manage_size_guide`, kataloğ grubu). Vergi Oranları'ndan farklı
+olarak satırların id'si olmadığından liste tamamen istemci tarafında
+eklenir/silinir ("Yeni Satır"/her satırda "Kaldır"), "Kaydet" tüm tabloyu
+tek bir `PUT commerce/size-guide` ile gönderir.
+
+**Doğrulama.** `SizeGuideTest`'in 5 testi dahil seviye-commerce'in 28
+testi yeşil, `phpcs` 0 hata (yalnızca bu diff'ten önce de var olan
+line-length/nonce-verification uyarıları kaldı). Gerçek
+WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
+yok) yine yapılamadı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

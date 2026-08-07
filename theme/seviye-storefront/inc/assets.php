@@ -206,6 +206,8 @@ function scp_enqueue_panel_assets(): void
             'Bu vergi oranını kalıcı olarak silmek istediğinize emin misiniz?',
             'seviye-storefront'
         ),
+        'sizeGuideSaved' => __('Beden rehberi kaydedildi.', 'seviye-storefront'),
+        'sizeGuideLabelPlaceholder' => __('ör. S (4-5 yaş)', 'seviye-storefront'),
         'confirmDeleteSupplier' => __(
             'Bu tedarikçiyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             'seviye-storefront'
@@ -610,6 +612,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/tax-rates-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/tax-rates-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && $zonePath === 'beden-rehberi' && current_user_can('scp_manage_size_guide')) {
+        $handle = 'scp-size-guide-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/size-guide-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/size-guide-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

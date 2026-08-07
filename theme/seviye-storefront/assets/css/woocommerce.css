@@ -805,6 +805,33 @@
   border-color: var(--scp-primary-light);
 }
 
+/* ---- Beden Rehberi tetikleyicisi - tekil ürün sayfasında, öğrenci
+   seçicisinden önce basılıyor (inc/woocommerce.php's
+   scp_render_size_guide_trigger()); yukarıdaki .scp-quick-view-trigger'ın
+   aksine mağaza ızgarasındaki bir kart içinde değil, bu yüzden kendi
+   stilini taşıyor - aynı modal markup/JS kalıbını (initQuickView())
+   paylaşıyor. ---- */
+.scp-size-guide-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-primary);
+  background: none;
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.scp-size-guide-trigger:hover {
+  background: var(--scp-surface-alt);
+  border-color: var(--scp-primary-light);
+}
+
 .scp-quick-view {
   position: relative;
   width: min(560px, 100%);

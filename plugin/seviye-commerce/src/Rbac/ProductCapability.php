@@ -28,10 +28,16 @@ namespace Seviye\Commerce\Rbac;
  * Şube Müdürü may pick from the list HQ already defined, same as they
  * already set that product's price/category, just never add/edit/remove a
  * rate from the list itself).
+ *
+ * MANAGE_SIZE_GUIDE is the same "store-wide setting, HQ-only, no Şube
+ * Müdürü tier" shape as MANAGE_TAX_RATES - the "Beden Rehberi" (bkz.
+ * {@see \Seviye\Commerce\Http\SizeGuideRestController}) is one shared
+ * yaş/boy→beden tablosu for the whole mağaza, not per-branch content.
  */
 enum ProductCapability: string
 {
     case MANAGE_PRODUCTS = 'scp_manage_products';
     case VIEW_PRODUCTS = 'scp_view_products';
     case MANAGE_TAX_RATES = 'scp_manage_tax_rates';
+    case MANAGE_SIZE_GUIDE = 'scp_manage_size_guide';
 }
