@@ -50,6 +50,15 @@ final class WpdbWarehouseReportQuery implements WarehouseReportQueryInterface
             $args[] = $filter->toDate . ' 23:59:59';
         }
 
+        if ($filter->branchId !== false) {
+            if ($filter->branchId === null) {
+                $conditions[] = 'po.branch_id IS NULL';
+            } else {
+                $conditions[] = 'po.branch_id = %d';
+                $args[] = $filter->branchId;
+            }
+        }
+
         $where = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
         $sql = "SELECT po.*, COALESCE(item_totals.total_cost, 0) AS total_cost
             FROM {$ordersTable} po
@@ -84,7 +93,8 @@ final class WpdbWarehouseReportQuery implements WarehouseReportQueryInterface
                 : null,
             $status === PurchaseOrderStatus::COMPLETED->value ? (string) $row['updated_at'] : null,
             (float) $row['total_cost'],
-            (string) $row['created_at']
+            (string) $row['created_at'],
+            isset($row['branch_id']) && $row['branch_id'] !== null ? (int) $row['branch_id'] : null
         );
     }
 }

@@ -28,6 +28,12 @@ use Seviye\Depo\Repository\PurchaseSuggestionRepositoryInterface;
  * kesin bir sipariş değil, yalnızca bir başlangıç noktası; Depo görevlisi
  * Satın Alma Önerileri panelinde siparişe çevirirken miktarı serbestçe
  * değiştirebilir.
+ *
+ * Faz 4: hangi deponun önerisi olduğu Commerce'in ProductOwnership'inden
+ * (`scp_commerce_product_owner_branch_id` filter köprüsü - bkz.
+ * DepoModule'ün kendi docblock'u) çözümlenip create()'e YAZMA anında
+ * dondurularak geçiriliyor; convert() bu değeri aynen yeni açılan
+ * PurchaseOrder'a taşır (bkz. PurchaseSuggestionsRestController::convert()).
  */
 final class LowStockPurchaseSuggestionListener
 {
@@ -51,7 +57,17 @@ final class LowStockPurchaseSuggestionListener
             return;
         }
 
-        $this->suggestions->create($productId, $this->suggestedQuantityFor($event), $this->reasonFor($event));
+        // Sahiplik meta'sı yalnızca ÜST üründe tutuluyor (bkz.
+        // ProductOwnership'in kendi docblock'u) - varyasyonlarda değil, bu
+        // yüzden burada $productId (varyasyonsa varyasyon id'si) DEĞİL,
+        // event'in her zaman üst ürünü taşıyan `product_id` alanı kullanılıyor
+        // (bkz. LowStockNotificationHooks::onLowStock()'un `$parentId` mantığı).
+        $branchId = function_exists('apply_filters')
+            ? apply_filters('scp_commerce_product_owner_branch_id', null, (int) $event->get('product_id'))
+            : null;
+        $branchId = $branchId !== null ? (int) $branchId : null;
+
+        $this->suggestions->create($productId, $this->suggestedQuantityFor($event), $this->reasonFor($event), $branchId);
     }
 
     /**

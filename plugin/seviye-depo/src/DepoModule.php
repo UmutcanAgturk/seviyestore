@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Seviye\Depo;
 
+use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Container\ServiceContainer;
 use Seviye\Core\Database\ConnectionInterface;
 use Seviye\Core\Database\MigrationRunner;
@@ -46,12 +48,20 @@ use Seviye\Depo\Support\LowStockPurchaseSuggestionListener;
 use Seviye\Depo\Support\PurchaseOrderStatusCalculator;
 
 /**
- * "Tek bir depo vardır" - bu modül şube kavramından tamamen bağımsız
- * (Branches/Students'ın Contracts'ına bağımlı değil, tek bağımlılığı
- * Core ve WooCommerce - bkz. seviye-depo.php'nin Requires Plugins başlığı).
- * Ürün/stok kaydı WooCommerce'in kendisinde kalır (bkz.
- * docs/ARCHITECTURE.md, "Kural"); bu modül yalnızca tedarikçi, satın alma
- * siparişi ve stok hareketi defterini kendi tablolarında tutar.
+ * Faz 1-3'te "Tek bir depo vardır" (Branches'a hiç bağımlı değil) olan bu
+ * modül, Faz 4'te "Genel Merkez'in kendi deposu devam eder, şube kendi
+ * ürününü eklemişse o ürün şubenin kendi deposundan takip edilir" isteği
+ * ile Branches'a bağımlı hale geldi (bkz. seviye-depo.php'nin Requires
+ * Plugins başlığı, composer.json). Bir ürünün hangi depoya ait olduğu
+ * hâlâ Commerce'in ProductOwnership'inden (scp_commerce_product_owner_branch_id
+ * filter köprüsü - Depo, Commerce'e SERT bir composer bağımlılığı
+ * eklemiyor, Pricing'in zaten kullandığı aynı gevşek köprüyü kullanıyor)
+ * türetiliyor; Depo'nun kendi tablolarına (purchase_orders/stock_counts/
+ * purchase_suggestions/stock_movements) bu değer YAZMA anında donduruluyor
+ * - bkz. her migration'ın kendi branch_id sütun docblock'u. Ürün/stok
+ * kaydı hâlâ WooCommerce'in kendisinde kalır (bkz. docs/ARCHITECTURE.md,
+ * "Kural"); bu modül yalnızca tedarikçi, satın alma siparişi ve stok
+ * hareketi defterini kendi tablolarında tutar.
  */
 final class DepoModule implements ModuleInterface
 {
@@ -146,6 +156,18 @@ final class DepoModule implements ModuleInterface
             $rbac->grantCapability($role, WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value);
         }
 
+        // Faz 4: "şube kendi ürününü eklemiş ise şubenin kendi deposundan
+        // görünecek" - Şube Müdürü yalnızca KENDİ şubesinin deposunu
+        // yönetir, platform-wide capability'leri asla almaz (Genel Merkez
+        // deposu veya başka bir şubenin deposu ona hiç görünmez - bkz. her
+        // controller'ın resolveWarehouseBranchScope() benzeri metodu).
+        // Tedarikçi listesi bilinçli olarak dışarıda - bkz.
+        // WarehouseCapability'nin kendi docblock'u.
+        $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_ORDERS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::VIEW_OWN_BRANCH_STOCK_MOVEMENTS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_STOCK_COUNTS->value);
+        $rbac->grantCapability(Role::SUBE_MUDURU, WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS->value);
+
         // "Tedarikçi portalı" - Security (AuthRestController) ve tema
         // (access-gate.php/zones.php) bu filtre üzerinden "bu kullanıcı bir
         // tedarikçiye mi bağlı" sorusunu sorar, Depo'ya sert bir composer
@@ -194,20 +216,26 @@ final class DepoModule implements ModuleInterface
             static fn (): PurchaseOrdersRestController => new PurchaseOrdersRestController(
                 $container->get(PurchaseOrderRepositoryInterface::class),
                 $container->get(SupplierRepositoryInterface::class),
-                $container->get(StockMovementRepositoryInterface::class)
+                $container->get(StockMovementRepositoryInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
             )
         );
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): StockMovementsRestController => new StockMovementsRestController(
-                $container->get(StockMovementRepositoryInterface::class)
+                $container->get(StockMovementRepositoryInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
             )
         );
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): StockCountsRestController => new StockCountsRestController(
                 $container->get(StockCountRepositoryInterface::class),
-                $container->get(StockMovementRepositoryInterface::class)
+                $container->get(StockMovementRepositoryInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
             )
         );
 
@@ -215,7 +243,9 @@ final class DepoModule implements ModuleInterface
             static fn (): PurchaseSuggestionsRestController => new PurchaseSuggestionsRestController(
                 $container->get(PurchaseSuggestionRepositoryInterface::class),
                 $container->get(PurchaseOrderRepositoryInterface::class),
-                $container->get(SupplierRepositoryInterface::class)
+                $container->get(SupplierRepositoryInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class)
             )
         );
     }

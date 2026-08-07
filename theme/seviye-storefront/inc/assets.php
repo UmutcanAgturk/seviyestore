@@ -119,6 +119,7 @@ function scp_enqueue_panel_assets(): void
         'settlementRecorded' => __('Tahsilat kaydedildi.', 'seviye-storefront'),
         'noSettlements' => __('Henüz tahsilat kaydı yok.', 'seviye-storefront'),
         'allBranches' => __('Tüm Şubeler', 'seviye-storefront'),
+        'hqBranch' => __('Genel Merkez', 'seviye-storefront'),
         'noReportData' => __('Seçilen kriterlere uygun kayıt bulunamadı.', 'seviye-storefront'),
         'noNotifications' => __('Bildirim yok.', 'seviye-storefront'),
         'smsConfigured' => __('NetGSM bağlantısı yapılandırıldı.', 'seviye-storefront'),
@@ -540,11 +541,19 @@ function scp_enqueue_panel_assets(): void
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 
-    if (
-        $zonePath === 'depo'
-        && in_array($zone, ['admin', 'sube'], true)
-        && current_user_can('scp_manage_purchase_orders')
-    ) {
+    // Faz 4: platform-wide (her depo) VEYA own-branch (yalnızca kendi
+    // şubesinin deposu) capability'lerinden herhangi biri - bkz.
+    // plugin/seviye-depo/src/Rbac/WarehouseCapability.php.
+    $canAccessDepo = current_user_can('scp_manage_purchase_orders')
+        || current_user_can('scp_manage_own_branch_purchase_orders')
+        || current_user_can('scp_view_stock_movements')
+        || current_user_can('scp_view_own_branch_stock_movements')
+        || current_user_can('scp_manage_stock_counts')
+        || current_user_can('scp_manage_own_branch_stock_counts')
+        || current_user_can('scp_manage_purchase_suggestions')
+        || current_user_can('scp_manage_own_branch_purchase_suggestions');
+
+    if ($zonePath === 'depo' && in_array($zone, ['admin', 'sube'], true) && $canAccessDepo) {
         $handle = 'scp-depo-panel';
         wp_enqueue_script(
             $handle,
@@ -553,7 +562,17 @@ function scp_enqueue_panel_assets(): void
             scp_asset_version('/assets/js/depo-panel.js'),
             true
         );
-        wp_localize_script($handle, 'scpPanel', $localized);
+        // "Genel Merkez'in kendi deposu devam eder, şube kendi ürününü
+        // eklemişse şubenin kendi deposundan görünür" - canViewAllBranches
+        // true olan kullanıcı hem Genel Merkez'in hem her şubenin deposunu
+        // görebilir/bir depo seçebilir (bkz. depo-panel.js'in şube seçici
+        // mantığı); false olan (Şube Müdürü) kendi deposuna kilitlenir.
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canViewAllBranches' => current_user_can('scp_manage_purchase_orders'),
+            'canManageSuppliers' => current_user_can('scp_manage_suppliers'),
+            'canReceiveStock' => current_user_can('scp_receive_stock')
+                || current_user_can('scp_manage_own_branch_purchase_orders'),
+        ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }
 

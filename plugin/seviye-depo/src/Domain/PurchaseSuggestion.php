@@ -19,7 +19,8 @@ final class PurchaseSuggestion
         public readonly PurchaseSuggestionStatus $status,
         public readonly ?string $reason,
         public readonly ?int $convertedPurchaseOrderId,
-        public readonly string $createdAt
+        public readonly string $createdAt,
+        public readonly ?int $branchId = null
     ) {
     }
 }

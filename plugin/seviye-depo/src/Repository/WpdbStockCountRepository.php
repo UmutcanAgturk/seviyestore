@@ -16,7 +16,7 @@ final class WpdbStockCountRepository implements StockCountRepositoryInterface
     {
     }
 
-    public function open(array $productStockLevels, int $startedByUserId): StockCount
+    public function open(array $productStockLevels, int $startedByUserId, ?int $branchId = null): StockCount
     {
         $now = $this->now();
 
@@ -24,6 +24,7 @@ final class WpdbStockCountRepository implements StockCountRepositoryInterface
             'status' => StockCountStatus::OPEN->value,
             'started_by' => $startedByUserId,
             'completed_by' => null,
+            'branch_id' => $branchId,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -61,18 +62,29 @@ final class WpdbStockCountRepository implements StockCountRepositoryInterface
         return $this->hydrateHeader($header, $this->itemsForCounts([$id])[$id] ?? []);
     }
 
-    public function all(?StockCountStatus $status = null): array
+    public function all(?StockCountStatus $status = null, int|false|null $branchId = false): array
     {
         $table = $this->connection->table('stock_counts');
-        $where = '';
-        $sql = "SELECT * FROM {$table}{$where} ORDER BY created_at DESC, id DESC";
+        $conditions = [];
+        $args = [];
 
         if ($status !== null) {
-            $sql = $this->connection->prepare(
-                "SELECT * FROM {$table} WHERE status = %s ORDER BY created_at DESC, id DESC",
-                [$status->value]
-            );
+            $conditions[] = 'status = %s';
+            $args[] = $status->value;
         }
+
+        if ($branchId !== false) {
+            if ($branchId === null) {
+                $conditions[] = 'branch_id IS NULL';
+            } else {
+                $conditions[] = 'branch_id = %d';
+                $args[] = $branchId;
+            }
+        }
+
+        $where = $conditions !== [] ? ' WHERE ' . implode(' AND ', $conditions) : '';
+        $sql = "SELECT * FROM {$table}{$where} ORDER BY created_at DESC, id DESC";
+        $sql = $args !== [] ? $this->connection->prepare($sql, $args) : $sql;
 
         $headers = $this->connection->getResults($sql);
         $ids = array_map(static fn (array $row): int => (int) $row['id'], $headers);
@@ -183,7 +195,8 @@ final class WpdbStockCountRepository implements StockCountRepositoryInterface
             isset($row['completed_by']) && $row['completed_by'] !== null ? (int) $row['completed_by'] : null,
             (string) $row['created_at'],
             $status === StockCountStatus::COMPLETED ? (string) $row['updated_at'] : null,
-            $items
+            $items,
+            isset($row['branch_id']) && $row['branch_id'] !== null ? (int) $row['branch_id'] : null
         );
     }
 

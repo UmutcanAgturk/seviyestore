@@ -16,7 +16,8 @@ final class StockCount
         public readonly ?int $completedByUserId,
         public readonly string $startedAt,
         public readonly ?string $completedAt,
-        public readonly array $items
+        public readonly array $items,
+        public readonly ?int $branchId = null
     ) {
     }
 }

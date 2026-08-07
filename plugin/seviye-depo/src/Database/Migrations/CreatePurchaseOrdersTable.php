@@ -23,6 +23,19 @@ use Seviye\Core\Database\MigrationInterface;
  * DEĞİŞTİRMEZ - okulun "mal kabul" (receive) akışından tamamen ayrı, salt
  * bilgilendirme amaçlı bir alan; okul fiziksel teslimat gerçekten
  * geldiğinde kendi ayrı receive() akışını yine kendisi tetikler.
+ *
+ * branch_id (nullable) - "Genel merkezin deposu devam edecek, şube kendi
+ * ürününü eklemiş ise şubenin kendi deposundan görünecek": hangi deponun
+ * siparişi olduğu - NULL Genel Merkez deposu, dolu bir değer o şubenin
+ * kendi deposu anlamına gelir. Aynı Commerce'in ProductOwnership'i gibi
+ * "meta/kolon yoksa Genel Merkez" opt-out deseni (bkz.
+ * plugin/seviye-commerce/src/Support/ProductOwnership.php) - eski
+ * siparişler otomatik olarak Genel Merkez deposuna ait sayılır, geriye
+ * dönük bir doldurma migrasyonu gerekmiyor. PurchaseOrdersRestController
+ * oluşturma anında siparişin TÜM kalemlerinin aynı sahip şubeye (veya
+ * hepsinin Genel Merkez'e) ait olduğunu doğrulayıp bu değeri oradan
+ * türetiyor - bir satın alma siparişi asla iki depo arasında karışık
+ * olamaz, çünkü fiziksel olarak tek bir depoya teslim alınıyor.
  */
 final class CreatePurchaseOrdersTable implements MigrationInterface
 {
@@ -51,11 +64,13 @@ final class CreatePurchaseOrdersTable implements MigrationInterface
             note TEXT NULL,
             created_by BIGINT UNSIGNED NOT NULL,
             supplier_shipped_at DATETIME NULL,
+            branch_id BIGINT UNSIGNED NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY code (code),
-            KEY supplier_id (supplier_id)
+            KEY supplier_id (supplier_id),
+            KEY branch_id (branch_id)
         ) {$charsetCollate};";
 
         $connection->dbDelta($sql);

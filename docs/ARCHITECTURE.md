@@ -4736,6 +4736,124 @@ ayrıca gerçek bir panelde (Genel Merkez oturumuyla /admin/) dokunmatik
 alt menü açma davranışı doğrulanarak kontrol edildi - zaten sağlam
 çıktı, değişiklik gerekmedi.
 
+### 84. Seviye Depo Faz 4: "Tek bir depo vardır" kararının tersine çevrilmesi - Genel Merkez + şube bazlı depolar
+
+Bölüm 39'da kullanıcının kendisi onayladığı "Tek bir depo vardır" kararı
+bu turda AÇIKÇA tersine çevrildi: "şimdi bir tane depo olacak... genel
+merkezin deposu, diğer ürün ekleyen şubeler ise kendi deposu olsa bile
+genel merkez deposu devam edecek, şube kendi ürününü eklemiş ise şubenin
+kendi deposundan görünecek, genel merkez deposundan görünmeyecek. Sipariş
+takibini genel merkez ürünleri genel merkez deposundan, şube ürünlerini
+şube deposundan takip edilecek." Sonuç iki katmanlı bir model: Genel
+Merkez'in KENDİ deposu hep var olmaya devam ediyor; bir şube kendi ürününü
+eklediyse (bkz. bölüm 33.5/34'ün `_scp_owner_branch_id` mekanizması), o
+ürüne dair her şey (satın alma siparişi, stok sayımı, düşük stok önerisi,
+stok hareketi) YALNIZCA o şubenin kendi deposunda görünüyor - Genel
+Merkez'in deposunda hiç görünmüyor, ve o şube başka bir şubenin/Genel
+Merkez'in deposunu hiç göremiyor.
+
+**Tek doğruluk kaynağı yeniden kullanıldı, icat edilmedi.** "Hangi
+ürün hangi şubeye ait" sorusunun cevabı zaten Commerce'te vardı
+(`Commerce\Support\ProductOwnership`, `_scp_owner_branch_id` post-meta -
+meta yoksa Genel Merkez ürünü, "opt-out" deseni). Depo'ya Commerce'e sert
+bir composer bağımlılığı eklemek yerine, Pricing'in `violatesBasePriceFloor()`'da
+zaten kullandığı GEVŞEK filtre köprüsü (`Commerce\Http\ProductOwnershipBridge`'in
+yayınladığı `scp_commerce_product_owner_branch_id` filtresi) aynen tekrar
+kullanıldı - Depo, WC aktif değilken/Commerce aktif değilken de çalışmaya
+devam ediyor (filtre no-op döner, `null` = Genel Merkez).
+
+**Şema: dört tabloya da `branch_id BIGINT UNSIGNED NULL` eklendi**
+(`scp_purchase_orders`, `scp_stock_counts`, `scp_purchase_suggestions`,
+`scp_stock_movements`) - `NULL` = Genel Merkez deposu, bir değer = o
+şubenin deposu, ProductOwnership'in aynı opt-out deseni. Yeni migration
+dosyası YOK: bu kod tabanının migration'ları dbDelta-idempotent ve her
+plugin yüklemesinde koşulsuz yeniden çalışıyor (`MigrationRunner::run()`,
+versiyon kontrolü yalnızca audit log kaydını etkiliyor, çalıştırmayı
+değil) - var olan `CREATE TABLE` migration'ları YERİNDE düzenlendi, dbDelta
+yeni sütunu bir sonraki yüklemede kendisi ekliyor. Değer her zaman YAZMA
+anında donduruluyor (bir ürünün sahibi sonradan değişse bile geçmiş
+kayıtlar o anki depoyu yansıtmaya devam ediyor - `scp_order_line_items`'ın
+kendi `branch_id`'siyle aynı ilke).
+
+**`int|false|null` üç durumlu sentinel.** Her repository'nin
+`all()`/`list()` metodunda ve her REST controller'ın
+`resolveBranchScope()`'unda aynı kodlama: `false` (varsayılan) = filtre
+yok/her depo, `null` = yalnızca Genel Merkez deposu, `int` = yalnızca o
+şubenin deposu. Sıradan `?int` yetmiyor çünkü burada Genel Merkez'in
+KENDİSİ de ayrı, seçilebilir bir kapsam - "filtre yok" ile "yalnızca Genel
+Merkez" iki farklı boş durum. REST tarafında aynı üç durum `branch_id`
+istek parametresinde kodlanıyor: yok/boş = filtre yok, `'hq'` = Genel
+Merkez, bir sayı = o şube.
+
+**RBAC: platform-wide + own-branch iki katman, Products/Orders'la aynı
+desen.** `WarehouseCapability`'ye dört yeni own-branch case eklendi
+(`MANAGE_OWN_BRANCH_PURCHASE_ORDERS`, `VIEW_OWN_BRANCH_STOCK_MOVEMENTS`,
+`MANAGE_OWN_BRANCH_STOCK_COUNTS`, `MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS`),
+yalnızca Şube Müdürü'ne veriliyor - Genel Merkez/Bölge Müdürü/Depo rolü
+platform-wide capability'leriyle her depoyu görmeye devam ediyor. Mal
+kabul için AYRI bir own-branch capability yok - kasıtlı bir sadeleştirme,
+`MANAGE_OWN_BRANCH_PURCHASE_ORDERS` zaten mal kabulü de kapsıyor
+(`canReceiveStock()`, `RECEIVE_STOCK` VEYA bu capability'yi kontrol
+ediyor). Tedarikçi listesi bilinçli olarak İKİ KATMANLI DEĞİL - platform
+genelinde tek bir tedarikçi dizini var (bir şube kendi tedarikçisini
+eklemiyor, yalnızca var olan tedarikçilere sipariş açıyor); yazma uçları
+hâlâ yalnızca `scp_manage_suppliers`, ama GET own-branch satın alma/öneri
+capability'lerine de salt-okunur açık - Şube Müdürü'nün kendi siparişi
+için tedarikçi seçebilmesi gerekiyor.
+
+**"Karma depo" siparişi engellendi.** Bir satın alma siparişi fiziksel
+olarak tek bir depoya teslim alınır, iki depo arasında bölünemez.
+`PurchaseOrdersRestController::store()`, her kalemin sahip şubesini filtre
+köprüsüyle çözüp TÜM kalemlerin aynı depoya (hepsi Genel Merkez ya da
+hepsi TEK bir şube) ait olduğunu doğruluyor, uyuşmazlıkta 422 dönüyor.
+Own-branch bir kullanıcının başka bir şubenin ürünü için sipariş açmaya
+çalışması da aynı yoldan (403) engelleniyor.
+
+**Nesne seviyesi erişim: "varlığı sızdırma" 404 deseni yeniden
+kullanıldı.** Own-branch bir kullanıcı başka bir depoya ait bir siparişe/
+sayıma/öneriye ID ile erişmeye çalışırsa 403 değil 404 dönüyor -
+`AdminOrdersRestController`'ın branch-scoped sipariş erişiminde zaten
+kurulu olan aynı "başka bir kaydın var olup olmadığını bile sızdırma"
+ilkesi.
+
+**Düşük stok → satın alma önerisi ve dönüşüm zinciri.**
+`LowStockPurchaseSuggestionListener`, önerinin `branch_id`'sini
+`event`'in HER ZAMAN üst ürünü taşıyan `product_id` alanından (varyasyon
+ID'sinden DEĞİL - sahiplik meta'sı yalnızca üst üründe tutuluyor) filtre
+köprüsüyle çözüp donduruyor;
+`PurchaseSuggestionsRestController::convert()` bu değeri aynen yeni
+açılan satın alma siparişine taşıyor - bir şubenin önerisi asla Genel
+Merkez'in siparişine dönüşmüyor.
+
+**Depo Raporları'na şube boyutu eklendi.** `WarehouseReportsRestController`,
+artık `ReportsRestController::canViewReports()`/`effectiveBranchId()`
+ile aynı desen: HQ herhangi bir depoyu (ya da hiçbirini seçmezse hepsini)
+raporlayabilir, Şube Müdürü her zaman kendi şubesine kilitleniyor - bölüm
+39/40'taki "Depo'nun şube kavramı yok, raporlanacak boyut yok" gerekçesi
+artık geçersiz. `WarehouseReportBuilder`, tedarikçi bazında değil
+(tedarikçi/şube) ÇİFTİ bazında gruplanıyor - bir tedarikçi hem Genel
+Merkez'den hem bir şubeden sipariş almış olabilir, ikisinin toplamını
+karıştırmak yanıltıcı olurdu. `PurchaseOrderReportFilter`/`Record`
+`branchId` alanı kazandı (aynı üç durumlu sentinel), CSV/XLSX
+exporter'lara "Depo" sütunu eklendi.
+
+**Tema paneli.** Depo panelinde platform-wide kullanıcıya bir depo seçici
+(Tüm depolar/Genel Merkez/bir şube) gösteriliyor, own-branch kullanıcı
+hiç görmüyor - REST tarafı zaten onu kilitliyor, bu yalnızca HQ'nun kendi
+görünümünü daraltması için. Tedarikçi CRUD (Yeni/Düzenle) yalnızca
+`canManageSuppliers`'a; own-branch kullanıcı listeyi salt-okunur görüyor.
+Raporlar panelindeki "Depo Raporları" alt bölümü artık `scp_view_reports`
+VEYA `scp_view_own_reports`'a açık (öncekinden farklı olarak Şube
+Müdürü'ne de).
+
+**Yapılamayan.** Bu oturumda (Docker/wp-env erişimi olmayan bir sandbox,
+bkz. "Test stratejisi") gerçek bir WordPress+MariaDB kurulumunda uçtan
+uca doğrulama YAPILAMADI - doğrulama `php -l`, tüm birim test paketleri
+(seviye-depo: 58/58, seviye-reports: 24/24, ayrıca tüm diğer 7 eklenti),
+`phpcs` (0 hata) ve `composer validate`/`composer update` (yeni
+`seviye/branches` bağımlılığının lock dosyasına doğru kilitlendiğinin
+teyidi) ile sınırlı kaldı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

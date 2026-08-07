@@ -351,7 +351,17 @@ function scp_menu_pages(): array
         ],
         'depo' => [
             'zones' => ['admin', 'sube'],
-            'capability' => static fn (): bool => current_user_can('scp_manage_purchase_orders'),
+            // Faz 4: platform-wide (her depo) VEYA own-branch (yalnızca
+            // kendi şubesinin deposu) capability'lerinden herhangi biri -
+            // bkz. plugin/seviye-depo/src/Rbac/WarehouseCapability.php.
+            'capability' => static fn (): bool => current_user_can('scp_manage_purchase_orders')
+                || current_user_can('scp_manage_own_branch_purchase_orders')
+                || current_user_can('scp_view_stock_movements')
+                || current_user_can('scp_view_own_branch_stock_movements')
+                || current_user_can('scp_manage_stock_counts')
+                || current_user_can('scp_manage_own_branch_stock_counts')
+                || current_user_can('scp_manage_purchase_suggestions')
+                || current_user_can('scp_manage_own_branch_purchase_suggestions'),
             'template' => 'depo-admin.php',
         ],
         'cari-bakiye' => [

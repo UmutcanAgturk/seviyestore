@@ -142,7 +142,7 @@ final class XlsxExporter
     private function warehouseSheetXml(array $rows): string
     {
         $lines = [$this->row(1, [
-            'Tedarikçi', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
+            'Tedarikçi', 'Depo', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
         ])];
 
         $rowNumber = 2;
@@ -150,6 +150,7 @@ final class XlsxExporter
         foreach ($rows as $row) {
             $lines[] = $this->row($rowNumber, [
                 $row->supplierName,
+                $row->branchName,
                 $row->orderCount,
                 $row->totalCost,
                 $row->completedOrderCount,

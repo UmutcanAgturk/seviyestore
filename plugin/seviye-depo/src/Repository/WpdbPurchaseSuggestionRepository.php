@@ -15,7 +15,7 @@ final class WpdbPurchaseSuggestionRepository implements PurchaseSuggestionReposi
     {
     }
 
-    public function create(int $productId, int $suggestedQuantity, ?string $reason): PurchaseSuggestion
+    public function create(int $productId, int $suggestedQuantity, ?string $reason, ?int $branchId = null): PurchaseSuggestion
     {
         $now = $this->now();
 
@@ -25,6 +25,7 @@ final class WpdbPurchaseSuggestionRepository implements PurchaseSuggestionReposi
             'status' => PurchaseSuggestionStatus::PENDING->value,
             'reason' => $reason,
             'converted_purchase_order_id' => null,
+            'branch_id' => $branchId,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -59,18 +60,29 @@ final class WpdbPurchaseSuggestionRepository implements PurchaseSuggestionReposi
         return isset($rows[0]) ? $this->hydrate($rows[0]) : null;
     }
 
-    public function all(?PurchaseSuggestionStatus $status = null): array
+    public function all(?PurchaseSuggestionStatus $status = null, int|false|null $branchId = false): array
     {
         $table = $this->connection->table('purchase_suggestions');
+        $conditions = [];
+        $args = [];
 
         if ($status !== null) {
-            $sql = $this->connection->prepare(
-                "SELECT * FROM {$table} WHERE status = %s ORDER BY created_at DESC, id DESC",
-                [$status->value]
-            );
-        } else {
-            $sql = "SELECT * FROM {$table} ORDER BY created_at DESC, id DESC";
+            $conditions[] = 'status = %s';
+            $args[] = $status->value;
         }
+
+        if ($branchId !== false) {
+            if ($branchId === null) {
+                $conditions[] = 'branch_id IS NULL';
+            } else {
+                $conditions[] = 'branch_id = %d';
+                $args[] = $branchId;
+            }
+        }
+
+        $where = $conditions !== [] ? ' WHERE ' . implode(' AND ', $conditions) : '';
+        $sql = "SELECT * FROM {$table}{$where} ORDER BY created_at DESC, id DESC";
+        $sql = $args !== [] ? $this->connection->prepare($sql, $args) : $sql;
 
         return array_map($this->hydrate(...), $this->connection->getResults($sql));
     }
@@ -111,7 +123,8 @@ final class WpdbPurchaseSuggestionRepository implements PurchaseSuggestionReposi
             isset($row['converted_purchase_order_id']) && $row['converted_purchase_order_id'] !== null
                 ? (int) $row['converted_purchase_order_id']
                 : null,
-            (string) $row['created_at']
+            (string) $row['created_at'],
+            isset($row['branch_id']) && $row['branch_id'] !== null ? (int) $row['branch_id'] : null
         );
     }
 

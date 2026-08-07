@@ -16,7 +16,13 @@ use WP_REST_Response;
 
 /**
  * seviye/v1/depo/suppliers/* - platform-wide, tek bir tedarikçi listesi
- * (bkz. WarehouseCapability - şube bazlı bir kapsam yok).
+ * (bkz. WarehouseCapability - şube bazlı bir kapsam yok). Bir şube kendi
+ * tedarikçisini eklemez/düzenlemez/silmez - bu yazma uçları hâlâ yalnızca
+ * MANAGE_SUPPLIERS (platform-wide). Ama Faz 4 ile Şube Müdürü kendi
+ * deposu için satın alma siparişi açarken (ya da bir öneriyi siparişe
+ * çevirirken) hangi tedarikçiye sipariş vereceğini seçebilmesi gerekiyor -
+ * bu yüzden GET (index) salt-okunur olarak own-branch satın alma
+ * capability'lerine de açık, bkz. canViewSuppliers().
  */
 final class SuppliersRestController extends AbstractRestController
 {
@@ -30,7 +36,7 @@ final class SuppliersRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'index'],
-                'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_SUPPLIERS->value),
+                'permission_callback' => [$this, 'canViewSuppliers'],
             ],
             [
                 'methods' => 'POST',
@@ -53,6 +59,13 @@ final class SuppliersRestController extends AbstractRestController
                 'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_SUPPLIERS->value),
             ],
         ]);
+    }
+
+    public function canViewSuppliers(): bool
+    {
+        return current_user_can(WarehouseCapability::MANAGE_SUPPLIERS->value)
+            || current_user_can(WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_ORDERS->value)
+            || current_user_can(WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS->value);
     }
 
     public function index(): WP_REST_Response

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Seviye\Depo\Http;
 
+use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Depo\Domain\PurchaseSuggestion;
@@ -22,13 +24,21 @@ use WP_REST_Response;
  * oluşturur (PurchaseOrderRepositoryInterface::create() üzerinden, tek
  * kalemli) - PurchaseOrdersRestController::store()'un aynı yolunu izler,
  * kod tekrarını önlemek için doğrudan repository'yi kullanır.
+ *
+ * Faz 4: MANAGE_PURCHASE_SUGGESTIONS (platform-wide) her depoyu görür,
+ * MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS yalnızca kendi şubesinin
+ * önerilerini - bkz. PurchaseOrdersRestController'ın resolveBranchScope()
+ * docblock'u (aynı desen). convert() önerinin branch_id'sini yeni açılan
+ * PurchaseOrder'a aynen taşır.
  */
 final class PurchaseSuggestionsRestController extends AbstractRestController
 {
     public function __construct(
         private readonly PurchaseSuggestionRepositoryInterface $suggestions,
         private readonly PurchaseOrderRepositoryInterface $purchaseOrders,
-        private readonly SupplierRepositoryInterface $suppliers
+        private readonly SupplierRepositoryInterface $suppliers,
+        private readonly BranchLookupInterface $branches,
+        private readonly BranchMembershipInterface $branchMemberships
     ) {
     }
 
@@ -37,35 +47,68 @@ final class PurchaseSuggestionsRestController extends AbstractRestController
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-suggestions', [
             'methods' => 'GET',
             'callback' => [$this, 'index'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-suggestions/(?P<id>\d+)/dismiss', [
             'methods' => 'POST',
             'callback' => [$this, 'dismiss'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-suggestions/(?P<id>\d+)/convert', [
             'methods' => 'POST',
             'callback' => [$this, 'convert'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
+    }
+
+    public function canManageWarehouse(): bool
+    {
+        return current_user_can(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value)
+            || current_user_can(WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_SUGGESTIONS->value);
     }
 
     public function index(WP_REST_Request $request): WP_REST_Response
     {
         $status = PurchaseSuggestionStatus::tryFrom((string) ($request->get_param('status') ?? ''));
-        $suggestions = array_map($this->serialize(...), $this->suggestions->all($status));
+        $branchScope = $this->resolveBranchScope($request);
+        $suggestions = array_map($this->serialize(...), $this->suggestions->all($status, $branchScope));
 
         return new WP_REST_Response($suggestions);
+    }
+
+    private function resolveBranchScope(WP_REST_Request $request): int|false|null
+    {
+        if (current_user_can(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value)) {
+            $raw = $request->get_param('branch_id');
+
+            if ($raw === null || $raw === '') {
+                return false;
+            }
+
+            return $raw === 'hq' ? null : (int) $raw;
+        }
+
+        return $this->branchMemberships->branchIdForUser(get_current_user_id());
+    }
+
+    private function canAccessSuggestion(PurchaseSuggestion $suggestion): bool
+    {
+        if (current_user_can(WarehouseCapability::MANAGE_PURCHASE_SUGGESTIONS->value)) {
+            return true;
+        }
+
+        $ownBranchId = $this->branchMemberships->branchIdForUser(get_current_user_id());
+
+        return $ownBranchId !== null && $suggestion->branchId === $ownBranchId;
     }
 
     public function dismiss(WP_REST_Request $request): WP_REST_Response
     {
         $suggestion = $this->suggestions->find((int) $request->get_param('id'));
 
-        if ($suggestion === null) {
+        if ($suggestion === null || !$this->canAccessSuggestion($suggestion)) {
             return new WP_REST_Response(['message' => __('Öneri bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -84,7 +127,7 @@ final class PurchaseSuggestionsRestController extends AbstractRestController
     {
         $suggestion = $this->suggestions->find((int) $request->get_param('id'));
 
-        if ($suggestion === null) {
+        if ($suggestion === null || !$this->canAccessSuggestion($suggestion)) {
             return new WP_REST_Response(['message' => __('Öneri bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -112,7 +155,8 @@ final class PurchaseSuggestionsRestController extends AbstractRestController
             null,
             $suggestion->reason,
             get_current_user_id(),
-            [['product_id' => $suggestion->productId, 'quantity_ordered' => $quantity, 'unit_cost' => null]]
+            [['product_id' => $suggestion->productId, 'quantity_ordered' => $quantity, 'unit_cost' => null]],
+            $suggestion->branchId
         );
 
         $this->suggestions->convert($suggestion->id, $order->id);
@@ -129,6 +173,8 @@ final class PurchaseSuggestionsRestController extends AbstractRestController
             return [];
         }
 
+        $branch = $suggestion->branchId !== null ? $this->branches->find($suggestion->branchId) : null;
+
         return [
             'id' => $suggestion->id,
             'product_id' => $suggestion->productId,
@@ -137,6 +183,8 @@ final class PurchaseSuggestionsRestController extends AbstractRestController
             'reason' => $suggestion->reason,
             'converted_purchase_order_id' => $suggestion->convertedPurchaseOrderId,
             'created_at' => $suggestion->createdAt,
+            'branch_id' => $suggestion->branchId,
+            'branch_name' => $branch?->name ?? __('Genel Merkez', 'seviye-depo'),
         ];
     }
 }

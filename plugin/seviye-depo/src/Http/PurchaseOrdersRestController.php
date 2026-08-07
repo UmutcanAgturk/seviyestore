@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Seviye\Depo\Http;
 
+use Seviye\Branches\Contracts\BranchLookupInterface;
+use Seviye\Branches\Contracts\BranchMembershipInterface;
 use Seviye\Core\Http\AbstractRestController;
 use Seviye\Core\Http\RestApiRegistrar;
 use Seviye\Depo\Domain\PurchaseOrder;
@@ -28,13 +30,24 @@ use WP_REST_Response;
  * kaynağı olmaya devam eder - bkz. docs/ARCHITECTURE.md, "Kural") ve AYRICA
  * StockMovementRepositoryInterface'e bir defter satırı yazılır - biri
  * gerçek stok sayısını, diğeri NEDEN değiştiğinin geçmişini tutar.
+ *
+ * Faz 4 ("bir tane genel merkezin deposu, şube ürün eklemişse kendi
+ * deposu"): store()'da her kalemin sahip şubesi (Commerce'in
+ * scp_commerce_product_owner_branch_id filter köprüsü) çözümlenip TÜM
+ * kalemlerin AYNI depoya (hepsi Genel Merkez ya da hepsi TEK bir şube) ait
+ * olduğu doğrulanıyor - fiziksel olarak bir sipariş tek bir depoya teslim
+ * alınır, iki depo arasında bölünemez. MANAGE_PURCHASE_ORDERS (platform-wide)
+ * her depoyu görür/yönetir; MANAGE_OWN_BRANCH_PURCHASE_ORDERS yalnızca
+ * kendi şubesinin deposunu - bkz. resolveBranchScope()/canAccessOrder().
  */
 final class PurchaseOrdersRestController extends AbstractRestController
 {
     public function __construct(
         private readonly PurchaseOrderRepositoryInterface $purchaseOrders,
         private readonly SupplierRepositoryInterface $suppliers,
-        private readonly StockMovementRepositoryInterface $stockMovements
+        private readonly StockMovementRepositoryInterface $stockMovements,
+        private readonly BranchLookupInterface $branches,
+        private readonly BranchMembershipInterface $branchMemberships
     ) {
     }
 
@@ -44,37 +57,37 @@ final class PurchaseOrdersRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'index'],
-                'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value),
+                'permission_callback' => [$this, 'canManageWarehouse'],
             ],
             [
                 'methods' => 'POST',
                 'callback' => [$this, 'store'],
-                'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value),
+                'permission_callback' => [$this, 'canManageWarehouse'],
             ],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/(?P<id>\d+)', [
             'methods' => 'GET',
             'callback' => [$this, 'show'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/(?P<id>\d+)/send', [
             'methods' => 'POST',
             'callback' => [$this, 'send'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/(?P<id>\d+)/cancel', [
             'methods' => 'POST',
             'callback' => [$this, 'cancel'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value),
+            'permission_callback' => [$this, 'canManageWarehouse'],
         ]);
 
         register_rest_route(RestApiRegistrar::NAMESPACE, '/depo/purchase-orders/(?P<id>\d+)/receive', [
             'methods' => 'POST',
             'callback' => [$this, 'receive'],
-            'permission_callback' => $this->requireCapability(WarehouseCapability::RECEIVE_STOCK->value),
+            'permission_callback' => [$this, 'canReceiveStock'],
         ]);
 
         // "Tedarikçi portalı" - WarehouseCapability'den TAMAMEN bağımsız:
@@ -97,6 +110,53 @@ final class PurchaseOrdersRestController extends AbstractRestController
     private function requireLinkedSupplier(): bool
     {
         return $this->suppliers->findByUserId(get_current_user_id()) !== null;
+    }
+
+    public function canManageWarehouse(): bool
+    {
+        return current_user_can(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value)
+            || current_user_can(WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_ORDERS->value);
+    }
+
+    public function canReceiveStock(): bool
+    {
+        return current_user_can(WarehouseCapability::RECEIVE_STOCK->value)
+            || current_user_can(WarehouseCapability::MANAGE_OWN_BRANCH_PURCHASE_ORDERS->value);
+    }
+
+    /**
+     * MANAGE_PURCHASE_ORDERS (Genel Merkez/Bölge Müdürü/Depo) her depoyu
+     * görür; `branch_id` sorgu parametresiyle isteğe bağlı daraltabilir:
+     * yoksa/boşsa TÜM depolar, `hq` yalnızca Genel Merkez, bir sayı o
+     * şubenin id'si. MANAGE_OWN_BRANCH_PURCHASE_ORDERS'a (yalnızca)
+     * sahip bir Şube Müdürü için bu parametre YOK SAYILIR, her zaman
+     * kendi şubesine zorlanır - bir şube başka bir şubenin (veya Genel
+     * Merkez'in) deposunu asla göremez.
+     */
+    private function resolveBranchScope(WP_REST_Request $request): int|false|null
+    {
+        if (current_user_can(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value)) {
+            $raw = $request->get_param('branch_id');
+
+            if ($raw === null || $raw === '') {
+                return false;
+            }
+
+            return $raw === 'hq' ? null : (int) $raw;
+        }
+
+        return $this->branchMemberships->branchIdForUser(get_current_user_id());
+    }
+
+    private function canAccessOrder(PurchaseOrder $order): bool
+    {
+        if (current_user_can(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value)) {
+            return true;
+        }
+
+        $ownBranchId = $this->branchMemberships->branchIdForUser(get_current_user_id());
+
+        return $ownBranchId !== null && $order->branchId === $ownBranchId;
     }
 
     public function mine(): WP_REST_Response
@@ -140,7 +200,10 @@ final class PurchaseOrdersRestController extends AbstractRestController
         $supplierId = $request->get_param('supplier_id');
         $supplierId = $supplierId !== null && $supplierId !== '' ? (int) $supplierId : null;
 
-        $orders = array_map($this->serialize(...), $this->purchaseOrders->all($status, $supplierId));
+        $orders = array_map(
+            $this->serialize(...),
+            $this->purchaseOrders->all($status, $supplierId, $this->resolveBranchScope($request))
+        );
 
         return new WP_REST_Response($orders);
     }
@@ -159,6 +222,53 @@ final class PurchaseOrdersRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('En az bir kalem gerekli.', 'seviye-depo')], 422);
         }
 
+        // "Bir satın alma siparişi asla iki depo arasında karışık olamaz" -
+        // her kalemin sahip şubesi (Genel Merkez için null) çözümlenip
+        // hepsinin AYNI değere sahip olduğu doğrulanıyor.
+        $orderBranchId = null;
+        $firstItem = true;
+        $mixedBranches = false;
+
+        foreach ($items as $item) {
+            $itemBranchId = apply_filters('scp_commerce_product_owner_branch_id', null, $item['product_id']);
+            $itemBranchId = $itemBranchId !== null ? (int) $itemBranchId : null;
+
+            if ($firstItem) {
+                $orderBranchId = $itemBranchId;
+                $firstItem = false;
+
+                continue;
+            }
+
+            if ($itemBranchId !== $orderBranchId) {
+                $mixedBranches = true;
+
+                break;
+            }
+        }
+
+        if ($mixedBranches) {
+            $message = __(
+                'Bir satın alma siparişindeki tüm ürünler aynı depoya (Genel Merkez veya tek bir şube) ait olmalı.',
+                'seviye-depo'
+            );
+
+            return new WP_REST_Response(['message' => $message], 422);
+        }
+
+        if (!current_user_can(WarehouseCapability::MANAGE_PURCHASE_ORDERS->value)) {
+            $ownBranchId = $this->branchMemberships->branchIdForUser(get_current_user_id());
+
+            if ($ownBranchId === null || $orderBranchId !== $ownBranchId) {
+                $message = __(
+                    'Yalnızca kendi şubenizin eklediği ürünler için satın alma siparişi açabilirsiniz.',
+                    'seviye-depo'
+                );
+
+                return new WP_REST_Response(['message' => $message], 403);
+            }
+        }
+
         $expectedDate = trim((string) ($request->get_param('expected_date') ?? ''));
         $note = trim((string) ($request->get_param('note') ?? ''));
 
@@ -167,7 +277,8 @@ final class PurchaseOrdersRestController extends AbstractRestController
             $expectedDate !== '' ? $expectedDate : null,
             $note !== '' ? $note : null,
             get_current_user_id(),
-            $items
+            $items,
+            $orderBranchId
         );
 
         return new WP_REST_Response($this->serialize($order), 201);
@@ -177,7 +288,7 @@ final class PurchaseOrdersRestController extends AbstractRestController
     {
         $order = $this->purchaseOrders->find((int) $request->get_param('id'));
 
-        if ($order === null) {
+        if ($order === null || !$this->canAccessOrder($order)) {
             return new WP_REST_Response(['message' => __('Satın alma siparişi bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -188,7 +299,7 @@ final class PurchaseOrdersRestController extends AbstractRestController
     {
         $order = $this->purchaseOrders->find((int) $request->get_param('id'));
 
-        if ($order === null) {
+        if ($order === null || !$this->canAccessOrder($order)) {
             return new WP_REST_Response(['message' => __('Satın alma siparişi bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -207,7 +318,7 @@ final class PurchaseOrdersRestController extends AbstractRestController
     {
         $order = $this->purchaseOrders->find((int) $request->get_param('id'));
 
-        if ($order === null) {
+        if ($order === null || !$this->canAccessOrder($order)) {
             return new WP_REST_Response(['message' => __('Satın alma siparişi bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -226,7 +337,7 @@ final class PurchaseOrdersRestController extends AbstractRestController
     {
         $order = $this->purchaseOrders->find((int) $request->get_param('id'));
 
-        if ($order === null) {
+        if ($order === null || !$this->canAccessOrder($order)) {
             return new WP_REST_Response(['message' => __('Satın alma siparişi bulunamadı.', 'seviye-depo')], 404);
         }
 
@@ -259,7 +370,8 @@ final class PurchaseOrdersRestController extends AbstractRestController
                 'purchase_order',
                 $order->id,
                 sprintf('Mal kabul: %s', $order->code),
-                get_current_user_id()
+                get_current_user_id(),
+                $order->branchId
             );
         }
 
@@ -334,6 +446,8 @@ final class PurchaseOrdersRestController extends AbstractRestController
      */
     private function serialize(PurchaseOrder $order): array
     {
+        $branch = $order->branchId !== null ? $this->branches->find($order->branchId) : null;
+
         return [
             'id' => $order->id,
             'supplier_id' => $order->supplierId,
@@ -344,6 +458,8 @@ final class PurchaseOrdersRestController extends AbstractRestController
             'created_by' => $order->createdByUserId,
             'created_at' => $order->createdAt,
             'supplier_shipped_at' => $order->supplierShippedAt,
+            'branch_id' => $order->branchId,
+            'branch_name' => $branch?->name ?? __('Genel Merkez', 'seviye-depo'),
             'items' => array_map($this->serializeItem(...), $order->items),
         ];
     }

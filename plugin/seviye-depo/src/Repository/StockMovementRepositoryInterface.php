@@ -20,16 +20,21 @@ interface StockMovementRepositoryInterface
         ?string $referenceType,
         ?int $referenceId,
         ?string $note,
-        int $createdByUserId
+        int $createdByUserId,
+        ?int $branchId = null
     ): StockMovement;
 
     /**
+     * $branchId === false: filtre yok. null: yalnızca Genel Merkez deposu.
+     * int: yalnızca o şubenin deposu - bkz. PurchaseOrderRepositoryInterface::all().
+     *
      * @return list<StockMovement>
      */
     public function list(
         ?int $productId = null,
         ?StockMovementType $type = null,
         ?string $from = null,
-        ?string $to = null
+        ?string $to = null,
+        int|false|null $branchId = false
     ): array;
 }

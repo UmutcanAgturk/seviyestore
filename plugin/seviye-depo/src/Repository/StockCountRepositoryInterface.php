@@ -18,14 +18,17 @@ interface StockCountRepositoryInterface
      *     wc_update_product_stock()'u doğrudan Http katmanında çağırmasıyla
      *     aynı ilke: repository yalnızca kendi tablolarına dokunur.
      */
-    public function open(array $productStockLevels, int $startedByUserId): StockCount;
+    public function open(array $productStockLevels, int $startedByUserId, ?int $branchId = null): StockCount;
 
     public function find(int $id): ?StockCount;
 
     /**
+     * $branchId === false: filtre yok. null: yalnızca Genel Merkez deposu.
+     * int: yalnızca o şubenin deposu - bkz. PurchaseOrderRepositoryInterface::all().
+     *
      * @return list<StockCount>
      */
-    public function all(?StockCountStatus $status = null): array;
+    public function all(?StockCountStatus $status = null, int|false|null $branchId = false): array;
 
     public function setCountedQuantity(int $itemId, int $countedQuantity): StockCountItem;
 

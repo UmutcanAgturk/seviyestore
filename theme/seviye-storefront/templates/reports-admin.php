@@ -98,7 +98,7 @@ if (!defined('ABSPATH')) {
             <div data-scp-comparison-chart-host></div>
         </div>
 
-        <?php if (current_user_can('scp_view_reports')) : ?>
+        <?php if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) : ?>
             <div class="scp-card scp-card--nested">
                 <div class="scp-card__header">
                     <h3><?php esc_html_e('Depo Raporları', 'seviye-storefront'); ?></h3>
@@ -109,6 +109,12 @@ if (!defined('ABSPATH')) {
                         <span><?php esc_html_e('Tedarikçi ID', 'seviye-storefront'); ?></span>
                         <input type="number" min="1" name="supplier_id">
                     </label>
+                    <?php if (current_user_can('scp_view_reports')) : ?>
+                        <label data-scp-warehouse-report-branch-field>
+                            <span><?php esc_html_e('Depo', 'seviye-storefront'); ?></span>
+                            <select name="branch_id"></select>
+                        </label>
+                    <?php endif; ?>
                     <label>
                         <span><?php esc_html_e('Başlangıç', 'seviye-storefront'); ?></span>
                         <input type="date" name="from">
@@ -134,6 +140,7 @@ if (!defined('ABSPATH')) {
                         <thead>
                             <tr>
                                 <th><?php esc_html_e('Tedarikçi', 'seviye-storefront'); ?></th>
+                                <th><?php esc_html_e('Depo', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Sipariş Sayısı', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Toplam Tutar (TRY)', 'seviye-storefront'); ?></th>
                                 <th><?php esc_html_e('Tamamlanan Sipariş', 'seviye-storefront'); ?></th>

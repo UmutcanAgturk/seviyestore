@@ -14,6 +14,13 @@ use Seviye\Core\Database\MigrationInterface;
  * referans veriyor, faz 2'de "stock_count" da referans verecek - tek bir
  * tabloya sabit bir FK, ikinci referans türü eklendiğinde kırılırdı.
  * product_id'de de FK yok, aynı "WP/WC çekirdek tablosuna FK yok" kuralı.
+ *
+ * branch_id (nullable) - CreatePurchaseOrdersTable'daki AYNI desen; kayıt
+ * anında product_id'nin sahip şubesinden türetilip donduruluyor (Commerce'in
+ * kendi scp_order_line_items'ının branch_id'yi OrderPersistenceHooks'ta
+ * yazma anında çözümleyip her okumada tekrar post-meta'ya bakmaması ile
+ * aynı gerekçe - bir ürünün sahibi teorik olarak zamanla değişse bile
+ * geçmiş hareket kaydı o anki gerçek depoyu yansıtmaya devam eder).
  */
 final class CreateStockMovementsTable implements MigrationInterface
 {
@@ -41,10 +48,12 @@ final class CreateStockMovementsTable implements MigrationInterface
             reference_id BIGINT UNSIGNED NULL,
             note VARCHAR(255) NULL,
             created_by BIGINT UNSIGNED NOT NULL,
+            branch_id BIGINT UNSIGNED NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             KEY product_id (product_id),
-            KEY reference (reference_type, reference_id)
+            KEY reference (reference_type, reference_id),
+            KEY branch_id (branch_id)
         ) {$charsetCollate};";
 
         $connection->dbDelta($sql);

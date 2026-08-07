@@ -19,7 +19,8 @@ final class PurchaseOrder
         public readonly int $createdByUserId,
         public readonly string $createdAt,
         public readonly array $items,
-        public readonly ?string $supplierShippedAt = null
+        public readonly ?string $supplierShippedAt = null,
+        public readonly ?int $branchId = null
     ) {
     }
 }

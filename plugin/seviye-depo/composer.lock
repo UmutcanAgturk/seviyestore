@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "831279ef83be26ace9f2928570399413",
+    "content-hash": "63a8fca23d63d0c36744d87a754ed16a",
     "packages": [
         {
             "name": "psr/container",
@@ -108,6 +108,45 @@
                 "source": "https://github.com/php-fig/log/tree/3.0.2"
             },
             "time": "2024-09-11T13:17:53+00:00"
+        },
+        {
+            "name": "seviye/branches",
+            "version": "dev-claude/seviye-commerce-platform-k8zars",
+            "dist": {
+                "type": "path",
+                "url": "../seviye-branches",
+                "reference": "5f7ca3b4bcb458285ed7010fba921f4960771b09"
+            },
+            "require": {
+                "php": ">=8.2",
+                "seviye/core": "*"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^10.5"
+            },
+            "type": "wordpress-plugin",
+            "autoload": {
+                "psr-4": {
+                    "Seviye\\Branches\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Seviye\\Branches\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Seviye Commerce Platform - branch (şube) management: entity, staff membership, IBAN/commission data.",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "seviye/core",

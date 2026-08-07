@@ -1,16 +1,21 @@
 /**
  * Depo (warehouse) panel for /admin (Genel Merkez/Bölge Müdürü) and /sube
- * (Depo role) - "Tek bir depo vardır" (see Seviye\Depo\DepoModule's
- * docblock), so unlike the students/branches panels there is no branch
- * scoping here at all; the same markup/script serves both zones because
- * seviye/v1/depo/* is capability-gated only, never zone-scoped.
+ * (Şube Müdürü/Depo role).
  *
- * Three pieces on one panel: Tedarikçiler (supplier CRUD), Satın Alma
- * Siparişleri (purchase order create/list), and a per-order detail view
- * where mal kabul (receiving stock) happens.
+ * Faz 4: "Genel Merkez'in kendi deposu devam eder, şube kendi ürününü
+ * eklemişse şubenin kendi deposundan görünür" - artık TEK bir depo değil,
+ * platform-wide (scpPanel.canViewAllBranches) kullanıcı bir depo seçici
+ * görür (Tüm depolar / Genel Merkez / bir şube), own-branch kullanıcı hiç
+ * görmez ve REST tarafı onu zaten kendi şubesine kilitler (bkz.
+ * PurchaseOrdersRestController::resolveBranchScope() ve kardeşleri).
+ *
+ * Three pieces on one panel: Tedarikçiler (supplier - listesi herkese açık,
+ * CRUD yalnızca scpPanel.canManageSuppliers), Satın Alma Siparişleri
+ * (purchase order create/list), and a per-order detail view where mal
+ * kabul (receiving stock) happens.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, nonce }
+ *   scpPanel     { restUrl, nonce, canViewAllBranches, canManageSuppliers, canReceiveStock }
  *   scpPanelText { ...translated UI strings }
  */
 (function () {
@@ -43,6 +48,62 @@
     function setStatus(message, isError) {
         statusEl.textContent = message || '';
         statusEl.classList.toggle('scp-status--error', Boolean(isError));
+    }
+
+    // ---- Depo seçici (Faz 4) ----
+    //
+    // Üç durumlu: '' (Tüm depolar - filtre yok), 'hq' (yalnızca Genel
+    // Merkez deposu), ya da bir şube ID'si (yalnızca o şubenin deposu) -
+    // bkz. PurchaseOrdersRestController::resolveBranchScope()'un aynı
+    // üç durumlu sentinel'i. Own-branch kullanıcıda bu alan hiç
+    // gösterilmez - REST tarafı zaten onu tek bir depoya kilitliyor.
+
+    var branchField = root.querySelector('[data-scp-depo-branch-field]');
+    var branchSelect = branchField.querySelector('select');
+
+    function branchQueryString() {
+        if (!scpPanelData.canViewAllBranches || !branchSelect.value) {
+            return '';
+        }
+
+        return '?branch_id=' + encodeURIComponent(branchSelect.value);
+    }
+
+    function branchLabel(row) {
+        return row.branch_name || scpPanelTextData.hqBranch || '';
+    }
+
+    if (scpPanelData.canViewAllBranches) {
+        branchField.hidden = false;
+
+        var allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = scpPanelTextData.allBranches;
+        branchSelect.appendChild(allOption);
+
+        var hqOption = document.createElement('option');
+        hqOption.value = 'hq';
+        hqOption.textContent = scpPanelTextData.hqBranch;
+        branchSelect.appendChild(hqOption);
+
+        apiFetch('branches').then(function (result) {
+            if (!result.ok) {
+                return;
+            }
+
+            result.data.forEach(function (branch) {
+                var option = document.createElement('option');
+                option.value = String(branch.id);
+                option.textContent = branch.name;
+                branchSelect.appendChild(option);
+            });
+        });
+
+        branchSelect.addEventListener('change', function () {
+            loadPurchaseOrders();
+            loadStockCounts();
+            loadPurchaseSuggestions();
+        });
     }
 
     // ---- Tedarikçiler ----
@@ -105,14 +166,18 @@
             row.appendChild(statusCell);
 
             var actionsCell = document.createElement('td');
-            var editButton = document.createElement('button');
-            editButton.type = 'button';
-            editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelTextData.edit;
-            editButton.addEventListener('click', function () {
-                openSupplierForm(supplier);
-            });
-            actionsCell.appendChild(editButton);
+
+            if (scpPanelData.canManageSuppliers) {
+                var editButton = document.createElement('button');
+                editButton.type = 'button';
+                editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                editButton.textContent = scpPanelTextData.edit;
+                editButton.addEventListener('click', function () {
+                    openSupplierForm(supplier);
+                });
+                actionsCell.appendChild(editButton);
+            }
+
             row.appendChild(actionsCell);
 
             supplierTableBody.appendChild(row);
@@ -155,7 +220,9 @@
         }
     }
 
-    root.querySelector('[data-scp-new-supplier]').addEventListener('click', function () {
+    var newSupplierButton = root.querySelector('[data-scp-new-supplier]');
+    newSupplierButton.hidden = !scpPanelData.canManageSuppliers;
+    newSupplierButton.addEventListener('click', function () {
         openSupplierForm(null);
     });
 
@@ -250,7 +317,7 @@
     }
 
     function loadPurchaseOrders() {
-        apiFetch('depo/purchase-orders').then(function (result) {
+        apiFetch('depo/purchase-orders' + branchQueryString()).then(function (result) {
             if (!result.ok) {
                 setStatus(scpPanelTextData.loadError, true);
                 return;
@@ -274,6 +341,10 @@
             var supplier = supplierCache[order.supplier_id];
             supplierCell.textContent = supplier ? supplier.name : String(order.supplier_id);
             row.appendChild(supplierCell);
+
+            var branchCell = document.createElement('td');
+            branchCell.textContent = branchLabel(order);
+            row.appendChild(branchCell);
 
             var statusCell = document.createElement('td');
             var badge = document.createElement('span');
@@ -555,7 +626,7 @@
     }
 
     function loadStockCounts() {
-        apiFetch('depo/stock-counts').then(function (result) {
+        apiFetch('depo/stock-counts' + branchQueryString()).then(function (result) {
             if (!result.ok) {
                 setStatus(scpPanelTextData.loadError, true);
                 return;
@@ -571,7 +642,15 @@
         counts.forEach(function (count) {
             var row = document.createElement('tr');
 
-            [String(count.id), stockCountStatusLabel(count.status), count.started_at, String(count.items.length)].forEach(
+            var idCell = document.createElement('td');
+            idCell.textContent = String(count.id);
+            row.appendChild(idCell);
+
+            var branchCell = document.createElement('td');
+            branchCell.textContent = branchLabel(count);
+            row.appendChild(branchCell);
+
+            [stockCountStatusLabel(count.status), count.started_at, String(count.items.length)].forEach(
                 function (text) {
                     var cell = document.createElement('td');
                     cell.textContent = text;
@@ -595,7 +674,7 @@
     }
 
     root.querySelector('[data-scp-new-stock-count]').addEventListener('click', function () {
-        apiFetch('depo/stock-counts', { method: 'POST' }).then(function (result) {
+        apiFetch('depo/stock-counts' + branchQueryString(), { method: 'POST' }).then(function (result) {
             if (!result.ok) {
                 setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
                 return;
@@ -710,7 +789,7 @@
     }
 
     function loadPurchaseSuggestions() {
-        apiFetch('depo/purchase-suggestions').then(function (result) {
+        apiFetch('depo/purchase-suggestions' + branchQueryString()).then(function (result) {
             if (!result.ok) {
                 setStatus(scpPanelTextData.loadError, true);
                 return;
@@ -726,8 +805,15 @@
         suggestions.forEach(function (suggestion) {
             var row = document.createElement('tr');
 
+            var productCell = document.createElement('td');
+            productCell.textContent = String(suggestion.product_id);
+            row.appendChild(productCell);
+
+            var branchCell = document.createElement('td');
+            branchCell.textContent = branchLabel(suggestion);
+            row.appendChild(branchCell);
+
             [
-                String(suggestion.product_id),
                 String(suggestion.suggested_quantity),
                 suggestion.reason || '',
                 suggestionStatusLabel(suggestion.status)

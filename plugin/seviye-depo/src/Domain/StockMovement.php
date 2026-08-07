@@ -29,7 +29,8 @@ final class StockMovement
         public readonly ?int $referenceId,
         public readonly ?string $note,
         public readonly int $createdByUserId,
-        public readonly string $createdAt
+        public readonly string $createdAt,
+        public readonly ?int $branchId = null
     ) {
     }
 }

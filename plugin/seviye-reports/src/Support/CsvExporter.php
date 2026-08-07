@@ -56,12 +56,13 @@ final class CsvExporter
         fwrite($stream, "\xEF\xBB\xBF");
 
         fputcsv($stream, [
-            'Tedarikçi', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
+            'Tedarikçi', 'Depo', 'Sipariş Sayısı', 'Toplam Tutar (TRY)', 'Tamamlanan Sipariş', 'Zamanında Teslim Oranı (%)',
         ], ',', '"', '');
 
         foreach ($rows as $row) {
             fputcsv($stream, [
                 self::neutralizeFormula($row->supplierName),
+                self::neutralizeFormula($row->branchName),
                 (string) $row->orderCount,
                 number_format($row->totalCost, 2, '.', ''),
                 (string) $row->completedOrderCount,

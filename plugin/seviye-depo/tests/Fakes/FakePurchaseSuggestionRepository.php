@@ -15,7 +15,7 @@ final class FakePurchaseSuggestionRepository implements PurchaseSuggestionReposi
 
     private int $nextId = 1;
 
-    public function create(int $productId, int $suggestedQuantity, ?string $reason): PurchaseSuggestion
+    public function create(int $productId, int $suggestedQuantity, ?string $reason, ?int $branchId = null): PurchaseSuggestion
     {
         $suggestion = new PurchaseSuggestion(
             $this->nextId++,
@@ -24,7 +24,8 @@ final class FakePurchaseSuggestionRepository implements PurchaseSuggestionReposi
             PurchaseSuggestionStatus::PENDING,
             $reason,
             null,
-            '2026-08-01 10:00:00'
+            '2026-08-01 10:00:00',
+            $branchId
         );
 
         $this->suggestions[] = $suggestion;
@@ -54,15 +55,12 @@ final class FakePurchaseSuggestionRepository implements PurchaseSuggestionReposi
         return null;
     }
 
-    public function all(?PurchaseSuggestionStatus $status = null): array
+    public function all(?PurchaseSuggestionStatus $status = null, int|false|null $branchId = false): array
     {
-        if ($status === null) {
-            return $this->suggestions;
-        }
-
         return array_values(array_filter(
             $this->suggestions,
-            static fn (PurchaseSuggestion $suggestion): bool => $suggestion->status === $status
+            static fn (PurchaseSuggestion $suggestion): bool => ($status === null || $suggestion->status === $status)
+                && ($branchId === false || $suggestion->branchId === $branchId)
         ));
     }
 
@@ -90,7 +88,8 @@ final class FakePurchaseSuggestionRepository implements PurchaseSuggestionReposi
                 $status,
                 $suggestion->reason,
                 $convertedPurchaseOrderId,
-                $suggestion->createdAt
+                $suggestion->createdAt,
+                $suggestion->branchId
             );
         }
     }

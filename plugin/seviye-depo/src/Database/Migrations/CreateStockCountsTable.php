@@ -14,6 +14,13 @@ use Seviye\Core\Database\MigrationInterface;
  * status=completed olduğunda updated_at kapanış anını temsil eder;
  * scp_purchase_orders'ın "durum geçişine özel zaman damgası yok" ilkesiyle
  * aynı.
+ *
+ * branch_id (nullable) - CreatePurchaseOrdersTable'daki AYNI "meta/kolon
+ * yoksa Genel Merkez" deseni: bir sayım oturumu ya Genel Merkez deposunu
+ * (NULL) ya da tek bir şubenin deposunu (o şubenin id'si) kapsar, hiçbir
+ * zaman ikisini birden - StockCountsRestController'ın anlık stok
+ * seviyeleri snapshot'ı (currentManagedStockLevels()) bu değere göre
+ * yalnızca o kapsamın ürünlerini içerecek şekilde filtrelenir.
  */
 final class CreateStockCountsTable implements MigrationInterface
 {
@@ -37,10 +44,12 @@ final class CreateStockCountsTable implements MigrationInterface
             status VARCHAR(20) NOT NULL DEFAULT 'open',
             started_by BIGINT UNSIGNED NOT NULL,
             completed_by BIGINT UNSIGNED NULL,
+            branch_id BIGINT UNSIGNED NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
-            KEY status (status)
+            KEY status (status),
+            KEY branch_id (branch_id)
         ) {$charsetCollate};";
 
         $connection->dbDelta($sql);

@@ -16,6 +16,11 @@ namespace Seviye\Depo\Contracts;
  * WpdbWarehouseReportQuery's hydrate() - the same "no raw timestamp
  * unless a report genuinely needs it" reasoning as OrderLineItemRecord's
  * own docblock.
+ *
+ * `branchId` (Faz 4) mirrors scp_purchase_orders.branch_id verbatim - null
+ * means the order was placed for Genel Merkez's own depo, an int means it
+ * was placed for that branch's own depo. Frozen at order-creation time,
+ * same as the column itself - see CreatePurchaseOrdersTable's docblock.
  */
 final class PurchaseOrderReportRecord
 {
@@ -26,7 +31,8 @@ final class PurchaseOrderReportRecord
         public readonly ?string $expectedDate,
         public readonly ?string $completedAt,
         public readonly float $totalCost,
-        public readonly string $createdAt
+        public readonly string $createdAt,
+        public readonly ?int $branchId = null
     ) {
     }
 }

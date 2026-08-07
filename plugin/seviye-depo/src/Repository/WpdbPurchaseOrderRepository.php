@@ -24,7 +24,8 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
         ?string $expectedDate,
         ?string $note,
         int $createdByUserId,
-        array $items
+        array $items,
+        ?int $branchId = null
     ): PurchaseOrder {
         $now = $this->now();
 
@@ -35,6 +36,7 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
             'expected_date' => $expectedDate,
             'note' => $note,
             'created_by' => $createdByUserId,
+            'branch_id' => $branchId,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -73,7 +75,7 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
         return $this->hydrateHeader($header, $this->itemsForOrders([$id])[$id] ?? []);
     }
 
-    public function all(?PurchaseOrderStatus $status = null, ?int $supplierId = null): array
+    public function all(?PurchaseOrderStatus $status = null, ?int $supplierId = null, int|false|null $branchId = false): array
     {
         $table = $this->connection->table('purchase_orders');
         $conditions = [];
@@ -87,6 +89,15 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
         if ($supplierId !== null) {
             $conditions[] = 'supplier_id = %d';
             $args[] = $supplierId;
+        }
+
+        if ($branchId !== false) {
+            if ($branchId === null) {
+                $conditions[] = 'branch_id IS NULL';
+            } else {
+                $conditions[] = 'branch_id = %d';
+                $args[] = $branchId;
+            }
         }
 
         $where = $conditions !== [] ? ' WHERE ' . implode(' AND ', $conditions) : '';
@@ -246,7 +257,8 @@ final class WpdbPurchaseOrderRepository implements PurchaseOrderRepositoryInterf
             (int) $row['created_by'],
             (string) $row['created_at'],
             $items,
-            $shippedAt !== null && $shippedAt !== '' ? (string) $shippedAt : null
+            $shippedAt !== null && $shippedAt !== '' ? (string) $shippedAt : null,
+            isset($row['branch_id']) && $row['branch_id'] !== null ? (int) $row['branch_id'] : null
         );
     }
 

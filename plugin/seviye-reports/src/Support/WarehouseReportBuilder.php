@@ -8,14 +8,21 @@ use Seviye\Depo\Contracts\PurchaseOrderReportRecord;
 use Seviye\Reports\Domain\WarehouseReportRow;
 
 /**
- * Pure grouping/summing - takes already-filtered records (supplier/date
- * filtering happens upstream, via Depo's own
+ * Pure grouping/summing - takes already-filtered records (supplier/date/
+ * depo filtering happens upstream, via Depo's own
  * Contracts\WarehouseReportQueryInterface::search(), never re-implemented
- * here) and a supplier name lookup, groups by supplier. Kept free of any
- * WordPress/WooCommerce call so it is fully unit-testable - the same split
- * SalesReportBuilder already follows.
+ * here) and a supplier name lookup, groups by (supplier, depo). Kept free
+ * of any WordPress/WooCommerce call so it is fully unit-testable - the
+ * same split SalesReportBuilder already follows.
  *
- * "Zamanında teslim oranı" (on-time delivery rate): among a supplier's
+ * Faz 4: grouping key is (supplierId, branchId) rather than supplierId
+ * alone - a supplier's directory entry is shared/platform-wide, but a
+ * supplier can receive orders from BOTH Genel Merkez's own depo and one or
+ * more branches' own depos, and those purchase histories must stay
+ * separate (mirrors the same reasoning WarehouseReportRow's own docblock
+ * gives).
+ *
+ * "Zamanında teslim oranı" (on-time delivery rate): among a group's
  * COMPLETED orders that ALSO have an expected_date, the share whose
  * completedAt date fell on or before expected_date. Orders without an
  * expected_date (nothing promised to compare against) and orders that
@@ -30,18 +37,21 @@ final class WarehouseReportBuilder
     /**
      * @param list<PurchaseOrderReportRecord> $records
      * @param array<int, string> $supplierNames
+     * @param array<int, string> $branchNames keyed by branchId - the Genel
+     *     Merkez group (branchId null) never looks this array up
      * @return list<WarehouseReportRow>
      */
-    public function build(array $records, array $supplierNames): array
+    public function build(array $records, array $supplierNames, array $branchNames = []): array
     {
         $groups = [];
 
         foreach ($records as $record) {
-            $key = $record->supplierId;
+            $key = $record->supplierId . '|' . ($record->branchId ?? 'hq');
 
             if (!isset($groups[$key])) {
                 $groups[$key] = [
                     'supplierId' => $record->supplierId,
+                    'branchId' => $record->branchId,
                     'orderCount' => 0,
                     'totalCost' => 0.0,
                     'completedOrderCount' => 0,
@@ -70,6 +80,8 @@ final class WarehouseReportBuilder
             }
         }
 
+        $hqLabel = function_exists('__') ? __('Genel Merkez', 'seviye-reports') : 'Genel Merkez';
+
         return array_values(array_map(
             static fn (array $group): WarehouseReportRow => new WarehouseReportRow(
                 $group['supplierId'],
@@ -79,7 +91,9 @@ final class WarehouseReportBuilder
                 $group['completedOrderCount'],
                 $group['timedOrderCount'] > 0
                     ? round($group['onTimeOrderCount'] / $group['timedOrderCount'] * 100, 1)
-                    : null
+                    : null,
+                $group['branchId'],
+                $group['branchId'] === null ? $hqLabel : ($branchNames[$group['branchId']] ?? '')
             ),
             $groups
         ));

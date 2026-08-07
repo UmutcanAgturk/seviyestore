@@ -12,21 +12,37 @@ interface PurchaseOrderRepositoryInterface
 {
     /**
      * @param list<array{product_id: int, quantity_ordered: int, unit_cost: ?float}> $items
+     * @param ?int $branchId hangi deponun siparişi - NULL Genel Merkez
+     *     deposu, bir değer o şubenin kendi deposu (bkz.
+     *     CreatePurchaseOrdersTable'ın branch_id sütun docblock'u).
+     *     Çağıran (PurchaseOrdersRestController) her kalemin ürün
+     *     sahipliğini bu değerle eşleştiğini ÖNCEDEN doğrulamış olmalı -
+     *     repository katmanı bunu bir kez daha kontrol etmez.
      */
     public function create(
         int $supplierId,
         ?string $expectedDate,
         ?string $note,
         int $createdByUserId,
-        array $items
+        array $items,
+        ?int $branchId = null
     ): PurchaseOrder;
 
     public function find(int $id): ?PurchaseOrder;
 
     /**
+     * $branchId === false (varsayılan): filtre yok, her depo. $branchId
+     * === null: yalnızca Genel Merkez deposu. $branchId === int: yalnızca
+     * o şubenin deposu. (İki farklı "boş" durumu - "filtre yok" ile
+     * "yalnızca Genel Merkez" - ayırt etmek için false sentinel'i
+     * kullanılıyor, aynı desen ProductsRestController'ın branch filtresinde
+     * de yok çünkü orada "tüm şubeler" zaten ayrı bir kapsam değil; burada
+     * ise Genel Merkez'in KENDİSİ de bir depo kapsamı olduğundan null'u
+     * "filtre yok" için kullanamıyoruz.)
+     *
      * @return list<PurchaseOrder>
      */
-    public function all(?PurchaseOrderStatus $status = null, ?int $supplierId = null): array;
+    public function all(?PurchaseOrderStatus $status = null, ?int $supplierId = null, int|false|null $branchId = false): array;
 
     /** draft -> sent. */
     public function send(int $id): void;

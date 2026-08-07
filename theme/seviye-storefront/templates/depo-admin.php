@@ -3,9 +3,17 @@
 /**
  * Depo - its own page (/admin/depo, /sube/depo, see inc/zones.php's
  * scp_menu_pages()) - "her bir menü için ayrı bir sayfa yap" (bölüm 65).
- * Reached at all already implies scp_manage_purchase_orders passed - see
- * scp_menu_pages(). Markup/ids/data-attributes moved here verbatim from
- * templates/zone.php so assets/js/depo-panel.js keeps working unchanged.
+ * Reached at all already implies scp_menu_pages()'in 'depo' girişindeki
+ * capability'lerden biri geçti. Markup/ids/data-attributes moved here
+ * verbatim from templates/zone.php so assets/js/depo-panel.js keeps
+ * working unchanged.
+ *
+ * Faz 4: "Genel Merkez'in kendi deposu devam eder, şube kendi ürününü
+ * eklemişse şubenin kendi deposundan görünür" - data-scp-depo-branch-field
+ * yalnızca platform-wide (scpPanel.canViewAllBranches) kullanıcıya
+ * gösterilir (bkz. depo-panel.js), own-branch kullanıcı hiç görmez -
+ * REST tarafı zaten onu kendi şubesine kilitliyor (bkz.
+ * PurchaseOrdersRestController::resolveBranchScope()).
  */
 
 declare(strict_types=1);
@@ -29,6 +37,13 @@ if (!defined('ABSPATH')) {
         </div>
 
         <p class="scp-status" data-scp-depo-status></p>
+
+        <div class="scp-form__row" data-scp-depo-branch-field hidden>
+            <label>
+                <span><?php esc_html_e('Depo', 'seviye-storefront'); ?></span>
+                <select></select>
+            </label>
+        </div>
 
         <div class="scp-card scp-card--nested">
             <div class="scp-card__header">
@@ -137,6 +152,7 @@ if (!defined('ABSPATH')) {
                         <tr>
                             <th><?php esc_html_e('Kod', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Tedarikçi', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Depo', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Beklenen Tarih', 'seviye-storefront'); ?></th>
                             <th></th>
@@ -240,6 +256,7 @@ if (!defined('ABSPATH')) {
                     <thead>
                         <tr>
                             <th><?php esc_html_e('ID', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Depo', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Başlangıç', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Kalem Sayısı', 'seviye-storefront'); ?></th>
@@ -291,6 +308,7 @@ if (!defined('ABSPATH')) {
                     <thead>
                         <tr>
                             <th><?php esc_html_e('Ürün ID', 'seviye-storefront'); ?></th>
+                            <th><?php esc_html_e('Depo', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Önerilen Miktar', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Neden', 'seviye-storefront'); ?></th>
                             <th><?php esc_html_e('Durum', 'seviye-storefront'); ?></th>

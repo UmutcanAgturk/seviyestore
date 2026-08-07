@@ -275,12 +275,40 @@
         var warehouseTableBody = root.querySelector('[data-scp-warehouse-report-body]');
         var warehouseCsvButton = root.querySelector('[data-scp-warehouse-report-csv]');
         var warehouseXlsxButton = root.querySelector('[data-scp-warehouse-report-xlsx]');
+        var warehouseBranchField = root.querySelector('[data-scp-warehouse-report-branch-field]');
+
+        if (warehouseBranchField) {
+            var warehouseBranchSelect = warehouseBranchField.querySelector('select');
+
+            var allOption = document.createElement('option');
+            allOption.value = '';
+            allOption.textContent = scpPanelTextData.allBranches;
+            warehouseBranchSelect.appendChild(allOption);
+
+            var hqOption = document.createElement('option');
+            hqOption.value = 'hq';
+            hqOption.textContent = scpPanelTextData.hqBranch;
+            warehouseBranchSelect.appendChild(hqOption);
+
+            apiFetch('branches').then(function (result) {
+                if (!result.ok) {
+                    return;
+                }
+
+                result.data.forEach(function (branch) {
+                    var option = document.createElement('option');
+                    option.value = String(branch.id);
+                    option.textContent = branch.name;
+                    warehouseBranchSelect.appendChild(option);
+                });
+            });
+        }
 
         var warehouseCurrentParams = function () {
             var formData = new FormData(warehouseForm);
             var params = new URLSearchParams();
 
-            ['supplier_id', 'from', 'to'].forEach(function (name) {
+            ['supplier_id', 'branch_id', 'from', 'to'].forEach(function (name) {
                 var value = formData.get(name);
 
                 if (value) {
@@ -300,6 +328,7 @@
 
                 [
                     row.supplier_name,
+                    row.branch_name,
                     String(row.order_count),
                     formatMoney(row.total_cost),
                     String(row.completed_order_count),

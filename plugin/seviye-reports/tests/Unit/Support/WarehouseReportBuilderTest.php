@@ -39,6 +39,31 @@ final class WarehouseReportBuilderTest extends TestCase
         self::assertSame([], (new WarehouseReportBuilder())->build([], []));
     }
 
+    public function testGroupsSameSupplierSeparatelyPerBranch(): void
+    {
+        $builder = new WarehouseReportBuilder();
+
+        $records = [
+            $this->record(supplierId: 3, status: 'draft', totalCost: 100.0, branchId: null),
+            $this->record(supplierId: 3, status: 'draft', totalCost: 40.0, branchId: 7),
+            $this->record(supplierId: 3, status: 'draft', totalCost: 60.0, branchId: 7),
+        ];
+
+        $rows = $builder->build($records, [3 => 'Okul Tekstil'], [7 => 'Kadıköy Şubesi']);
+
+        self::assertCount(2, $rows);
+
+        $hqRow = $this->findRowByBranch($rows, null);
+        self::assertSame(1, $hqRow->orderCount);
+        self::assertSame(100.0, $hqRow->totalCost);
+        self::assertSame('Genel Merkez', $hqRow->branchName);
+
+        $branchRow = $this->findRowByBranch($rows, 7);
+        self::assertSame(2, $branchRow->orderCount);
+        self::assertSame(100.0, $branchRow->totalCost);
+        self::assertSame('Kadıköy Şubesi', $branchRow->branchName);
+    }
+
     public function testMissingNameLookupFallsBackToAnEmptyString(): void
     {
         $builder = new WarehouseReportBuilder();
@@ -97,7 +122,8 @@ final class WarehouseReportBuilderTest extends TestCase
         string $status,
         float $totalCost,
         ?string $expectedDate = '2026-07-10',
-        ?string $completedAt = null
+        ?string $completedAt = null,
+        ?int $branchId = null
     ): PurchaseOrderReportRecord {
         return new PurchaseOrderReportRecord(
             1,
@@ -106,7 +132,8 @@ final class WarehouseReportBuilderTest extends TestCase
             $expectedDate,
             $status === 'completed' ? ($completedAt ?? '2026-07-10 12:00:00') : null,
             $totalCost,
-            '2026-07-01 08:00:00'
+            '2026-07-01 08:00:00',
+            $branchId
         );
     }
 
@@ -122,5 +149,19 @@ final class WarehouseReportBuilderTest extends TestCase
         }
 
         self::fail("No row found for supplier {$supplierId}");
+    }
+
+    /**
+     * @param list<\Seviye\Reports\Domain\WarehouseReportRow> $rows
+     */
+    private function findRowByBranch(array $rows, ?int $branchId): \Seviye\Reports\Domain\WarehouseReportRow
+    {
+        foreach ($rows as $row) {
+            if ($row->branchId === $branchId) {
+                return $row;
+            }
+        }
+
+        self::fail('No row found for branch ' . ($branchId ?? 'hq'));
     }
 }

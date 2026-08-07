@@ -17,6 +17,14 @@ use Seviye\Core\Database\MigrationInterface;
  * scp_purchase_orders tablosuna işaret ediyor - purchase_order_items'la aynı
  * ilke. Satın alma siparişlerinin silme yolu olmadığından (yalnızca
  * cancel()) CASCADE/SET NULL'a gerek yok, varsayılan RESTRICT yeterli.
+ *
+ * branch_id (nullable) - CreatePurchaseOrdersTable'daki AYNI desen:
+ * LowStockPurchaseSuggestionListener öneriyi yazarken product_id'nin sahip
+ * şubesini (bkz. plugin/seviye-commerce/src/Support/ProductOwnership.php,
+ * scp_commerce_product_owner_branch_id filter köprüsü) çözümleyip buraya
+ * kopyalıyor - Genel Merkez ürünü için NULL, bir şubenin ürünü için o
+ * şubenin id'si. convert() ile açılan satın alma siparişi de aynı
+ * branch_id'yi devralır.
  */
 final class CreatePurchaseSuggestionsTable implements MigrationInterface
 {
@@ -43,11 +51,13 @@ final class CreatePurchaseSuggestionsTable implements MigrationInterface
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
             reason VARCHAR(255) NULL,
             converted_purchase_order_id BIGINT UNSIGNED NULL,
+            branch_id BIGINT UNSIGNED NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
             KEY product_id (product_id),
-            KEY status (status)
+            KEY status (status),
+            KEY branch_id (branch_id)
         ) {$charsetCollate};";
 
         $connection->dbDelta($sql);

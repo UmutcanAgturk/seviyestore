@@ -79,6 +79,8 @@ final class ReportsModule implements ModuleInterface
             static fn (): WarehouseReportsRestController => new WarehouseReportsRestController(
                 $container->get(WarehouseReportQueryInterface::class),
                 $container->get(SupplierLookupInterface::class),
+                $container->get(BranchLookupInterface::class),
+                $container->get(BranchMembershipInterface::class),
                 $container->get(WarehouseReportBuilder::class),
                 $container->get(CsvExporter::class),
                 $container->get(XlsxExporter::class)

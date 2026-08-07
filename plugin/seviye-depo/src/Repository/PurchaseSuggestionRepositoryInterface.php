@@ -9,7 +9,7 @@ use Seviye\Depo\Domain\PurchaseSuggestionStatus;
 
 interface PurchaseSuggestionRepositoryInterface
 {
-    public function create(int $productId, int $suggestedQuantity, ?string $reason): PurchaseSuggestion;
+    public function create(int $productId, int $suggestedQuantity, ?string $reason, ?int $branchId = null): PurchaseSuggestion;
 
     /**
      * True if $productId already has a PENDING suggestion -
@@ -22,9 +22,12 @@ interface PurchaseSuggestionRepositoryInterface
     public function find(int $id): ?PurchaseSuggestion;
 
     /**
+     * $branchId === false: filtre yok. null: yalnızca Genel Merkez deposu.
+     * int: yalnızca o şubenin deposu - bkz. PurchaseOrderRepositoryInterface::all().
+     *
      * @return list<PurchaseSuggestion>
      */
-    public function all(?PurchaseSuggestionStatus $status = null): array;
+    public function all(?PurchaseSuggestionStatus $status = null, int|false|null $branchId = false): array;
 
     /** pending -> dismissed. */
     public function dismiss(int $id): void;

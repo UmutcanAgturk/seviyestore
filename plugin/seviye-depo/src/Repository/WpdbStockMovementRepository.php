@@ -22,7 +22,8 @@ final class WpdbStockMovementRepository implements StockMovementRepositoryInterf
         ?string $referenceType,
         ?int $referenceId,
         ?string $note,
-        int $createdByUserId
+        int $createdByUserId,
+        ?int $branchId = null
     ): StockMovement {
         $this->connection->insert($this->connection->table('stock_movements'), [
             'product_id' => $productId,
@@ -32,6 +33,7 @@ final class WpdbStockMovementRepository implements StockMovementRepositoryInterf
             'reference_id' => $referenceId,
             'note' => $note,
             'created_by' => $createdByUserId,
+            'branch_id' => $branchId,
             'created_at' => $this->now(),
         ]);
 
@@ -53,7 +55,8 @@ final class WpdbStockMovementRepository implements StockMovementRepositoryInterf
         ?int $productId = null,
         ?StockMovementType $type = null,
         ?string $from = null,
-        ?string $to = null
+        ?string $to = null,
+        int|false|null $branchId = false
     ): array {
         $table = $this->connection->table('stock_movements');
         $conditions = [];
@@ -79,6 +82,15 @@ final class WpdbStockMovementRepository implements StockMovementRepositoryInterf
             $args[] = $to . ' 23:59:59';
         }
 
+        if ($branchId !== false) {
+            if ($branchId === null) {
+                $conditions[] = 'branch_id IS NULL';
+            } else {
+                $conditions[] = 'branch_id = %d';
+                $args[] = $branchId;
+            }
+        }
+
         $where = $conditions !== [] ? ' WHERE ' . implode(' AND ', $conditions) : '';
         $sql = "SELECT * FROM {$table}{$where} ORDER BY created_at DESC, id DESC";
         $sql = $args !== [] ? $this->connection->prepare($sql, $args) : $sql;
@@ -100,7 +112,8 @@ final class WpdbStockMovementRepository implements StockMovementRepositoryInterf
             isset($row['reference_id']) && $row['reference_id'] !== null ? (int) $row['reference_id'] : null,
             isset($row['note']) && $row['note'] !== '' ? (string) $row['note'] : null,
             (int) $row['created_by'],
-            (string) $row['created_at']
+            (string) $row['created_at'],
+            isset($row['branch_id']) && $row['branch_id'] !== null ? (int) $row['branch_id'] : null
         );
     }
 
