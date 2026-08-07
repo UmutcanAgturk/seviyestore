@@ -929,6 +929,61 @@
   }
 }
 
+/* ---- Mağaza Vitrini - inc/woocommerce.php's scp_render_shop_showcase().
+   Hero styling deliberately mirrors .scp-category-banner directly below
+   (same padding/radius/background-size shape) so the two read as one
+   family even though only one of them ever renders on a given page
+   (is_shop() vs. is_product_taxonomy() are mutually exclusive). The
+   carousel wraps WooCommerce's OWN [featured_products] shortcode output
+   (a plain `ul.products` grid) and turns it into a horizontally
+   scrollable, scroll-snapping rail via CSS alone - no carousel JS. ---- */
+
+.scp-shop-showcase {
+  margin: 0 0 20px;
+  padding: 48px 32px;
+  background-color: var(--scp-primary);
+  background-size: cover;
+  background-position: center;
+  border-radius: var(--scp-radius-lg);
+}
+
+.scp-shop-showcase__content {
+  max-width: 640px;
+}
+
+.scp-shop-showcase__heading {
+  margin: 0 0 8px;
+  font-size: var(--scp-text-xl, 1.75rem);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(16, 24, 40, 0.55);
+}
+
+.scp-shop-showcase__subheading {
+  margin: 0;
+  color: #fff;
+  font-size: var(--scp-text-sm);
+  text-shadow: 0 1px 3px rgba(16, 24, 40, 0.55);
+}
+
+.scp-shop-showcase__carousel {
+  margin: 0 0 24px;
+}
+
+.scp-shop-showcase__carousel ul.products {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scp-shop-showcase__carousel ul.products li.product {
+  flex: 0 0 200px;
+  scroll-snap-align: start;
+}
+
 /* ---- Kategori banner'ları - .woocommerce-products-header__title is
    WooCommerce's own unstyled default category/shop page title
    (archive-product.php, untouched); styled here so it reads as one piece

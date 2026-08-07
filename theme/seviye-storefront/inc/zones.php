@@ -354,6 +354,11 @@ function scp_menu_pages(): array
             'capability' => static fn (): bool => current_user_can('scp_manage_size_guide'),
             'template' => 'size-guide-admin.php',
         ],
+        'magaza-vitrini' => [
+            'zones' => ['admin'],
+            'capability' => static fn (): bool => current_user_can('scp_manage_shop_showcase'),
+            'template' => 'shop-showcase-admin.php',
+        ],
         'depo' => [
             'zones' => ['admin', 'sube'],
             // Faz 4: platform-wide (her depo) VEYA own-branch (yalnızca

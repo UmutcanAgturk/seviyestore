@@ -5012,6 +5012,58 @@ kırılımı) küçük bir Node betiğiyle izole test edildi. Bu tur yalnızca
 tema dosyalarını değiştirdiği için hiçbir eklenti PHPUnit paketi
 etkilenmedi.
 
+### 88. Mağaza Vitrini (hero + öne çıkan ürünler)
+
+"Başka neler yapılabilir, özellikle UX tasarımında" sorusuna sunulan 4
+seçenekten kullanıcı "Mağaza ana sayfası hero/öne çıkan ürünler"i seçti -
+mağaza şu ana kadar doğrudan ürün ızgarasıyla açılıyordu, marka kimliğini
+güçlendiren bir ilk izlenim bölümü eksikti.
+
+**İki bağımsız parça, ikisi de isteğe bağlı.** (1) HQ'nun düzenlediği
+başlık/alt başlık/arka plan görseli hero'su - `Support\ShopShowcase`
+(başlık/alt başlık/attachment id, tek bir JSON `SettingsRepositoryInterface`
+değeri, Support\SizeGuide'la AYNI ilke ama liste değil TEK nesne),
+`Http\ShopShowcaseRestController` (GET/PUT tüm ayarı, `image_attachment_id`
+doğrulaması `Seviye\Core\Http\BrandingRestController`'ın
+`wp_attachment_is_image()` kontrolüyle BİREBİR aynı), yeni
+`ProductCapability::MANAGE_SHOP_SHOWCASE` (HQ-only, MANAGE_TAX_RATES/
+MANAGE_SIZE_GUIDE'la aynı şekil). (2) WooCommerce'in KENDİ "Öne Çıkan"
+ürün işaretlemesi (`wc_get_featured_product_ids()` - ürün düzenleme
+ekranındaki standart yıldız, bu platform tarafından icat edilmiş yeni bir
+alan DEĞİL) doluysa gösterilen bir ürün şeridi.
+
+**Görsel yükleme = Core'un Branding akışının birebir kopyası.**
+`assets/js/shop-showcase-panel.js` `branding-panel.js`'in AYNI
+`scpUploadMedia()` → `/wp/v2/media` akışını kullanıyor - yeni bir yükleme
+uç noktası icat edilmedi. Tek fark: Branding tek bir alanı (logo) PUT
+ediyor, Mağaza Vitrini üç alanı (başlık/alt başlık/görsel) BİRLİKTE PUT
+ediyor (SizeGuide/TaxRates'in "satırların id'si yok, tüm liste tek PUT'ta
+gider" ilkesiyle aynı gerekçe - REST'in kendi tek-ayar şekli), bu yüzden
+panel `currentImageAttachmentId`'yi istemci tarafında saklayıp her PUT'a
+ekliyor.
+
+**"Karusel" = özel JS YOK, WooCommerce'in kendi shortcode'u + CSS
+scroll-snap.** `inc/woocommerce.php`'deki `scp_render_shop_showcase()`
+(`woocommerce_before_shop_loop` önceliği 1 - `scp_render_category_banner()`
+'dan (4) önce, yalnızca `is_shop()`'ta, kategori arşivlerinde DEĞİL -
+onların zaten kendi banner'ı var) öne çıkan ürünler için
+`do_shortcode('[featured_products limit="8" columns="4"]')` çağırıyor -
+WooCommerce'in KENDİ shortcode'u, özel bir sorgu/carousel kütüphanesi
+eklenmedi. `woocommerce.css`'te bu shortcode'un normalde ızgara olan
+`ul.products` çıktısı `overflow-x:auto` + `scroll-snap-type:x proximity`
+ile yatay kaydırılabilir bir şeride dönüştürülüyor - sıfır yeni JS.
+
+**Tema paneli.** Yeni `/admin/magaza-vitrini` sayfası
+(`scp_manage_shop_showcase`, katalog grubu) - `templates/branding-admin.php`
+'nin görsel önizleme/kaldırma markup'ı + iki metin alanı (başlık/alt
+başlık) + "Kaydet".
+
+**Doğrulama.** `ShopShowcaseTest`'in 6 testi dahil seviye-commerce'in 34
+testi yeşil, `php -l`/`phpcs` 0 yeni hata (yalnızca bu diff'ten önce de
+var olan nonce-verification/line-length uyarıları kaldı). Gerçek
+WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
+yok) yine yapılamadı.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

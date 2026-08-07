@@ -41,6 +41,12 @@ add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker')
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_size_guide_trigger', 5);
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
+// "Mağaza Vitrini" - öncelik 1, scp_render_category_banner()'dan (4) ÖNCE -
+// yalnızca mağaza ana sayfasında (is_shop(), kategori arşivlerinde DEĞİL -
+// onların zaten kendi banner'ı var) gösterilen hero + öne çıkan ürünler
+// bölümü.
+add_action('woocommerce_before_shop_loop', 'scp_render_shop_showcase', 1);
+
 // "Kategori banner'ları" - öncelik 4, scp_render_shop_filters()'ten (5)
 // ÖNCE - bir kategori arşivinin görseli/açıklaması varsa filtre çubuğunun
 // üstünde geniş bir banner olarak görünür.
@@ -248,6 +254,61 @@ function scp_render_mini_cart_drawer(): void
         </div>
     </div>
     <?php
+}
+
+/**
+ * "Mağaza Vitrini" - yalnızca mağaza ANA sayfasında (`is_shop()`) gösterilen
+ * iki bağımsız isteğe bağlı parça: (1) HQ'nun `scp_commerce_shop_showcase`
+ * filtre köprüsü üzerinden düzenlediği (bkz. CommerceModule::boot() ve
+ * templates/shop-showcase-admin.php) başlık/alt başlık/arka plan görseli
+ * hero'su - hepsi boşsa hiçbir şey basılmaz; (2) WooCommerce'in KENDİ
+ * "Öne Çıkan" ürün işaretlemesi (`wc_get_featured_product_ids()` - ürün
+ * düzenleme ekranındaki standart yıldız simgesi, bu platform tarafından
+ * icat edilmiş yeni bir alan DEĞİL) doluysa, WooCommerce'in KENDİ
+ * `[featured_products]` shortcode'u kullanılarak basılan bir ürün şeridi -
+ * özel bir sorgu/carousel JS'i yazılmadı, shortcode'un çıktısı
+ * woocommerce.css'te yatay kaydırılabilir (scroll-snap) bir şerit haline
+ * CSS ile dönüştürülüyor.
+ *
+ * Kategori arşivlerinde (`is_product_taxonomy()`) YOK - onların zaten
+ * kendi görsel/açıklaması var (bkz. scp_render_category_banner()), iki
+ * banner üst üste kafa karıştırıcı olurdu.
+ */
+function scp_render_shop_showcase(): void
+{
+    if (!is_shop()) {
+        return;
+    }
+
+    $showcase = apply_filters('scp_commerce_shop_showcase', null);
+    $heading = is_array($showcase) ? (string) ($showcase['heading'] ?? '') : '';
+    $subheading = is_array($showcase) ? (string) ($showcase['subheading'] ?? '') : '';
+    $imageUrl = is_array($showcase) ? ($showcase['image_url'] ?? null) : null;
+
+    if ($heading !== '' || $subheading !== '' || $imageUrl) {
+        $style = $imageUrl ? sprintf('background-image:url(%s)', esc_url((string) $imageUrl)) : '';
+
+        ?>
+        <div class="scp-shop-showcase" style="<?php echo esc_attr($style); ?>">
+            <div class="scp-shop-showcase__content">
+                <?php if ($heading !== '') : ?>
+                    <h2 class="scp-shop-showcase__heading"><?php echo esc_html($heading); ?></h2>
+                <?php endif; ?>
+                <?php if ($subheading !== '') : ?>
+                    <p class="scp-shop-showcase__subheading"><?php echo esc_html($subheading); ?></p>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    if (!empty(wc_get_featured_product_ids())) {
+        ?>
+        <div class="scp-shop-showcase__carousel">
+            <?php echo do_shortcode('[featured_products limit="8" columns="4"]'); ?>
+        </div>
+        <?php
+    }
 }
 
 /**

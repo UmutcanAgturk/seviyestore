@@ -33,6 +33,12 @@ namespace Seviye\Commerce\Rbac;
  * Müdürü tier" shape as MANAGE_TAX_RATES - the "Beden Rehberi" (bkz.
  * {@see \Seviye\Commerce\Http\SizeGuideRestController}) is one shared
  * yaş/boy→beden tablosu for the whole mağaza, not per-branch content.
+ *
+ * MANAGE_SHOP_SHOWCASE is the same "store-wide setting, HQ-only" shape
+ * again - the "Mağaza Vitrini" (bkz.
+ * {@see \Seviye\Commerce\Http\ShopShowcaseRestController}) mağaza ana
+ * sayfasının hero bölümüdür, tek bir paylaşılan içeriktir, per-branch
+ * değil.
  */
 enum ProductCapability: string
 {
@@ -40,4 +46,5 @@ enum ProductCapability: string
     case VIEW_PRODUCTS = 'scp_view_products';
     case MANAGE_TAX_RATES = 'scp_manage_tax_rates';
     case MANAGE_SIZE_GUIDE = 'scp_manage_size_guide';
+    case MANAGE_SHOP_SHOWCASE = 'scp_manage_shop_showcase';
 }

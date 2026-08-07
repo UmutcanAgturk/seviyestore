@@ -208,6 +208,7 @@ function scp_enqueue_panel_assets(): void
         ),
         'sizeGuideSaved' => __('Beden rehberi kaydedildi.', 'seviye-storefront'),
         'sizeGuideLabelPlaceholder' => __('ör. S (4-5 yaş)', 'seviye-storefront'),
+        'shopShowcaseSaved' => __('Mağaza vitrini kaydedildi.', 'seviye-storefront'),
         'confirmDeleteSupplier' => __(
             'Bu tedarikçiyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             'seviye-storefront'
@@ -628,6 +629,19 @@ function scp_enqueue_panel_assets(): void
             SCP_THEME_URL . '/assets/js/size-guide-panel.js',
             ['scp-api-fetch'],
             scp_asset_version('/assets/js/size-guide-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', $localized);
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    if ($zone === 'admin' && $zonePath === 'magaza-vitrini' && current_user_can('scp_manage_shop_showcase')) {
+        $handle = 'scp-shop-showcase-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/shop-showcase-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/shop-showcase-panel.js'),
             true
         );
         wp_localize_script($handle, 'scpPanel', $localized);

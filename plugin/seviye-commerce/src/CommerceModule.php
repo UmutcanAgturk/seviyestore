@@ -23,6 +23,7 @@ use Seviye\Commerce\Http\ProductOwnershipBridge;
 use Seviye\Commerce\Http\ProductReviewGate;
 use Seviye\Commerce\Http\ProductsRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
+use Seviye\Commerce\Http\ShopShowcaseRestController;
 use Seviye\Commerce\Http\SizeGuideRestController;
 use Seviye\Commerce\Http\SpendingLimitCartHooks;
 use Seviye\Commerce\Http\SpendingLimitRestController;
@@ -47,6 +48,7 @@ use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Commerce\Support\OrderPayloadBuilder;
 use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
+use Seviye\Commerce\Support\ShopShowcase;
 use Seviye\Commerce\Support\SizeGuide;
 use Seviye\Commerce\Support\SizeGuideRow;
 use Seviye\Commerce\Support\SplitPaymentCalculator;
@@ -246,6 +248,45 @@ final class CommerceModule implements ModuleInterface
 
         $container->get(RestApiRegistrar::class)->register(
             static fn (): SizeGuideRestController => new SizeGuideRestController(
+                $container->get(SettingsRepositoryInterface::class)
+            )
+        );
+
+        // "Mağaza Vitrini" - aynı "store-wide setting, HQ-only" şekli, bkz.
+        // ProductCapability::MANAGE_SHOP_SHOWCASE'ın kendi docblock'u.
+        $rbac->grantCapability(Role::GENEL_MERKEZ, ProductCapability::MANAGE_SHOP_SHOWCASE->value);
+        $rbac->grantCapability(Role::BOLGE_MUDURU, ProductCapability::MANAGE_SHOP_SHOWCASE->value);
+
+        // Tema, DI container'ına hiç bağımlı olmadan bu içeriği okuyabilsin
+        // diye - yukarıdaki scp_commerce_size_guide_rows'la AYNI gevşek
+        // filtre köprüsü ilkesi. Görsel URL'si BURADA (tema'da değil)
+        // çözülüyor - inc/woocommerce.php'deki scp_render_shop_showcase()
+        // yalnızca WordPress medya fonksiyonlarına değil, bu filtreye
+        // bağımlı kalsın diye.
+        add_filter(
+            'scp_commerce_shop_showcase',
+            static function (?array $default) use ($container): ?array {
+                $settings = $container->get(SettingsRepositoryInterface::class);
+                $showcase = ShopShowcase::parse($settings->get(ShopShowcase::SETTING_KEY));
+
+                if ($showcase->isEmpty()) {
+                    return $default;
+                }
+
+                return [
+                    'heading' => $showcase->heading,
+                    'subheading' => $showcase->subheading,
+                    'image_url' => $showcase->imageAttachmentId
+                        ? (wp_get_attachment_image_url($showcase->imageAttachmentId, 'large') ?: null)
+                        : null,
+                ];
+            },
+            10,
+            1
+        );
+
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): ShopShowcaseRestController => new ShopShowcaseRestController(
                 $container->get(SettingsRepositoryInterface::class)
             )
         );
