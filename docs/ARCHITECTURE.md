@@ -4695,6 +4695,47 @@ sayfası hem masaüstü (1000px) hem mobil (390px) genişlikte Playwright ile
 ekran görüntüsü alınarak doğrulandı - kart/tablo/adres düzeni her iki
 genişlikte de taşmadan, üst üste binmeden render oluyor.
 
+### 83. Site geneli mobil uyumluluk denetimi
+
+Kullanıcı "Tüm website yapısının tamamı mobil uyumlu olsun. Tüm menüler
+yapıların tamamı" dedi - bu, tekil bir sayfa değil bütün siteyi kapsayan
+bir denetim isteği. Sol menü (bölüm 183, hover flyout + dokunma
+fallback'i), header, komut paleti (Cmd+K), mini sepet/hızlı önizleme/
+toast/modal bileşenleri, ~26 panelin TAMAMINDAKİ tablolar (`initResponsiveTables()`'ın
+`MutationObserver`'ı DOM'da beliren her `.scp-table`'ı otomatik
+etiketliyor - panel bazında ayrı bir "mobil kart görünümü" entegrasyonu
+hiç gerekmiyormuş), formlar, auth/kurulum sayfaları tek tek incelendi
+(kod okuması + gerçek bir WordPress kurulumunda Playwright ile ekran
+görüntüsü). Sonuç: önceki turların ("responsive/mobil gözden geçirme",
+"duyarlı 3-katman", "Mobil kart görünümlü tablolar") kapsamı gerçekten
+genişti - yalnızca iki gerçek eksik bulundu:
+
+1. **Bildirim zili paneli** (`.scp-notif-bell__panel`, `theme.css:444`) -
+   sabit `360px` genişlik, viewport'un sağ kenarına değil zil
+   düğmesinin KENDİ konumuna göre (`right:0`, zil elemanına göre)
+   konumlanıyordu; zil header'ın en sağındaki eleman DEĞİL (tema
+   anahtarı/kullanıcı adı/çıkış onu takip ediyor), bu yüzden dar bir
+   ekranda panel sol kenardan taşabiliyordu. `max-width:640px`'te
+   `position:fixed; left/right:16px` ile viewport'a sabitlenen bir
+   şeride çevrildi - artık zilin konumundan bağımsız, her zaman ekrana
+   sığıyor.
+2. **Toplu işlem araç çubuğu** (`.scp-bulk-actions`, `panel.css:176`,
+   "Admin sipariş listesinde toplu işlem" bölümünün, mobil pasajından
+   SONRA eklenmiş bir bileşeni) - kardeş bileşenlerinin (`.scp-status-tabs`
+   vb.) hepsinde olan `flex-wrap: wrap` bu birinde unutulmuştu; sayım
+   metni + "Seçilenleri Teslim Edildi İşaretle" (uzun buton etiketi) +
+   "Seçimi Temizle" üç öğesi dar bir ekranda taşıyordu. `flex-wrap`
+   eklendi, artık öğeler kart içinde alt satıra kayıyor.
+
+**Doğrulama**: her iki düzeltme gerçek bir WordPress kurulumuna
+dağıtılıp Playwright ile 390px genişlikte ekran görüntüsü alınarak
+doğrulandı (bildirim paneli: gerçek bell tıklaması ile; toplu işlem
+çubuğu: gerçek veri/RBAC bağımlılığı olmadan izole bir HTML+CSS
+doğrulamasıyla, aynı sınıf adları/gerçek buton metinleriyle). Sol menü de
+ayrıca gerçek bir panelde (Genel Merkez oturumuyla /admin/) dokunmatik
+alt menü açma davranışı doğrulanarak kontrol edildi - zaten sağlam
+çıktı, değişiklik gerekmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

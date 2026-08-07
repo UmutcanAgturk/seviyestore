@@ -175,6 +175,7 @@
    it takes no space until at least one order is selected. */
 .scp-bulk-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;

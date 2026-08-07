@@ -446,6 +446,7 @@ body {
   right: 0;
   top: calc(100% + 8px);
   width: 360px;
+  max-width: calc(100vw - 32px);
   max-height: 420px;
   overflow-y: auto;
   padding: 8px;
@@ -772,5 +773,20 @@ body {
     border: none;
     box-shadow: none;
     padding: 0 0 0 12px;
+  }
+
+  /* .scp-notif-bell__panel's `right: 0` anchors it to the bell TOGGLE
+     button, not the viewport edge - the bell is rarely the right-most
+     header item (theme toggle/user name/logout usually follow it), so a
+     360px-wide panel extending left from there can run off the left edge
+     of a narrow screen. Below 640px it switches to a fixed, viewport-
+     anchored strip instead of a bell-relative dropdown. */
+  .scp-notif-bell__panel {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: calc(var(--scp-header-height) + 8px);
+    width: auto;
+    max-width: none;
   }
 }
