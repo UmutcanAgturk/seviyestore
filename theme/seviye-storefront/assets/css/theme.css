@@ -295,11 +295,32 @@ body {
 
 .scp-site-header__nav a {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--scp-text-muted);
   text-decoration: none;
   font-weight: 600;
   padding-bottom: 2px;
   transition: color var(--scp-duration-base) var(--scp-ease);
+}
+
+/* "Site genelinde iconlara bak, koyulmamış iconlar var mı yoksa koy" -
+   üst menünün önceden düz metin olan bağlantılarına/düğmelerine eklenen
+   nötr ikon - kenar çubuğunun .scp-sidebar-nav__icon'uyla AYNI ilke
+   (currentColor, module-tile'ların renkli karosu DEĞİL). */
+.scp-site-header__nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.scp-site-header__nav-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .scp-site-header__nav a::after {
@@ -639,6 +660,28 @@ body {
 .scp-sidebar-nav a:focus-visible {
   color: var(--scp-primary);
   background: var(--scp-primary-bg);
+}
+
+/* "Site genelinde iconlara bak, koyulmamış iconlar var mı yoksa koy" -
+   .scp-module-tile'ın (panel.css) renkli karo ikonlarından KASITLI olarak
+   farklı: bu, çekirdek modül olmayan her düz kenar çubuğu bağlantısına
+   (Kampanya Kodları, Hesap Güvenliği, ...) eklenen nötr, küçük bir ikon -
+   bkz. inc/sidebar.php'nin scp_render_sidebar_link()'i ve
+   templates/partials/icon.php'nin kendi docblock'u. Rengi `currentColor`
+   üzerinden .scp-sidebar-nav a'nın kendi text rengini (muted/hover)
+   otomatik takip ediyor, ayrı bir renk kuralı yok. */
+.scp-sidebar-nav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.scp-sidebar-nav__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .scp-sidebar-nav__item--group {

@@ -162,10 +162,34 @@ function scp_sidebar_sections(): array
         scp_menu_page_path('api-anahtarlari') => 'settings',
     ];
 
+    // "Site genelinde iconlara bak, koyulmamış iconlar var mı yoksa koy" -
+    // yukarıdaki $variants'ın (renkli module-tile) KAPSAMADIĞI her düz
+    // kenar çubuğu bağlantısı için nötr, küçük bir ikon - bkz.
+    // scp_render_sidebar_link()'in ve templates/partials/icon.php'nin
+    // kendi docblock'u.
+    $plainIcons = [
+        home_url('/' . scp_current_zone()) => 'overview',
+        scp_menu_page_path('kampanyalar') => 'coupon',
+        scp_menu_page_path('vergi-oranlari') => 'tax',
+        scp_menu_page_path('beden-rehberi') => 'sizeguide',
+        scp_menu_page_path('magaza-vitrini') => 'showcase',
+        scp_menu_page_path('duyuru') => 'broadcast',
+        scp_menu_page_path('hesap-guvenligi') => 'security',
+        scp_menu_page_path('kvkk') => 'privacy',
+        scp_menu_page_path('kvkk-talepleri') => 'privacy',
+        scp_menu_page_path('ip-kisitlamasi') => 'ip',
+        scp_menu_page_path('sms-ayarlari') => 'sms',
+        scp_menu_page_path('whatsapp-ayarlari') => 'whatsapp',
+        scp_menu_page_path('eposta-ayarlari') => 'email',
+        scp_menu_page_path('gorunum') => 'appearance',
+        scp_menu_page_path('aktivite-gunlugu') => 'activity',
+    ];
+
     return [
         'groups' => $groups,
         'labels' => $labels,
         'variants' => $variants,
+        'plainIcons' => $plainIcons,
         'total' => array_sum(array_map('count', $groups)),
     ];
 }
@@ -207,6 +231,7 @@ function scp_render_sidebar(): void
     $groups = $sections['groups'];
     $labels = $sections['labels'];
     $variants = $sections['variants'];
+    $plainIcons = $sections['plainIcons'];
 
     ?>
     <aside class="scp-sidebar">
@@ -225,9 +250,10 @@ function scp_render_sidebar(): void
                     <?php if ($groupLabel === null) : ?>
                         <?php foreach ($items as $href => $label) :
                             $variant = $variants[$href] ?? null;
+                            $plainIcon = $plainIcons[$href] ?? null;
                             ?>
                             <li class="scp-sidebar-nav__item">
-                                <?php scp_render_sidebar_link($href, $label, $variant); ?>
+                                <?php scp_render_sidebar_link($href, $label, $variant, $plainIcon); ?>
                             </li>
                         <?php endforeach; ?>
                     <?php else : ?>
@@ -239,8 +265,9 @@ function scp_render_sidebar(): void
                             <ul class="scp-sidebar-nav__submenu">
                                 <?php foreach ($items as $href => $label) :
                                     $variant = $variants[$href] ?? null;
+                                    $plainIcon = $plainIcons[$href] ?? null;
                                     ?>
-                                    <li><?php scp_render_sidebar_link($href, $label, $variant); ?></li>
+                                    <li><?php scp_render_sidebar_link($href, $label, $variant, $plainIcon); ?></li>
                                 <?php endforeach; ?>
                             </ul>
                         </li>
@@ -252,7 +279,7 @@ function scp_render_sidebar(): void
     <?php
 }
 
-function scp_render_sidebar_link(string $href, string $label, ?string $variant): void
+function scp_render_sidebar_link(string $href, string $label, ?string $variant, ?string $plainIcon = null): void
 {
     if ($variant) :
         ?>
@@ -263,6 +290,16 @@ function scp_render_sidebar_link(string $href, string $label, ?string $variant):
             <span class="scp-module-tile__icon"><?php
                 // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it.
                 echo scp_module_icon_svg($variant);
+            ?></span>
+            <span class="scp-sidebar-nav__label"><?php echo esc_html($label); ?></span>
+        </a>
+        <?php
+    elseif ($plainIcon) :
+        ?>
+        <a href="<?php echo esc_url($href); ?>" class="scp-sidebar-nav__link">
+            <span class="scp-sidebar-nav__icon"><?php
+                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it.
+                echo scp_module_icon_svg($plainIcon);
             ?></span>
             <span class="scp-sidebar-nav__label"><?php echo esc_html($label); ?></span>
         </a>

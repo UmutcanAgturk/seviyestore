@@ -1269,9 +1269,44 @@
   margin: 0;
 }
 
+/* "sepetime git ve geri dön link yazılarını butonda dönüştür" - WC'nin
+   kendi mini_cart şablonu buraya iki bağlantı basıyor ("View cart" ve
+   "Proceed to checkout", `.button`/`.button.checkout` sınıflarıyla) ama
+   önceden yalnızca flex:1 + text-align vardı - arka plan/kenarlık/dolgu
+   yoktu, yani görsel olarak hâlâ düz metin bağlantısı gibi görünüyordu.
+   Şimdi ikisi de gerçek düğme gibi: "Sepete Git" ikincil (anahat), "Ödemeye
+   Geç" birincil (dolgulu vurgu) - checkout.php'nin kendi
+   a.checkout-button/#place_order düğmeleriyle AYNI vurgu rengi. */
 .scp-mini-cart__content .woocommerce-mini-cart__buttons .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
+  padding: 11px 16px;
+  font-size: 0.875rem;
+  font-weight: 700;
   text-align: center;
+  text-decoration: none;
+  color: var(--scp-primary);
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-primary);
+  border-radius: var(--scp-radius-sm);
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__buttons .button:hover {
+  background: var(--scp-surface-alt);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__buttons .button.checkout {
+  color: #fff;
+  background: var(--scp-accent);
+  border-color: var(--scp-accent);
+}
+
+.scp-mini-cart__content .woocommerce-mini-cart__buttons .button.checkout:hover {
+  background: var(--scp-accent);
+  filter: brightness(1.08);
 }
 
 /* ---- Son görüntülenen ürünler - assets/js/scp-ui-kit.js'in

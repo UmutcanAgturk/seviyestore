@@ -101,6 +101,39 @@
         return li;
     }
 
+    /**
+     * "Site genelinde eksik boş-durum illüstrasyonlarının tamamlanması" -
+     * orders-panel.js'in renderEmptyOrdersState()'iyle AYNI desen
+     * (`.scp-empty-state`, panel.css bölüm 169). Bu zilin kendi panel
+     * genişliği (360px, bkz. theme.css'in .scp-notif-bell__panel'i)
+     * içeriğin 320px'lik max-width'ini rahatça karşılıyor.
+     */
+    function renderEmptyNotificationsState() {
+        // `list` is a <ul> (scp-list) - a bare <div> child would be
+        // invalid HTML there, so this returns an <li> instead. Same
+        // `.scp-empty-state` class/CSS either way (panel.css only
+        // targets the class, not the tag).
+        var wrapper = document.createElement('li');
+        wrapper.className = 'scp-empty-state';
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'scp-empty-state__icon';
+        iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + '<path d="M6 9a6 6 0 0 1 12 0v5l2 3H4l2-3V9Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>';
+        wrapper.appendChild(iconWrap);
+
+        var heading = document.createElement('h3');
+        heading.textContent = scpPanelTextData.noNotificationsHeading || scpPanelTextData.noNotifications;
+        wrapper.appendChild(heading);
+
+        var message = document.createElement('p');
+        message.textContent = scpPanelTextData.noNotifications;
+        wrapper.appendChild(message);
+
+        return wrapper;
+    }
+
     function loadList() {
         statusEl.textContent = '';
         statusEl.classList.remove('scp-status--error');
@@ -112,6 +145,8 @@
         }
 
         apiFetch('notifications/mine').then(function (result) {
+            list.innerHTML = '';
+
             if (!result.ok) {
                 statusEl.textContent = scpPanelTextData.loadError;
                 statusEl.classList.add('scp-status--error');
@@ -119,7 +154,7 @@
             }
 
             if (result.data.length === 0) {
-                statusEl.textContent = scpPanelTextData.noNotifications;
+                list.appendChild(renderEmptyNotificationsState());
                 return;
             }
 

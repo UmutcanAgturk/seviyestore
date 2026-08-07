@@ -51,6 +51,35 @@
         return 'scp-badge--warning';
     }
 
+    /**
+     * "Site genelinde eksik boş-durum illüstrasyonlarının tamamlanması" -
+     * orders-panel.js'in renderEmptyOrdersState()'iyle AYNI desen
+     * (`.scp-empty-state`, panel.css bölüm 169), "support" module tile
+     * glifiyle aynı hand-rolled SVG (bkz. templates/partials/icon.php).
+     */
+    function renderEmptyTicketsState() {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'scp-empty-state';
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'scp-empty-state__icon';
+        iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="13" width="4" height="6" rx="1"/>'
+            + '<rect x="17" y="13" width="4" height="6" rx="1"/><path d="M19 19a4 4 0 0 1-4 3h-2"/></svg>';
+        wrapper.appendChild(iconWrap);
+
+        var heading = document.createElement('h3');
+        heading.textContent = scpPanelTextData.supportNoTicketsHeading || scpPanelTextData.supportNoTickets;
+        wrapper.appendChild(heading);
+
+        var message = document.createElement('p');
+        message.textContent = scpPanelTextData.supportNoTickets;
+        wrapper.appendChild(message);
+
+        return wrapper;
+    }
+
     function renderMessages(listEl, ticket) {
         listEl.innerHTML = '';
 
@@ -121,9 +150,15 @@
         function renderTickets(tickets) {
             listBody.innerHTML = '';
 
+            var existingEmptyState = root.querySelector('.scp-empty-state');
+            if (existingEmptyState) {
+                existingEmptyState.remove();
+            }
+
             if (tickets.length === 0) {
                 listTable.hidden = true;
-                setStatus(scpPanelTextData.supportNoTickets);
+                setStatus('');
+                listTable.insertAdjacentElement('afterend', renderEmptyTicketsState());
                 return;
             }
 

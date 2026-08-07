@@ -58,6 +58,16 @@ if (!defined('ABSPATH')) {
             <?php bloginfo('name'); ?>
         </a>
     </div>
+    <?php
+    /**
+     * "Site genelinde iconlara bak, koyulmamış iconlar var mı yoksa koy" -
+     * üst menünün her bağlantısı/düğmesi önceden düz metindi, hepsine
+     * `.scp-site-header__nav-icon` ile küçük, nötr bir glif eklendi -
+     * kenar çubuğunun `.scp-sidebar-nav__icon`'uyla AYNI ilke
+     * (renkli module-tile DEĞİL, currentColor'la metin rengini takip
+     * eden düz bir ikon).
+     */
+    ?>
     <nav class="scp-site-header__nav">
         <button
             type="button"
@@ -65,15 +75,21 @@ if (!defined('ABSPATH')) {
             data-scp-command-trigger
             aria-label="<?php esc_attr_e('Bul (Cmd+K)', 'seviye-storefront'); ?>"
         >
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('search'); ?></span>
             <?php esc_html_e('Bul', 'seviye-storefront'); ?>
             <kbd aria-hidden="true">⌘K</kbd>
         </button>
         <?php if (function_exists('wc_get_page_permalink') && current_user_can('scp_view_own_children')) : ?>
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
+                <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+                <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('home'); ?></span>
                 <?php esc_html_e('Mağaza', 'seviye-storefront'); ?>
             </a>
             <?php $scp_cart_count = function_exists('WC') && WC()->cart ? WC()->cart->get_cart_contents_count() : 0; ?>
             <a href="<?php echo esc_url(wc_get_cart_url()); ?>" data-scp-mini-cart-trigger>
+                <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+                <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('cart'); ?></span>
                 <?php esc_html_e('Sepetim', 'seviye-storefront'); ?>
                 <?php if ($scp_cart_count > 0) : ?>
                     <span class="scp-cart-count"><?php echo esc_html((string) $scp_cart_count); ?></span>
@@ -83,9 +99,13 @@ if (!defined('ABSPATH')) {
 
         <?php if (current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile')) : ?>
             <a href="<?php echo esc_url(home_url('/siparislerim')); ?>">
+                <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+                <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('orders'); ?></span>
                 <?php esc_html_e('Siparişlerim', 'seviye-storefront'); ?>
             </a>
             <a href="<?php echo esc_url(home_url('/profilim')); ?>">
+                <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+                <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('profile'); ?></span>
                 <?php esc_html_e('Profilim', 'seviye-storefront'); ?>
             </a>
         <?php endif; ?>
@@ -97,6 +117,8 @@ if (!defined('ABSPATH')) {
                 aria-haspopup="true"
                 aria-expanded="false"
             >
+                <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+                <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('bell'); ?></span>
                 <?php esc_html_e('Bildirimler', 'seviye-storefront'); ?>
                 <span class="scp-notif-bell__badge" data-scp-notif-badge hidden></span>
             </button>
@@ -111,6 +133,8 @@ if (!defined('ABSPATH')) {
             <?php echo esc_html(wp_get_current_user()->display_name); ?>
         </span>
         <a href="<?php echo esc_url(wp_logout_url(home_url('/'))); ?>">
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('logout'); ?></span>
             <?php esc_html_e('Çıkış Yap', 'seviye-storefront'); ?>
         </a>
     </nav>

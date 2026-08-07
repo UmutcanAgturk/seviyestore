@@ -5162,6 +5162,77 @@ verification/line-length uyarıları kaldı), tüm değişen CSS dosyalarında
 küme parantezi dengesi doğrulandı. Bu tur yalnızca tema dosyalarını
 değiştirdiği için hiçbir eklenti PHPUnit paketi etkilenmedi.
 
+### 90. İkon denetimi + mini sepet düğmeleri + boş durum illüstrasyonu turu
+
+Kullanıcının üç somut talimatı: (1) "Site genelinde iconlara bak
+koyulmamış iconlar var mı yoksa koy", (2) "Sepetim hızlı sayfasında
+sepetime git ve geri dön link yazılarını butonda dönüştür", (3) 2. UX
+25-madde listesinin 25. maddesi - "Site genelinde eksik boş-durum
+illüstrasyonlarının tamamlanması".
+
+**İkon denetimi.** Kenar çubuğunun (`inc/sidebar.php`) `.scp-module-tile`
+(renkli karo) sistemi bölüm 174'ün kasıtlı kararıyla yalnızca platformun
+~10 çekirdek modülüyle sınırlı kalmaya devam ediyor - "Hesap ve Sistem"
+grubundaki 9 ayar sayfasının (Kampanyalar, Vergi Oranları, Beden
+Rehberi, Mağaza Vitrini, Duyuru, Hesap Güvenliği, KVKK/KVKK Talepleri,
+IP Kısıtlaması, SMS/WhatsApp/E-posta Ayarları, Görünüm, Aktivite
+Günlüğü gibi 15 bağlantı) her biri kendi rengiyle bir karo olsaydı
+görsel olarak gürültülü olurdu. Bunun yerine İKİNCİ, daha hafif bir
+katman eklendi: `scp_sidebar_sections()`'ın yeni `$plainIcons` dizisi
+(href → glif adı) + `scp_render_sidebar_link()`'in yeni `$plainIcon`
+parametresi, `.scp-sidebar-nav__icon` (18px kutu, `currentColor` ile
+bağlantının kendi metin/hover rengini takip eden nötr, küçük bir SVG).
+`templates/partials/icon.php`'ye 16 yeni el yapımı glif eklendi (aynı
+24x24 outline-path kalıbı). `header.php`'nin üst menüsü de TAMAMEN
+ikonsuzdu (Bul, Mağaza, Sepetim, Siparişlerim, Profilim, Bildirimler,
+Çıkış Yap) - "site genelinde" çerçevesi bu her zaman görünür, çok
+önemli gezinme öğelerini de kapsadığı için `.scp-site-header__nav-icon`
+(16px) ile aynı ilkeyle dolduruldu. Karanlık mod anahtarı düğmesi
+kasıtlı olarak dokunulmadı - zaten dinamik JS metni gösteriyor.
+
+**Mini sepet düğmeleri.** `scp_render_mini_cart_drawer()`
+(`inc/woocommerce.php`) içeriği tamamen WooCommerce'in kendi
+`woocommerce_mini_cart()` şablon çağrısına devrediyor - "Sepete Git"/
+"Ödemeye Geç" ikisi de WC'nin kendi `.button`/`.button.checkout`
+sınıflarıyla basılıyor ama `woocommerce.css`'in önceki kuralı yalnızca
+`flex: 1; text-align: center` içeriyordu - arka plan/kenarlık/dolgu
+yok, yani görsel olarak hâlâ düz metin bağlantısı gibi görünüyordu.
+İkisi de artık gerçek düğme: "Sepete Git" ikincil (anahat, `--scp-
+primary` kenarlık), "Ödemeye Geç" (`.button.checkout`) birincil
+(dolgulu `--scp-accent`) - sepet/ödeme sayfalarının kendi
+`a.checkout-button`/`#place_order` düğmeleriyle AYNI vurgu rengi.
+WC'nin varsayılan mini-sepet şablonunda bir "geri dön"/"alışverişe
+devam et" bağlantısı YOK (yalnızca View Cart + Checkout) - kullanıcının
+"geri dön" ifadesi bu iki eylemin kendi paraphrase'i olarak
+yorumlandı, spekülatif yeni bir bağlantı eklenmedi.
+
+**Boş durum illüstrasyonu turu #2.** Bölüm 169/89'daki `.scp-empty-
+state`'in ilk somut kullanımı (Siparişlerim) yalnızca tek örnekti; bu
+turda iki yeni yüksek-değerli yüzeye genişletildi: (1) "Destek
+Talepleri" (`support-tickets-panel.js`'in `renderEmptyTicketsState()`'i)
+- veli talep listesi boşken artık ikon+başlık+mesaj gösteriyor, önceki
+`.scp-table-wrapper`'ın `afterend`'ine ekleniyor (tabloyla kardeş, geçersiz
+iç içe yerleşim yok). (2) Bildirim zili (`notifications-bell.js`'in
+`renderEmptyNotificationsState()`'i) - panel 360px genişliğinde,
+içeriğin 320px'lik max-width'ini rahatça karşılıyor; `list` bir `<ul>`
+olduğu için wrapper bir `<div>` değil `<li>` döndürüyor (geçersiz HTML
+olmasın diye), `panel.css`'e `.scp-list > .scp-empty-state` özel
+geçersiz kılma kuralı eklendi (`.scp-list li`'nin flex/border/padding
+kuralları aynı özgüllükte sızmasın diye - iki sınıflı seçici kaynak
+sırasından bağımsız kazanıyor). Codebase'in geri kalanındaki (Tahsilat,
+Stok Sayımı, Stok Transferi, KVKK Talepleri, Raporlar, Aktivite
+Günlüğü gibi ONLARCA panel) düz durum-satırı metni yine KASITLI olarak
+korundu - bölüm 89'un "seçici/yüksek-değerli kalsın, toptan yeniden
+yazım değil" gerekçesi burada da geçerli.
+
+**Doğrulama.** Değişen tüm dosyalarda `php -l`/`node --check` temiz,
+`phpcs theme/seviye-storefront/inc/assets.php inc/sidebar.php
+inc/woocommerce.php header.php templates/partials/icon.php` 0 hata
+(yalnızca bu diff'ten önce de var olan nonce-verification/line-length
+uyarıları kaldı), `woocommerce.css`/`panel.css` küme parantezi dengesi
+doğrulandı. Bu tur yalnızca tema dosyalarını değiştirdiği için hiçbir
+eklenti PHPUnit paketi etkilenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

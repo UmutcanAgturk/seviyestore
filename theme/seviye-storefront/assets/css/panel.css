@@ -1520,6 +1520,19 @@ button.scp-badge:hover {
   margin-top: 8px;
 }
 
+/* notifications-bell.js's renderEmptyNotificationsState() returns an <li>
+   (its container `list` is a <ul class="scp-list">, a bare <div> child
+   would be invalid there) - `.scp-list li`'s own flex/border/padding
+   rules above would otherwise leak onto it (same 0,1,1 specificity as
+   `.scp-empty-state` alone), so this scoped override wins on specificity
+   regardless of source order. */
+.scp-list > .scp-empty-state {
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 40px 20px;
+  border-bottom: none;
+}
+
 /* ---- Markalı 404 sayfası - theme's own 404.php. A big brand-colored
    numeral in place of an icon; otherwise the same centered-card shape as
    .scp-empty-state above (kept separate rather than reused, since a 404 is
