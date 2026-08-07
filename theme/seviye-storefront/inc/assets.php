@@ -275,6 +275,9 @@ function scp_enqueue_panel_assets(): void
         'orderNumberCopied' => __('Sipariş numarası kopyalandı.', 'seviye-storefront'),
         'orderPrintLabel' => __('Yazdır', 'seviye-storefront'),
         'orderPrintTitle' => __('Sipariş Fişi', 'seviye-storefront'),
+        'spendingSummaryPrintTitle' => __('Yıllık Harcama Özeti', 'seviye-storefront'),
+        'spendingSummaryOrderCountLabel' => __('Sipariş Sayısı', 'seviye-storefront'),
+        'spendingSummaryByStudentLabel' => __('Öğrenci Bazında Harcama', 'seviye-storefront'),
         'returnOrderAction' => __('İade Et', 'seviye-storefront'),
         'confirmReturnOrder' => __(
             'Bu siparişi iade etmek istediğinize emin misiniz?',

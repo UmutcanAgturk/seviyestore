@@ -70,6 +70,21 @@
   gap: 8px;
 }
 
+/* "Yıllık harcama özeti" - assets/js/orders-panel.js siparişler
+   yüklendikten sonra dolduruyor (en az bir sipariş varsa `hidden`
+   kaldırılıyor), seçili yıl için window.scpPrintSpendingSummary()
+   tetikleniyor. */
+.scp-spending-summary-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.scp-spending-summary-toolbar select {
+  min-width: 100px;
+}
+
 .scp-order-copy-btn {
   padding: 3px 10px;
   font-size: 0.75rem;
@@ -110,6 +125,13 @@
   #scp-print-order-root h1 {
     margin-bottom: 16px;
     font-size: 1.25rem;
+  }
+
+  /* "Yıllık harcama özeti" - scpPrintSpendingSummary()'nin öğrenci
+     kırılımı tablosundan önceki ara başlığı. */
+  #scp-print-order-root h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
   }
 
   #scp-print-order-root dl {

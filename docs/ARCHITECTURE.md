@@ -4969,6 +4969,49 @@ line-length/nonce-verification uyarıları kaldı). Gerçek
 WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
 yok) yine yapılamadı.
 
+### 87. Yıllık harcama özeti (PDF)
+
+"Daha ne yapılabilir" turunda kullanıcı önce iki kez daha fazla öneri
+istedi (üç ayrı 4'lü seçenek seti sunuldu), üçüncü sette "Yıllık harcama
+özeti (PDF)"'yi seçti - velinin bir eğitim yılı boyunca yaptığı tüm
+harcamaların özetini tek bir belge olarak indirebilmesi, okul harcaması
+belgesi ihtiyacını karşılıyor.
+
+**Yeni REST endpoint YOK - `commerce/orders/mine` zaten yeterli.**
+`OrdersRestController::mine()` bir velinin TÜM sipariş geçmişini tek
+seferde döndürüyor (`limit => -1`, bkz. o dosyanın kendi docblock'u);
+`/siparislerim` sayfası bunu zaten belleğe yüklüyor. Yıl bazlı özet bu
+yüzden tamamen istemci tarafında hesaplanıyor
+(`orders-panel.js`'in `buildSpendingSummary()`'si) - `order.date`'in
+(`Y-m-d H:i`) ilk 4 karakterinden yıl çıkarıp filtreliyor, `İptal Edildi`
+durumundaki siparişleri hariç tutuyor (gerçekleşmemiş bir harcama
+"yıllık harcama"nın parçası değil), kalanları ara toplam/KDV/genel toplam
++ öğrenci bazında kırılım olarak topluyor.
+
+**"PDF" = tarayıcının kendi yazdırma diyalogu, yeni bir kütüphane
+DEĞİL.** Bu platformdaki her "yazdırılabilir" özellik (bölüm 237,
+`scpPrintOrder`) aynı ilkeyi izliyor: sunucu tarafında Dompdf/TCPDF gibi
+bir PDF kütüphanesi eklemek yerine, temiz bir DOM parçası
+`#scp-print-order-root`'a yazılıp `window.print()` çağrılıyor - kullanıcı
+yazdırma diyaloğunda "PDF olarak kaydet"i seçtiğinde gerçek bir PDF
+dosyası elde ediyor. `window.scpPrintSpendingSummary()` (`scp-ui-kit.js`)
+`scpPrintOrder()`'ın AYNI kalıbını (aynı kök element, aynı
+`body.scp-printing-order` CSS sınıfı - bkz. panel.css) tek bir siparişin
+fişi yerine bir yılın toplu özetine uyguluyor; sıfır yeni bağımlılık.
+
+**Tema.** `/siparislerim` sayfasındaki kart başlığına yeni bir araç
+çubuğu (yıl seçici + "Özeti İndir (Yazdır)" düğmesi) eklendi - markup'ta
+`hidden`, `orders-panel.js` siparişler yüklendikten sonra (en az bir
+sipariş varsa) siparişlerin tarihinden çıkardığı yılları dolduruyor ve
+araç çubuğunu gösteriyor; hiç sipariş yoksa gizli kalıyor.
+
+**Doğrulama.** `php -l`/`phpcs` (0 yeni hata, yalnızca bu diff'ten önce
+de var olan iki line-length uyarısı) ve `node --check` ile sözdizimi
+doğrulandı; toplama mantığı (iptal hariç tutma, yıl filtresi, öğrenci
+kırılımı) küçük bir Node betiğiyle izole test edildi. Bu tur yalnızca
+tema dosyalarını değiştirdiği için hiçbir eklenti PHPUnit paketi
+etkilenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

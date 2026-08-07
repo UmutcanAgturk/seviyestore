@@ -1059,6 +1059,85 @@
     };
 
     /**
+     * "Yıllık harcama özeti" - scpPrintOrder()'ın AYNI kalıbını (aynı
+     * `#scp-print-order-root`/`body.scp-printing-order`/`window.print()`
+     * mekanizması, bkz. panel.css) tek bir siparişin fişi yerine BİR YILIN
+     * toplu özetine uyguluyor. Sunucu tarafında yeni bir PDF kütüphanesi
+     * (Dompdf vb.) EKLENMEDİ - tarayıcının kendi "Yazdır > PDF olarak
+     * kaydet" hedefi zaten bunu karşılıyor, bu platformdaki her "yazdır"
+     * özelliğinin (bkz. scpPrintOrder) izlediği aynı sıfır-bağımlılık
+     * ilkesi.
+     */
+    window.scpPrintSpendingSummary = function (summary, year, text, formatMoney, options) {
+        options = options || {};
+
+        var root = document.getElementById('scp-print-order-root');
+
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'scp-print-order-root';
+            document.body.appendChild(root);
+        }
+
+        root.innerHTML = '';
+
+        var heading = document.createElement('h1');
+        heading.textContent = (text.spendingSummaryPrintTitle || '') + ' - ' + year;
+        root.appendChild(heading);
+
+        var meta = document.createElement('dl');
+
+        if (options.customerName) {
+            printMetaRow(meta, text.orderCustomerLabel, options.customerName);
+        }
+
+        printMetaRow(meta, text.spendingSummaryOrderCountLabel, String(summary.orderCount));
+        printMetaRow(meta, text.orderSubtotalLabel, formatMoney(summary.subtotal));
+        printMetaRow(meta, text.orderTaxLabel, formatMoney(summary.tax));
+        printMetaRow(meta, text.orderTotalLabel, formatMoney(summary.total));
+        root.appendChild(meta);
+
+        var studentHeading = document.createElement('h2');
+        studentHeading.textContent = text.spendingSummaryByStudentLabel || '';
+        root.appendChild(studentHeading);
+
+        var table = document.createElement('table');
+        var thead = document.createElement('thead');
+        var headRow = document.createElement('tr');
+        [text.orderItemStudentLabel, text.orderItemTotalLabel].forEach(function (label) {
+            var th = document.createElement('th');
+            th.textContent = label;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        var tbody = document.createElement('tbody');
+        Object.keys(summary.byStudent).forEach(function (studentName) {
+            var row = document.createElement('tr');
+            [studentName, formatMoney(summary.byStudent[studentName])].forEach(function (value) {
+                var cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            });
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        root.appendChild(table);
+
+        document.body.classList.add('scp-printing-order');
+
+        var cleanup = function () {
+            document.body.classList.remove('scp-printing-order');
+            window.removeEventListener('afterprint', cleanup);
+        };
+
+        window.addEventListener('afterprint', cleanup);
+        window.print();
+        setTimeout(cleanup, 2000);
+    };
+
+    /**
      * "Son görüntülenen ürünler" - `#scp-recently-viewed-marker`'ın
      * data-* öznitelikleri (inc/woocommerce.php'nin
      * scp_render_recently_viewed_marker()'ı) o anki ürünü

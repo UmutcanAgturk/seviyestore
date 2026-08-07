@@ -39,6 +39,9 @@
 
     var statusEl = root.querySelector('[data-scp-orders-status]');
     var listEl = root.querySelector('[data-scp-orders-list]');
+    var summaryToolbar = root.querySelector('[data-scp-spending-summary-toolbar]');
+    var summaryYearSelect = root.querySelector('[data-scp-spending-summary-year]');
+    var summaryButton = root.querySelector('[data-scp-spending-summary-button]');
     var apiFetch = scpApiFetch;
 
     function setStatus(message, isError) {
@@ -296,6 +299,75 @@
         return card;
     }
 
+    /**
+     * "Yıllık harcama özeti" - `commerce/orders/mine` zaten TÜM sipariş
+     * geçmişini tek seferde döndürüyor (limit=-1, bkz.
+     * OrdersRestController::mine()), bu yüzden yıl bazlı özet için YENİ
+     * bir REST endpoint'e gerek yok - bu fonksiyon zaten bellekte olan
+     * `orders` dizisini istemci tarafında filtreleyip topluyor. `İptal
+     * Edildi` durumundaki siparişler hariç tutuluyor - gerçekleşmemiş bir
+     * harcama, "yıllık harcama"nın parçası değil.
+     */
+    function buildSpendingSummary(orders, year) {
+        var summary = { orderCount: 0, subtotal: 0, tax: 0, total: 0, byStudent: {} };
+
+        orders.forEach(function (order) {
+            if (!order.date || order.date.slice(0, 4) !== year || order.status === 'cancelled') {
+                return;
+            }
+
+            summary.orderCount += 1;
+            summary.subtotal += Number(order.subtotal);
+            summary.tax += Number(order.total_tax);
+            summary.total += Number(order.total);
+
+            order.items.forEach(function (item) {
+                var studentName = item.student_name || scpPanelTextData.summaryNotSet;
+                summary.byStudent[studentName] = (summary.byStudent[studentName] || 0) + Number(item.line_total);
+            });
+        });
+
+        return summary;
+    }
+
+    function populateSpendingSummaryToolbar(orders) {
+        var years = [];
+
+        orders.forEach(function (order) {
+            var year = order.date ? order.date.slice(0, 4) : null;
+
+            if (year && years.indexOf(year) === -1) {
+                years.push(year);
+            }
+        });
+
+        if (years.length === 0) {
+            summaryToolbar.hidden = true;
+            return;
+        }
+
+        years.sort().reverse();
+
+        summaryYearSelect.innerHTML = '';
+        years.forEach(function (year) {
+            var option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            summaryYearSelect.appendChild(option);
+        });
+
+        summaryToolbar.hidden = false;
+    }
+
+    var loadedOrders = [];
+
+    summaryButton.addEventListener('click', function () {
+        var year = summaryYearSelect.value;
+        var summary = buildSpendingSummary(loadedOrders, year);
+
+        window.scpPrintSpendingSummary(summary, year, scpPanelTextData, formatMoney);
+    });
+
     function loadOrders() {
         apiFetch('commerce/orders/mine').then(function (result) {
             if (!result.ok) {
@@ -304,6 +376,8 @@
             }
 
             listEl.innerHTML = '';
+            loadedOrders = result.data;
+            populateSpendingSummaryToolbar(loadedOrders);
 
             if (result.data.length === 0) {
                 setStatus(scpPanelTextData.noOrders);
