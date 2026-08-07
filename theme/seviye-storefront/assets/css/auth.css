@@ -27,25 +27,9 @@
  * giriş yapmış bir kullanıcının SEÇTİĞİ tercih (localStorage) burada da
  * saygı görüyor - inc/setup.php'nin scp_theme_preload_script()'i her iki
  * ekranda da AYNI, sayfa boyanmadan önce çalışan satır içi script'i
- * basıyor.
+ * basıyor. OS'nin `prefers-color-scheme`'i burada da dikkate ALINMIYOR -
+ * theme.css'teki aynı karardan.
  */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --scp-bg: #0e1116;
-    --scp-card-bg: #171b22;
-    --scp-text: #f2f3f5;
-    --scp-text-muted: #9aa1ac;
-    --scp-border: #2c313a;
-    --scp-primary: #5b8def;
-    --scp-primary-dark: #3f6fce;
-    --scp-primary-hover: #7ea3f2;
-    --scp-error: #f87171;
-    --scp-error-bg: #341615;
-    --scp-warning: #f0b429;
-    --scp-success: #34d399;
-  }
-}
-
 :root[data-theme="dark"] {
   --scp-bg: #0e1116;
   --scp-card-bg: #171b22;
@@ -117,6 +101,15 @@ body.scp-auth-body {
   max-height: 72px;
   margin: 0 auto 16px;
   object-fit: contain;
+}
+
+/* "Karanlık modda logo/görsel uyum kontrolü" - theme.css'in
+   .scp-site-header__logo'daki AYNI kararı: sabit beyaz zemin, logonun
+   kendi renklerine bakılmaksızın kontrastı garanti eder. */
+:root[data-theme="dark"] .scp-auth-logo {
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: var(--scp-radius, 14px);
 }
 
 .scp-auth-title {

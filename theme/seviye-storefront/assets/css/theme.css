@@ -117,49 +117,13 @@
 /*
  * "Manuel karanlık mod anahtarı" - assets/js/scp-ui-kit.js's
  * initThemeToggle() stamps `data-theme="dark"`/`"light"` on <html> from a
- * localStorage choice, overriding whatever prefers-color-scheme says (a
- * user on a dark-OS machine can still force light, and vice versa). The
- * media-query block below is scoped with `:not([data-theme="light"])` so
- * an explicit light override wins even while the OS reports dark; the
- * `[data-theme="dark"]` block below it covers the opposite case (force
- * dark on a light-OS machine) - same token VALUES in both places since
- * plain CSS has no mixin to share them from, matching how auth.css's own
- * light/dark blocks already duplicate their (different) token set for the
- * same reason.
+ * localStorage choice. Site her zaman AÇIK modda başlar, OS'nin
+ * `prefers-color-scheme` tercihi kasıtlı olarak DİKKATE ALINMIYOR -
+ * karanlık moda geçmenin tek yolu kullanıcının kendi anahtarı
+ * (initThemeToggle()'ın kendi docblock'una bkz.). Daha önce burada bir
+ * `@media (prefers-color-scheme: dark)` bloğu vardı, kaldırıldı - koyu
+ * OS'li bir ziyaretçi ilk açılışta artık koyu tema GÖRMÜYOR.
  */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --scp-bg: #0e1116;
-    --scp-surface: #171b22;
-    --scp-surface-alt: #1c212a;
-    --scp-text: #f2f3f5;
-    --scp-text-muted: #9aa1ac;
-    --scp-border: #2c313a;
-    --scp-primary: #5b8def;
-    --scp-primary-dark: #3f6fce;
-    --scp-primary-light: #7ea6f2;
-    --scp-primary-bg: #182740;
-    --scp-accent: #34d399;
-    --scp-accent-dark: #10b981;
-    --scp-accent-bg: #10291f;
-    --scp-danger: #f87171;
-    --scp-danger-bg: #341615;
-    --scp-warning: #fbbf24;
-    --scp-warning-bg: #332309;
-    --scp-info: #60a5fa;
-    --scp-info-bg: #122236;
-    --scp-success-bg: #10291f;
-    --scp-success-text: #86efac;
-    --scp-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-    --scp-shadow-0: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --scp-shadow-1: 0 2px 6px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
-    --scp-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
-    --scp-shadow-3: 0 20px 48px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.4);
-    --scp-shadow: var(--scp-shadow-0);
-    --scp-shadow-raised: var(--scp-shadow-2);
-  }
-}
-
 :root[data-theme="dark"] {
   --scp-bg: #0e1116;
   --scp-surface: #171b22;
@@ -280,6 +244,20 @@ body {
   max-width: 160px;
   flex-shrink: 0;
   object-fit: contain;
+}
+
+/* "Karanlık modda logo/görsel uyum kontrolü" - yüklenen logo neredeyse
+   her zaman AÇIK bir arka plan için tasarlanmıştır (koyu metin/şekil,
+   şeffaf zemin); karanlık modda .scp-site-header'ın kendi koyu
+   arka planı (--scp-surface) üzerinde böyle bir logo kaybolur/okunmaz
+   hale gelir. Logonun gerçek renklerini analiz etmeden (bu bir build
+   adımı olmayan bir tema, sunucu tarafı görüntü işleme yok) güvenli
+   varsayılan: sabit beyaz bir "kart" zemini - hangi logo yüklenirse
+   yüklensin kontrastı garanti eder. */
+:root[data-theme="dark"] .scp-site-header__logo {
+  padding: 4px 8px;
+  background: #fff;
+  border-radius: var(--scp-radius-sm);
 }
 
 .scp-site-header__nav {
@@ -403,6 +381,50 @@ body {
   font-size: 0.6875rem;
   font-weight: 700;
   vertical-align: middle;
+}
+
+/* "Mobilde alt gezinme çubuğu" - header.php'de yalnızca veli için
+   basılıyor (Ana Sayfa/Sepet/Siparişler/Profil, üst menüdekiyle AYNI dört
+   hedef). Varsayılan `display: none` - yalnızca 640px altında
+   (theme.css'in kendi mobil kırılma noktası bloğu) `flex`e dönüşüyor;
+   masaüstünde bu bağlantılar zaten .scp-site-header__nav'da var, burada
+   TEKRARLANMIYOR. */
+.scp-mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  justify-content: space-around;
+  align-items: stretch;
+  background: var(--scp-surface);
+  border-top: 1px solid var(--scp-border);
+  box-shadow: var(--scp-shadow-1);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.scp-mobile-bottom-nav a {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  color: var(--scp-text-muted);
+  text-decoration: none;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.scp-mobile-bottom-nav a:hover,
+.scp-mobile-bottom-nav a:focus-visible {
+  color: var(--scp-primary);
+}
+
+.scp-mobile-bottom-nav svg {
+  width: 20px;
+  height: 20px;
 }
 
 .scp-notif-bell__badge {
@@ -788,5 +810,17 @@ body {
     top: calc(var(--scp-header-height) + 8px);
     width: auto;
     max-width: none;
+  }
+
+  /* "Mobilde alt gezinme çubuğu" - yalnızca bu kırılma noktasında
+     görünür (header.php'de zaten sadece veli için basılıyor); sayfa
+     içeriğinin en alt satırının bu sabit çubuğun ALTINDA kalmaması için
+     .scp-layout'a kadar boşluk ekleniyor. */
+  .scp-mobile-bottom-nav {
+    display: flex;
+  }
+
+  .scp-layout {
+    padding-bottom: 64px;
   }
 }

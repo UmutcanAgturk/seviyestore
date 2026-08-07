@@ -41,11 +41,27 @@ add_action('woocommerce_before_add_to_cart_button', 'scp_render_student_picker')
 add_action('woocommerce_before_add_to_cart_button', 'scp_render_size_guide_trigger', 5);
 add_filter('woocommerce_loop_add_to_cart_link', 'scp_replace_loop_add_to_cart_link', 10, 2);
 
+// "Boş arama sonucunda akıllı öneriler" - öncelik 20, WooCommerce'in
+// KENDİ "sonuç bulunamadı" paragrafından (loop/no-products-found.php,
+// öncelik 10) SONRA basılır, onu değiştirmez, yalnızca altına ekler.
+add_action('woocommerce_no_products_found', 'scp_render_no_products_suggestions', 20);
+
+// "Sepet/ödeme adım göstergesi" - sepet, ödeme ve "sipariş alındı"
+// (thank you) sayfalarının HER ÜÇÜNDE de basılır - scp_render_checkout_steps()
+// hangi sayfada olduğuna göre kendi aktif adımını hesaplıyor.
+add_action('woocommerce_before_cart', 'scp_render_checkout_steps');
+add_action('woocommerce_before_checkout_form', 'scp_render_checkout_steps');
+add_action('woocommerce_before_thankyou', 'scp_render_checkout_steps');
+
 // "Mağaza Vitrini" - öncelik 1, scp_render_category_banner()'dan (4) ÖNCE -
 // yalnızca mağaza ana sayfasında (is_shop(), kategori arşivlerinde DEĞİL -
 // onların zaten kendi banner'ı var) gösterilen hero + öne çıkan ürünler
 // bölümü.
 add_action('woocommerce_before_shop_loop', 'scp_render_shop_showcase', 1);
+
+// "Yeni eklenen ürünler rafı" - öncelik 2, hero'dan (1) hemen sonra,
+// kategori banner'ından (4) önce.
+add_action('woocommerce_before_shop_loop', 'scp_render_new_arrivals', 2);
 
 // "Kategori banner'ları" - öncelik 4, scp_render_shop_filters()'ten (5)
 // ÖNCE - bir kategori arşivinin görseli/açıklaması varsa filtre çubuğunun
@@ -309,6 +325,164 @@ function scp_render_shop_showcase(): void
         </div>
         <?php
     }
+}
+
+/**
+ * "Yeni eklenen ürünler rafı" - yalnızca mağaza ana sayfasında, öne çıkan
+ * ürünler şeridinden hemen sonra (öncelik 2). scp_render_new_badge()'in
+ * KENDİ "14 gün" eşiğiyle aynı sezgisel kullanılıyor - en son yayınlanan
+ * ürün bile 14 günden eskiyse (mağazaya yakın zamanda hiçbir şey
+ * eklenmemiş) bölüm tamamen basılmıyor, boş/alakasız bir "yeni ürünler"
+ * başlığı görünmesin diye. WooCommerce'in KENDİ genel `[products]`
+ * shortcode'u (`orderby="date"`) kullanılıyor - özel bir sorgu yazılmadı,
+ * Mağaza Vitrini'nin `[featured_products]` şeridiyle AYNI carousel CSS
+ * kalıbını (.scp-shop-showcase__carousel) paylaşıyor.
+ */
+function scp_render_new_arrivals(): void
+{
+    if (!is_shop()) {
+        return;
+    }
+
+    $newestProducts = wc_get_products([
+        'limit' => 1,
+        'orderby' => 'date',
+        'order' => 'DESC',
+        'status' => 'publish',
+        'return' => 'ids',
+    ]);
+
+    if (empty($newestProducts)) {
+        return;
+    }
+
+    $publishedTimestamp = get_post_time('U', true, (int) $newestProducts[0]);
+
+    if ($publishedTimestamp === false || (time() - (int) $publishedTimestamp) / DAY_IN_SECONDS > 14) {
+        return;
+    }
+
+    ?>
+    <div class="scp-shop-showcase__section">
+        <h2 class="scp-shop-showcase__section-title"><?php esc_html_e('Yeni Ürünler', 'seviye-storefront'); ?></h2>
+        <div class="scp-shop-showcase__carousel">
+            <?php echo do_shortcode('[products limit="8" columns="4" orderby="date" order="DESC"]'); ?>
+        </div>
+    </div>
+    <?php
+}
+
+/**
+ * "Boş arama sonucunda akıllı öneriler" - `woocommerce_no_products_found`
+ * hook'una BAĞLI (öncelik 20, WC'nin kendi "sonuç bulunamadı" mesajından
+ * sonra), yalnızca gerçek bir arama sorgusu varsa (`?s=...`) basılır -
+ * içeriği boş bir kategori arşivinde (arama YOK, gerçekten sıfır ürün
+ * var) sessizce hiçbir şey basmıyor, o zaman öneri sunmak anlamsız
+ * olurdu. Kategoriler `scp_render_shop_filters()`'in AYNI
+ * `.scp-shop-filters__categories` markup kalıbını yeniden kullanıyor;
+ * önerilen ürünler için özel bir "en çok satan" sorgusu icat edilmedi -
+ * `wc_get_products()`'ın kendi `orderby => 'popularity'` seçeneği
+ * (WooCommerce'in `total_sales` meta'sına dayanıyor) kullanıldı.
+ */
+function scp_render_no_products_suggestions(): void
+{
+    $searchTerm = isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '';
+
+    if ($searchTerm === '') {
+        return;
+    }
+
+    $categories = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => true, 'number' => 6]);
+    $suggestedProducts = wc_get_products([
+        'limit' => 4,
+        'orderby' => 'popularity',
+        'order' => 'DESC',
+        'status' => 'publish',
+        'return' => 'objects',
+    ]);
+
+    if (empty($categories) && empty($suggestedProducts)) {
+        return;
+    }
+
+    ?>
+    <div class="scp-no-products-suggestions">
+        <?php if (!empty($categories) && !is_wp_error($categories)) : ?>
+            <nav class="scp-shop-filters__categories" aria-label="<?php esc_attr_e('Kategoriler', 'seviye-storefront'); ?>">
+                <span class="scp-shop-filters__categories-label">
+                    <?php esc_html_e('Kategorilere göz atın', 'seviye-storefront'); ?>
+                </span>
+                <ul>
+                    <?php foreach ($categories as $category) : ?>
+                        <li>
+                            <a href="<?php echo esc_url((string) get_term_link($category)); ?>">
+                                <?php echo esc_html($category->name); ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </nav>
+        <?php endif; ?>
+
+        <?php if (!empty($suggestedProducts)) : ?>
+            <h3 class="scp-shop-showcase__section-title">
+                <?php esc_html_e('Bunlar ilginizi çekebilir', 'seviye-storefront'); ?>
+            </h3>
+            <ul class="products columns-4">
+                <?php foreach ($suggestedProducts as $suggestedProduct) : ?>
+                    <?php if (!$suggestedProduct instanceof WC_Product) : ?>
+                        <?php continue; ?>
+                    <?php endif; ?>
+                    <li class="product">
+                        <a href="<?php echo esc_url((string) get_permalink($suggestedProduct->get_id())); ?>">
+                            <?php echo wp_kses_post($suggestedProduct->get_image('woocommerce_thumbnail')); ?>
+                            <h2 class="woocommerce-loop-product__title">
+                                <?php echo esc_html($suggestedProduct->get_name()); ?>
+                            </h2>
+                            <span class="price"><?php echo wp_kses_post($suggestedProduct->get_price_html()); ?></span>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+/**
+ * "Sepet/ödeme adım göstergesi" - `orders-panel.js`'in
+ * `renderFulfillmentTimeline()`'ıyla AYNI `.scp-order-timeline` görsel
+ * dilini (nokta + etiket + done/active/upcoming durumları, panel.css'te
+ * zaten stillendi) sipariş sonrasından ÖNCEye, ödeme akışına taşıyor.
+ * WooCommerce'in `is_checkout()`'u thank-you (order-received) sayfasında
+ * da true döner - `is_order_received_page()` bu ikisini ayırıyor, yoksa
+ * onay sayfasında "Ödeme" adımı yanlışlıkla aktif görünürdü.
+ */
+function scp_render_checkout_steps(): void
+{
+    if (!is_cart() && !is_checkout()) {
+        return;
+    }
+
+    $currentIndex = is_order_received_page() ? 2 : (is_checkout() ? 1 : 0);
+
+    $steps = [
+        __('Sepet', 'seviye-storefront'),
+        __('Ödeme', 'seviye-storefront'),
+        __('Onay', 'seviye-storefront'),
+    ];
+
+    ?>
+    <ol class="scp-order-timeline scp-checkout-steps">
+        <?php foreach ($steps as $index => $label) : ?>
+            <?php $state = $index < $currentIndex ? 'done' : ($index === $currentIndex ? 'active' : 'upcoming'); ?>
+            <li class="scp-order-timeline__step scp-order-timeline__step--<?php echo esc_attr($state); ?>">
+                <span class="scp-order-timeline__dot"></span>
+                <span class="scp-order-timeline__label"><?php echo esc_html($label); ?></span>
+            </li>
+        <?php endforeach; ?>
+    </ol>
+    <?php
 }
 
 /**

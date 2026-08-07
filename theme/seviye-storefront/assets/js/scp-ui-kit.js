@@ -71,6 +71,21 @@
     };
 
     /**
+     * "Sayfa geçişlerinde üst yükleme çubuğu" - yukarıdaki
+     * scpBeginNetworkActivity()/scpEndNetworkActivity() zaten HER AJAX
+     * çağrısında (scpApiFetch/scpUploadMedia) bu çubuğu gösteriyordu; bu
+     * yalnızca TAM SAYFA gezinmelerini (bir bağlantıya tıklama, bir form
+     * gönderimi) de aynı çubuğa bağlıyor - `beforeunload` sayfa gerçekten
+     * ayrılmadan hemen önce ateşlenir, yeni sayfa boyanana kadar geçen
+     * boşlukta kullanıcı boş bir sekme yerine devam eden bir gösterge
+     * görür (WordPress'in tam sayfa yenilemesi tabanlı klasik gezinme
+     * modelinde, tarayıcının kendi sekme döner simgesinden daha belirgin).
+     */
+    window.addEventListener('beforeunload', function () {
+        networkActivityBar().classList.add('scp-network-bar--active');
+    });
+
+    /**
      * @param {string} message
      * @param {'default'|'success'|'error'} [variant]
      */
@@ -383,6 +398,41 @@
         var list = document.createElement('ul');
         list.className = 'scp-command-palette__list';
 
+        /**
+         * "Komut paletinde eşleşen metni vurgulama" - `<mark>` KESİNLİKLE
+         * DOM API'siyle inşa ediliyor (innerHTML DEĞİL), `command.label`
+         * zaten güvenilir bir kaynaktan (sayfanın kendi `.scp-quicknav`
+         * bağlantı metinleri, collectCommands()) geliyor olsa da.
+         */
+        function appendHighlightedLabel(link, label, normalized) {
+            if (normalized === '') {
+                link.textContent = label;
+                return;
+            }
+
+            var matchIndex = label.toLowerCase().indexOf(normalized);
+
+            if (matchIndex === -1) {
+                link.textContent = label;
+                return;
+            }
+
+            if (matchIndex > 0) {
+                link.appendChild(document.createTextNode(label.slice(0, matchIndex)));
+            }
+
+            var mark = document.createElement('mark');
+            mark.className = 'scp-command-palette__match';
+            mark.textContent = label.slice(matchIndex, matchIndex + normalized.length);
+            link.appendChild(mark);
+
+            var rest = label.slice(matchIndex + normalized.length);
+
+            if (rest !== '') {
+                link.appendChild(document.createTextNode(rest));
+            }
+        }
+
         function render(query) {
             list.innerHTML = '';
             var normalized = query.trim().toLowerCase();
@@ -404,7 +454,7 @@
                 var link = document.createElement('a');
                 link.className = 'scp-command-palette__item' + (index === 0 ? ' scp-command-palette__item--active' : '');
                 link.href = command.href;
-                link.textContent = command.label;
+                appendHighlightedLabel(link, command.label, normalized);
                 item.appendChild(link);
                 list.appendChild(item);
             });
@@ -754,6 +804,94 @@
         });
     }
 
+    /**
+     * "Mobil sepette swipe-to-remove" - mini sepet çekmecesindeki
+     * (`data-scp-mini-cart`, yukarıdaki initMiniCart()) her satır dokunmalı
+     * cihazlarda sola kaydırılarak silinebiliyor. Tam sepet sayfası
+     * (/sepetim) BİLEREK kapsam DIŞI - orası bir masaüstü-tarzı tablo
+     * (bkz. initCartQuantitySteppers()), satır satır swipe orada tablo
+     * düzenini bozardı; kayan panel zaten klasik "kaydır-sil" listesi
+     * şekline sahip. Silme işlemi kendi AJAX'ını İCAT ETMİYOR - WooCommerce
+     * kendi `.remove_from_cart_button` linkine zaten wc-cart-fragments.js
+     * üzerinden AJAX kaldırma bağlıyor; eşik aşıldığında bu fonksiyon o
+     * linke programatik bir `click()` gönderiyor, gerçek kaldırma işini
+     * WC'nin KENDİ kodu yapıyor.
+     */
+    function initMiniCartSwipeToRemove() {
+        var drawer = document.querySelector('[data-scp-mini-cart]');
+
+        if (!drawer) {
+            return;
+        }
+
+        var SWIPE_THRESHOLD = 72;
+
+        function wireItem(item) {
+            if (item.dataset.scpSwipeBound) {
+                return;
+            }
+
+            item.dataset.scpSwipeBound = '1';
+
+            var startX = null;
+            var currentX = 0;
+
+            item.addEventListener('touchstart', function (event) {
+                if (event.touches.length !== 1) {
+                    return;
+                }
+
+                startX = event.touches[0].clientX;
+                item.classList.add('scp-swipeable--dragging');
+            }, { passive: true });
+
+            item.addEventListener('touchmove', function (event) {
+                if (startX === null) {
+                    return;
+                }
+
+                currentX = Math.min(0, event.touches[0].clientX - startX);
+                item.style.transform = 'translateX(' + currentX + 'px)';
+            }, { passive: true });
+
+            item.addEventListener('touchend', function () {
+                item.classList.remove('scp-swipeable--dragging');
+
+                if (currentX < -SWIPE_THRESHOLD) {
+                    var removeLink = item.querySelector('.remove_from_cart_button');
+
+                    if (removeLink) {
+                        item.style.transform = 'translateX(-100%)';
+                        item.style.opacity = '0';
+                        window.setTimeout(function () {
+                            removeLink.click();
+                        }, 150);
+                        startX = null;
+                        currentX = 0;
+                        return;
+                    }
+                }
+
+                item.style.transform = '';
+                startX = null;
+                currentX = 0;
+            });
+        }
+
+        function wireAll() {
+            drawer.querySelectorAll('.mini_cart_item').forEach(wireItem);
+        }
+
+        wireAll();
+
+        // Mini sepet içeriği WC'nin kendi AJAX yenilemesiyle (bir ürün
+        // eklendiğinde/kaldırıldığında) tamamen yeniden çiziliyor - yeni
+        // gelen satırlara da aynı dinleyicileri bağla.
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document.body).on('wc_fragments_refreshed added_to_cart removed_from_cart', wireAll);
+        }
+    }
+
     // ---- Ürün hızlı önizleme ----
 
     /**
@@ -883,13 +1021,11 @@
         function currentTheme() {
             var stamped = document.documentElement.getAttribute('data-theme');
 
-            if (stamped === 'dark' || stamped === 'light') {
-                return stamped;
-            }
-
-            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-                ? 'dark'
-                : 'light';
+            // Site her zaman açık modda başlar - OS'nin prefers-color-scheme
+            // tercihi kasıtlı olarak yoksayılıyor (bkz. theme.css'in aynı
+            // kararı). data-theme stampalanmamışsa (kullanıcı hiç
+            // seçmemiş) varsayılan 'light'.
+            return stamped === 'dark' ? 'dark' : 'light';
         }
 
         function updateLabel() {
@@ -1321,12 +1457,221 @@
         });
     }
 
+    /**
+     * "Sepette miktar +/- anlık güncelleme" - WooCommerce'in KENDİ
+     * `cart/cart.php` şablonundaki `input.qty` alanının etrafına +/-
+     * düğmeleri ekliyor; değişiklikte "Sepeti Güncelle" düğmesine
+     * TIKLAMAK yerine (tam sayfa yenilemesi) sepet formunu `fetch` ile
+     * AYNI URL'e POST edip dönen HTML'den yalnızca WooCommerce'in kendi
+     * sabit `.woocommerce-cart-form`/`.cart-collaterals` bloklarını canlı
+     * DOM'da değiştiriyor - bu ikisi WC'nin HER temada aynı kalan kendi
+     * şablon sınıfları, temanın kendi sayfa sarmalayıcısına bağımlı
+     * değil. Yeni bir REST endpoint YOK - aynı klasik `?update_cart=1`
+     * form POST akışı, yalnızca tarayıcı gezintisi olmadan.
+     */
+    function initCartQuantitySteppers() {
+        var form = document.querySelector('form.woocommerce-cart-form');
+
+        if (!form) {
+            return;
+        }
+
+        function addSteppers(scope) {
+            scope.querySelectorAll('input.qty').forEach(function (input) {
+                if (input.dataset.scpStepperAdded) {
+                    return;
+                }
+
+                input.dataset.scpStepperAdded = '1';
+
+                var wrapper = document.createElement('span');
+                wrapper.className = 'scp-qty-stepper';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+
+                var minus = document.createElement('button');
+                minus.type = 'button';
+                minus.className = 'scp-qty-stepper__btn';
+                minus.setAttribute('aria-label', '-');
+                minus.textContent = '−';
+                minus.addEventListener('click', function () {
+                    var min = input.min !== '' ? parseFloat(input.min) : 0;
+                    input.value = String(Math.max(min, (parseFloat(input.value) || 0) - 1));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+
+                var plus = document.createElement('button');
+                plus.type = 'button';
+                plus.className = 'scp-qty-stepper__btn';
+                plus.setAttribute('aria-label', '+');
+                plus.textContent = '+';
+                plus.addEventListener('click', function () {
+                    var max = input.max !== '' ? parseFloat(input.max) : Infinity;
+                    input.value = String(Math.min(max, (parseFloat(input.value) || 0) + 1));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+
+                wrapper.insertBefore(minus, input);
+                wrapper.appendChild(plus);
+            });
+        }
+
+        addSteppers(form);
+
+        var debounceTimer = null;
+
+        function submitCartUpdate() {
+            var formData = new FormData(form);
+            formData.set('update_cart', 'Update cart');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            }).then(function (response) {
+                return response.text();
+            }).then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var freshForm = doc.querySelector('form.woocommerce-cart-form');
+                var currentForm = document.querySelector('form.woocommerce-cart-form');
+
+                if (freshForm && currentForm) {
+                    currentForm.replaceWith(freshForm);
+                    addSteppers(freshForm);
+                }
+
+                var freshTotals = doc.querySelector('.cart-collaterals');
+                var currentTotals = document.querySelector('.cart-collaterals');
+
+                if (freshTotals && currentTotals) {
+                    currentTotals.replaceWith(freshTotals);
+                }
+
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+                }
+            });
+        }
+
+        form.addEventListener('change', function (event) {
+            if (!event.target.classList || !event.target.classList.contains('qty')) {
+                return;
+            }
+
+            window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(submitCartUpdate, 400);
+        });
+    }
+
+    /**
+     * "Ödeme formunda gerçek zamanlı, satır içi doğrulama" - WooCommerce
+     * kendi doğrulamasını yalnızca SUBMIT anında yapıyor (checkout.js,
+     * dokunulmadı); bu fonksiyon her alanın kendi `blur`'unda WC'nin
+     * ZATEN bastığı `validate-required`/`validate-email` sınıflarını
+     * (`.form-row`'un kendi sınıfları - her WC checkout alanı bunları
+     * taşır, yeni bir işaretleme icat edilmedi) okuyup anlık bir hata
+     * mesajı gösteriyor/gizliyor - sunucu tarafı doğrulamanın YERİNE
+     * geçmiyor, yalnızca submit'e kadar beklemeden erken geri bildirim.
+     */
+    function initCheckoutInlineValidation() {
+        var form = document.querySelector('form.woocommerce-checkout');
+
+        if (!form) {
+            return;
+        }
+
+        var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        function fieldOf(row) {
+            return row.querySelector('input, select, textarea');
+        }
+
+        function validateRow(row) {
+            var field = fieldOf(row);
+
+            if (!field) {
+                return;
+            }
+
+            var value = field.value.trim();
+            var message = '';
+
+            if (row.classList.contains('validate-required') && value === '') {
+                message = scpPanelTextValidationRequired();
+            } else if (row.classList.contains('validate-email') && value !== '' && !emailPattern.test(value)) {
+                message = scpPanelTextValidationEmail();
+            }
+
+            var errorEl = row.querySelector('.scp-field-error');
+
+            if (message === '') {
+                row.classList.remove('scp-field-invalid');
+
+                if (errorEl) {
+                    errorEl.remove();
+                }
+
+                return;
+            }
+
+            row.classList.add('scp-field-invalid');
+
+            if (!errorEl) {
+                errorEl = document.createElement('span');
+                errorEl.className = 'scp-field-error';
+                row.appendChild(errorEl);
+            }
+
+            errorEl.textContent = message;
+        }
+
+        function scpPanelTextValidationRequired() {
+            return (typeof scpPanelText !== 'undefined' && scpPanelText.checkoutFieldRequired)
+                || 'Bu alan zorunludur.';
+        }
+
+        function scpPanelTextValidationEmail() {
+            return (typeof scpPanelText !== 'undefined' && scpPanelText.checkoutFieldInvalidEmail)
+                || 'Geçerli bir e-posta adresi girin.';
+        }
+
+        function bindRow(row) {
+            var field = fieldOf(row);
+
+            if (!field || field.dataset.scpValidationBound) {
+                return;
+            }
+
+            field.dataset.scpValidationBound = '1';
+            field.addEventListener('blur', function () {
+                validateRow(row);
+            });
+            field.addEventListener('input', function () {
+                if (row.classList.contains('scp-field-invalid')) {
+                    validateRow(row);
+                }
+            });
+        }
+
+        form.querySelectorAll('.form-row').forEach(bindRow);
+
+        // WooCommerce checkout alanları ödeme yöntemi seçimine göre AJAX
+        // ile yeniden çiziliyor (`updated_checkout` - update_order_review
+        // sonrası) - yeni gelen alanlara da aynı dinleyicileri bağla.
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document.body).on('updated_checkout', function () {
+                form.querySelectorAll('.form-row').forEach(bindRow);
+            });
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         window.scpKebabMenus();
         window.scpSidebarNav();
         initLargeTitleScroll();
         initCharCounters();
         initMiniCart();
+        initMiniCartSwipeToRemove();
         initOrderCelebration();
         initQuickView();
         initScrollToTop();
@@ -1334,5 +1679,7 @@
         initThemeToggle();
         initRecentlyViewed();
         initStockSubscription();
+        initCartQuantitySteppers();
+        initCheckoutInlineValidation();
     });
 })();

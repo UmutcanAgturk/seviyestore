@@ -39,8 +39,9 @@ function scp_theme_setup(): void
  * true`), which would only run after the WHOLE page (styles included) has
  * already painted with the wrong theme for one visible frame. try/catch
  * because `localStorage` throws in some privacy-mode/embedded-iframe
- * contexts - a blocked read there should just fall through to the OS
- * `prefers-color-scheme` default, not break the page.
+ * contexts - a blocked read there should just fall through to the site's
+ * own light default (no OS `prefers-color-scheme` fallback anymore, see
+ * theme.css's own docblock on that), not break the page.
  */
 function scp_theme_preload_script(): void
 {

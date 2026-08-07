@@ -51,6 +51,14 @@ function scp_module_icon_svg(string $name): string
         'settings' => '<circle cx="12" cy="12" r="3"/>'
             . '<path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1'
             . 'M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+        // "Mobilde alt gezinme çubuğu" (bkz. header.php) - veli için üç yeni
+        // glif, aynı hand-rolled outline SVG ilkesiyle.
+        'home' => '<path d="M4 11 12 4l8 7"/>'
+            . '<path d="M6 10v9a1 1 0 0 0 1 1h4v-6h2v6h4a1 1 0 0 0 1-1v-9"/>',
+        'cart' => '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/>'
+            . '<path d="M3 4h2l2.2 11.5a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6"/>',
+        'profile' => '<circle cx="12" cy="8" r="4"/>'
+            . '<path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7"/>',
     ];
 
     if (! isset($paths[$name])) {

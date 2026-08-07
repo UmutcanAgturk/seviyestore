@@ -667,6 +667,55 @@ button.scp-badge:hover {
   color: var(--scp-accent-dark);
 }
 
+/* ---- "Dashboard widget sürükle-bırak yeniden sıralama" -
+   overview-panel.js's initDashboardWidgetReorder(). Sarmalayıcı kendisi
+   düz bir dikey akış (grid/flex değil) - içindeki .scp-stat-grid'in
+   KENDİ grid düzeni ayrı bir katman, widget sırası yalnızca bu
+   sarmalayıcıların dikey sırasını değiştiriyor. ---- */
+.scp-dashboard-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.scp-dashboard-widget {
+  position: relative;
+  padding-left: 28px;
+}
+
+.scp-dashboard-widget--dragging {
+  opacity: 0.4;
+}
+
+.scp-dashboard-widget__handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--scp-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--scp-radius-sm);
+  cursor: grab;
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.scp-dashboard-widget__handle:hover {
+  background: var(--scp-surface-alt);
+  color: var(--scp-text);
+}
+
+.scp-dashboard-widget__handle:active {
+  cursor: grabbing;
+}
+
 /* "Genel Bakış" (overview dashboard) KPI tiles. */
 .scp-stat-grid {
   display: grid;
@@ -1467,6 +1516,10 @@ button.scp-badge:hover {
   font-size: var(--scp-text-sm);
 }
 
+.scp-empty-state .scp-btn {
+  margin-top: 8px;
+}
+
 /* ---- Markalı 404 sayfası - theme's own 404.php. A big brand-colored
    numeral in place of an icon; otherwise the same centered-card shape as
    .scp-empty-state above (kept separate rather than reused, since a 404 is
@@ -1522,10 +1575,10 @@ button.scp-badge:hover {
   animation: scp-skeleton-sweep 1.4s var(--scp-ease) infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  .scp-skeleton::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  }
+/* prefers-color-scheme DEĞİL - karanlık mod yalnızca kullanıcının kendi
+   anahtarıyla ([data-theme="dark"]) tetiklenir, bkz. theme.css. */
+:root[data-theme="dark"] .scp-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
 }
 
 @keyframes scp-skeleton-sweep {
@@ -1639,8 +1692,14 @@ button.scp-badge:hover {
   background: transparent;
 }
 
+/* Klavye odak halkası - önceden burada yalnızca `outline: none` vardı ve
+   hiçbir görsel karşılığı yoktu, komut paleti aç anında (input otomatik
+   focus alır) klavye kullanıcısı için görünmez bir odak durumuna yol
+   açıyordu. Diğer tüm giriş alanlarıyla (bkz. .scp-form input:focus vb.)
+   AYNI border-color + box-shadow halkası kalıbı. */
 .scp-command-palette__input:focus {
   outline: none;
+  box-shadow: inset 0 -2px 0 var(--scp-primary-light);
 }
 
 .scp-command-palette__list {
@@ -1670,6 +1729,22 @@ button.scp-badge:hover {
   text-align: center;
   color: var(--scp-text-muted);
   font-size: var(--scp-text-sm);
+}
+
+/* "Komut paletinde eşleşen metni vurgulama" - appendHighlightedLabel()
+   (scp-ui-kit.js) bir öğe etiketi içinde arama sorgusuyla eşleşen alt
+   diziyi bu sınıfla bir <mark>'e sarıyor. */
+.scp-command-palette__match {
+  background: var(--scp-primary-bg);
+  color: var(--scp-primary);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.scp-command-palette__item--active .scp-command-palette__match {
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
 }
 
 /* ---- Module identity - a colored icon tile per module, used on the

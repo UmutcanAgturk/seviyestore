@@ -326,5 +326,118 @@
         });
     }
 
+    /**
+     * "Dashboard widget sürükle-bırak yeniden sıralama" - dört widget
+     * sarmalayıcısı (bkz. templates/zone.php'nin `data-scp-dashboard-widget`
+     * işaretlemesi) kendi aralarında sürüklenip bırakılabiliyor, yeni sıra
+     * `localStorage`'a kaydediliyor ve sonraki ziyarette veri henüz
+     * yüklenmeden ÖNCE uygulanıyor (widget'lar boşken - `hidden` - yer
+     * değiştirmek görsel bir sıçramaya yol açmıyor). Sunucu tarafında
+     * hiçbir şey saklanmıyor - bu tamamen bu tarayıcıya özel bir tercih,
+     * tıpkı Manuel karanlık mod anahtarının kendi `localStorage.scpTheme`'i
+     * gibi.
+     */
+    function initDashboardWidgetReorder() {
+        var container = root.querySelector('[data-scp-dashboard-widgets]');
+
+        if (!container) {
+            return;
+        }
+
+        var STORAGE_KEY = 'scpOverviewWidgetOrder';
+        var draggingEl = null;
+
+        function applyStoredOrder() {
+            var stored = null;
+
+            try {
+                stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            } catch (e) {
+                stored = null;
+            }
+
+            if (!Array.isArray(stored)) {
+                return;
+            }
+
+            stored.forEach(function (widgetId) {
+                var widget = container.querySelector('[data-scp-dashboard-widget="' + widgetId + '"]');
+
+                if (widget) {
+                    container.appendChild(widget);
+                }
+            });
+        }
+
+        function persistOrder() {
+            var order = Array.prototype.map.call(
+                container.querySelectorAll('[data-scp-dashboard-widget]'),
+                function (widget) {
+                    return widget.getAttribute('data-scp-dashboard-widget');
+                }
+            );
+
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+            } catch (e) {
+                // Privacy-mode/iframe contexts can block localStorage - the
+                // reorder still works for the rest of this page view.
+            }
+        }
+
+        function elementAfterPointer(y) {
+            var widgets = Array.prototype.slice.call(
+                container.querySelectorAll('[data-scp-dashboard-widget]:not(.scp-dashboard-widget--dragging)')
+            );
+
+            return widgets.reduce(function (closest, widget) {
+                var box = widget.getBoundingClientRect();
+                var offset = y - box.top - box.height / 2;
+
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: widget };
+                }
+
+                return closest;
+            }, { offset: -Infinity, element: null }).element;
+        }
+
+        applyStoredOrder();
+
+        container.querySelectorAll('.scp-dashboard-widget__handle').forEach(function (handle) {
+            handle.addEventListener('dragstart', function (event) {
+                draggingEl = handle.closest('[data-scp-dashboard-widget]');
+                draggingEl.classList.add('scp-dashboard-widget--dragging');
+                event.dataTransfer.effectAllowed = 'move';
+            });
+
+            handle.addEventListener('dragend', function () {
+                if (draggingEl) {
+                    draggingEl.classList.remove('scp-dashboard-widget--dragging');
+                }
+
+                draggingEl = null;
+                persistOrder();
+            });
+        });
+
+        container.addEventListener('dragover', function (event) {
+            if (!draggingEl) {
+                return;
+            }
+
+            event.preventDefault();
+
+            var afterElement = elementAfterPointer(event.clientY);
+
+            if (afterElement === null) {
+                container.appendChild(draggingEl);
+            } else {
+                container.insertBefore(draggingEl, afterElement);
+            }
+        });
+    }
+
     load();
+    initDashboardWidgetReorder();
 })();

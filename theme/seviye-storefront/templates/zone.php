@@ -59,60 +59,108 @@ get_header();
 
             <p class="scp-status" data-scp-overview-status></p>
 
-            <div class="scp-stat-grid" data-scp-overview-stats hidden>
-                <div class="scp-stat-tile">
-                    <span class="scp-stat-tile__label"><?php esc_html_e('Bugün', 'seviye-storefront'); ?></span>
-                    <span class="scp-stat-tile__value" data-scp-overview-today-total></span>
-                    <span class="scp-stat-tile__meta" data-scp-overview-today-count></span>
+            <?php
+            /**
+             * "Dashboard widget sürükle-bırak yeniden sıralama" - dört
+             * widget'ın (istatistikler/trend/en çok satanlar/şube kırılımı)
+             * her biri kendi `data-scp-dashboard-widget` id'siyle
+             * işaretlendi; assets/js/overview-panel.js'in
+             * initDashboardWidgetReorder()'ı bu id'leri sürükleme
+             * sırasında okuyup localStorage'a kaydediyor, sonraki
+             * ziyarette AYNI sırayla yeniden diziyor. Sıra, hangi
+             * `data-scp-overview-*` alt öğesinin nerede olduğunu
+             * DEĞİŞTİRMİYOR - yalnızca bu dört sarmalayıcının kendi
+             * aralarındaki sırasını.
+             */
+            ?>
+            <div class="scp-dashboard-widgets" data-scp-dashboard-widgets>
+                <div class="scp-dashboard-widget" data-scp-dashboard-widget="stats">
+                    <button
+                        type="button"
+                        class="scp-dashboard-widget__handle"
+                        draggable="true"
+                        aria-label="<?php esc_attr_e('Widget\'ı sürükle', 'seviye-storefront'); ?>"
+                    >⠿</button>
+                    <div class="scp-stat-grid" data-scp-overview-stats hidden>
+                        <div class="scp-stat-tile">
+                            <span class="scp-stat-tile__label"><?php esc_html_e('Bugün', 'seviye-storefront'); ?></span>
+                            <span class="scp-stat-tile__value" data-scp-overview-today-total></span>
+                            <span class="scp-stat-tile__meta" data-scp-overview-today-count></span>
+                        </div>
+                        <div class="scp-stat-tile">
+                            <span class="scp-stat-tile__label"><?php esc_html_e('Son 7 Gün', 'seviye-storefront'); ?></span>
+                            <span class="scp-stat-tile__value" data-scp-overview-week-total></span>
+                            <span class="scp-stat-tile__meta" data-scp-overview-week-count></span>
+                        </div>
+                        <div class="scp-stat-tile">
+                            <span class="scp-stat-tile__label"><?php esc_html_e('Son 30 Gün', 'seviye-storefront'); ?></span>
+                            <span class="scp-stat-tile__value" data-scp-overview-month-total></span>
+                            <span class="scp-stat-tile__meta" data-scp-overview-month-count></span>
+                        </div>
+                    </div>
                 </div>
-                <div class="scp-stat-tile">
-                    <span class="scp-stat-tile__label"><?php esc_html_e('Son 7 Gün', 'seviye-storefront'); ?></span>
-                    <span class="scp-stat-tile__value" data-scp-overview-week-total></span>
-                    <span class="scp-stat-tile__meta" data-scp-overview-week-count></span>
-                </div>
-                <div class="scp-stat-tile">
-                    <span class="scp-stat-tile__label"><?php esc_html_e('Son 30 Gün', 'seviye-storefront'); ?></span>
-                    <span class="scp-stat-tile__value" data-scp-overview-month-total></span>
-                    <span class="scp-stat-tile__meta" data-scp-overview-month-count></span>
-                </div>
-            </div>
 
-            <div class="scp-trend-chart" data-scp-overview-trend hidden>
-                <h3><?php esc_html_e('Günlük Ciro Trendi (Son 30 Gün)', 'seviye-storefront'); ?></h3>
-                <div class="scp-trend-chart__svg-host" data-scp-overview-trend-chart></div>
-                <div class="scp-trend-chart__range">
-                    <span data-scp-overview-trend-from></span>
-                    <span data-scp-overview-trend-to></span>
+                <div class="scp-dashboard-widget" data-scp-dashboard-widget="trend">
+                    <button
+                        type="button"
+                        class="scp-dashboard-widget__handle"
+                        draggable="true"
+                        aria-label="<?php esc_attr_e('Widget\'ı sürükle', 'seviye-storefront'); ?>"
+                    >⠿</button>
+                    <div class="scp-trend-chart" data-scp-overview-trend hidden>
+                        <h3><?php esc_html_e('Günlük Ciro Trendi (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+                        <div class="scp-trend-chart__svg-host" data-scp-overview-trend-chart></div>
+                        <div class="scp-trend-chart__range">
+                            <span data-scp-overview-trend-from></span>
+                            <span data-scp-overview-trend-to></span>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <h3><?php esc_html_e('En Çok Satan Ürünler (Son 30 Gün)', 'seviye-storefront'); ?></h3>
-            <div class="scp-table-wrapper">
-                <table class="scp-table" data-scp-overview-products-table hidden>
-                    <thead>
-                        <tr>
-                            <th><?php esc_html_e('Ürün', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Adet', 'seviye-storefront'); ?></th>
-                            <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody data-scp-overview-products-body></tbody>
-                </table>
-            </div>
+                <div class="scp-dashboard-widget" data-scp-dashboard-widget="products">
+                    <button
+                        type="button"
+                        class="scp-dashboard-widget__handle"
+                        draggable="true"
+                        aria-label="<?php esc_attr_e('Widget\'ı sürükle', 'seviye-storefront'); ?>"
+                    >⠿</button>
+                    <h3><?php esc_html_e('En Çok Satan Ürünler (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+                    <div class="scp-table-wrapper">
+                        <table class="scp-table" data-scp-overview-products-table hidden>
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Ürün', 'seviye-storefront'); ?></th>
+                                    <th><?php esc_html_e('Adet', 'seviye-storefront'); ?></th>
+                                    <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody data-scp-overview-products-body></tbody>
+                        </table>
+                    </div>
+                </div>
 
-            <div data-scp-overview-branch-section hidden>
-                <h3><?php esc_html_e('Şube Bazlı Kırılım (Son 30 Gün)', 'seviye-storefront'); ?></h3>
-                <div class="scp-table-wrapper">
-                    <table class="scp-table" data-scp-overview-branches-table hidden>
-                        <thead>
-                            <tr>
-                                <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
-                                <th><?php esc_html_e('Sipariş', 'seviye-storefront'); ?></th>
-                                <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody data-scp-overview-branches-body></tbody>
-                    </table>
+                <div class="scp-dashboard-widget" data-scp-dashboard-widget="branches">
+                    <button
+                        type="button"
+                        class="scp-dashboard-widget__handle"
+                        draggable="true"
+                        aria-label="<?php esc_attr_e('Widget\'ı sürükle', 'seviye-storefront'); ?>"
+                    >⠿</button>
+                    <div data-scp-overview-branch-section hidden>
+                        <h3><?php esc_html_e('Şube Bazlı Kırılım (Son 30 Gün)', 'seviye-storefront'); ?></h3>
+                        <div class="scp-table-wrapper">
+                            <table class="scp-table" data-scp-overview-branches-table hidden>
+                                <thead>
+                                    <tr>
+                                        <th><?php esc_html_e('Şube', 'seviye-storefront'); ?></th>
+                                        <th><?php esc_html_e('Sipariş', 'seviye-storefront'); ?></th>
+                                        <th><?php esc_html_e('Ciro (TRY)', 'seviye-storefront'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody data-scp-overview-branches-body></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

@@ -965,6 +965,90 @@
   text-shadow: 0 1px 3px rgba(16, 24, 40, 0.55);
 }
 
+.scp-shop-showcase__section {
+  margin: 0 0 24px;
+}
+
+/* ---- "Ödeme formunda gerçek zamanlı satır içi doğrulama" -
+   scp-ui-kit.js's initCheckoutInlineValidation(). WooCommerce'in kendi
+   `.form-row`/`input`/`select` sınıflarına ekleniyor, yeni bir form
+   şablonu yazılmadı. ---- */
+.woocommerce-checkout .form-row.scp-field-invalid input,
+.woocommerce-checkout .form-row.scp-field-invalid select,
+.woocommerce-checkout .form-row.scp-field-invalid textarea {
+  border-color: var(--scp-danger);
+}
+
+.scp-field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--scp-text-xs);
+  color: var(--scp-danger);
+}
+
+/* ---- "Sepette miktar +/- anlık güncelleme" - scp-ui-kit.js's
+   initCartQuantitySteppers() wraps WooCommerce's own `input.qty` in this
+   span and prepends/appends the two buttons. ---- */
+.scp-qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scp-qty-stepper__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--scp-text);
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+}
+
+.scp-qty-stepper__btn:hover {
+  background: var(--scp-surface);
+  border-color: var(--scp-primary-light);
+}
+
+.scp-qty-stepper input.qty {
+  width: 48px;
+  text-align: center;
+}
+
+/* ---- "Sepet/ödeme adım göstergesi" - scp_render_checkout_steps()
+   (inc/woocommerce.php), .scp-order-timeline'ı (panel.css) YENİDEN
+   KULLANIYOR - sepet/ödeme/onay sayfalarının üstünde, kendi sayfa
+   içeriğinden ayrışsın diye ortalanmış ve dar bir genişliğe sabitleniyor
+   (panel.css'teki kaynağı bir kartın içinde tam genişlik akıyor). ---- */
+.scp-checkout-steps {
+  max-width: 480px;
+  margin: 0 auto 32px;
+}
+
+/* ---- Boş arama sonucunda akıllı öneriler -
+   scp_render_no_products_suggestions() (inc/woocommerce.php). Kategori
+   listesi .scp-shop-filters__categories'i yeniden kullanıyor (yukarıda
+   zaten stillendi), yalnızca üstüne biraz boşluk ekleniyor. ---- */
+.scp-no-products-suggestions {
+  margin-top: 24px;
+}
+
+.scp-no-products-suggestions .scp-shop-showcase__section-title {
+  margin-top: 24px;
+}
+
+.scp-shop-showcase__section-title {
+  margin: 0 0 12px;
+  font-size: var(--scp-text-lg);
+  color: var(--scp-text);
+}
+
 .scp-shop-showcase__carousel {
   margin: 0 0 24px;
 }
@@ -1118,6 +1202,18 @@
   gap: 10px;
   padding: 10px 0;
   border-bottom: 1px solid var(--scp-border);
+  touch-action: pan-y;
+  transition: transform 0.2s var(--scp-ease), opacity 0.2s var(--scp-ease);
+}
+
+/* "Mobil sepette swipe-to-remove" - scp-ui-kit.js's
+   initMiniCartSwipeToRemove() sürükleme SIRASINDA bu sınıfı ekliyor, satır
+   parmağı anında takip etsin diye geçiş süresi kapatılıyor; parmak
+   kalktığında sınıf kaldırılıyor ve yukarıdaki transition, satırı ya
+   geri (transform: '') ya da dışarı (kaldırma - translateX(-100%)) doğru
+   animasyonla taşıyor. */
+.scp-mini-cart__content .woocommerce-mini-cart-item.scp-swipeable--dragging {
+  transition: none;
 }
 
 .scp-mini-cart__content .woocommerce-mini-cart-item img {

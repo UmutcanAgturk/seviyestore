@@ -118,6 +118,44 @@ if (!defined('ABSPATH')) {
 <?php if (function_exists('scp_render_mini_cart_drawer')) : ?>
     <?php scp_render_mini_cart_drawer(); ?>
 <?php endif; ?>
+<?php
+/**
+ * "Mobilde alt gezinme çubuğu" - yalnızca veli için (üstteki
+ * `scp_view_own_children`/`scp_manage_own_profile` kontrolleriyle AYNI
+ * roller, AYNI dört hedef: Mağaza, Sepetim, Siparişlerim, Profilim), CSS
+ * ile yalnızca dar ekranlarda (`max-width: 640px`, panel.css'in kendi
+ * mobil kırılma noktası) görünür - masaüstünde zaten üst menüde var,
+ * burada tekrar gösterilmiyor. Şube/Genel Merkez/Muhasebe/Depo gibi
+ * personel rolleri için basılmıyor - onlar zaten sol kenar çubuğuna sahip
+ * (bkz. inc/sidebar.php), mobilde onun için AYRI bir çözüm (küçük ekranda
+ * aç/kapa) zaten var, burada ikinci bir gezinme sistemi eklenmiyor.
+ */
+$scp_is_parent_zone = current_user_can('scp_view_own_children') || current_user_can('scp_manage_own_profile');
+?>
+<?php if ($scp_is_parent_zone && function_exists('wc_get_page_permalink')) : ?>
+    <nav class="scp-mobile-bottom-nav" aria-label="<?php esc_attr_e('Mobil gezinme', 'seviye-storefront'); ?>">
+        <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <?php echo scp_module_icon_svg('home'); ?>
+            <span><?php esc_html_e('Ana Sayfa', 'seviye-storefront'); ?></span>
+        </a>
+        <a href="<?php echo esc_url(wc_get_cart_url()); ?>">
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <?php echo scp_module_icon_svg('cart'); ?>
+            <span><?php esc_html_e('Sepet', 'seviye-storefront'); ?></span>
+        </a>
+        <a href="<?php echo esc_url(home_url('/siparislerim')); ?>">
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <?php echo scp_module_icon_svg('orders'); ?>
+            <span><?php esc_html_e('Siparişler', 'seviye-storefront'); ?></span>
+        </a>
+        <a href="<?php echo esc_url(home_url('/profilim')); ?>">
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <?php echo scp_module_icon_svg('profile'); ?>
+            <span><?php esc_html_e('Profil', 'seviye-storefront'); ?></span>
+        </a>
+    </nav>
+<?php endif; ?>
 <div class="scp-layout">
     <?php scp_render_sidebar(); ?>
     <main id="scp-main-content" class="scp-site-main">

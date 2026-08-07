@@ -380,7 +380,8 @@
             populateSpendingSummaryToolbar(loadedOrders);
 
             if (result.data.length === 0) {
-                setStatus(scpPanelTextData.noOrders);
+                setStatus('');
+                listEl.appendChild(renderEmptyOrdersState());
                 return;
             }
 
@@ -389,6 +390,44 @@
                 listEl.appendChild(renderOrder(order));
             });
         });
+    }
+
+    /**
+     * "Boş durum illüstrasyonu" - `.scp-empty-state` (panel.css, bölüm
+     * 169) bu ana kadar hiçbir yerde KULLANILMIYORDU; bu ilk somut
+     * uygulaması. İkon "orders" module tile glifiyle AYNI hand-rolled SVG
+     * (bkz. templates/partials/icon.php'nin kendi "orders" yolu) - sabit,
+     * kullanıcı girdisi içermeyen bir sabit dize olduğu için innerHTML
+     * güvenli.
+     */
+    function renderEmptyOrdersState() {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'scp-empty-state';
+
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'scp-empty-state__icon';
+        iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M9 3v4M15 3v4M4 10h16"/></svg>';
+        wrapper.appendChild(iconWrap);
+
+        var heading = document.createElement('h3');
+        heading.textContent = scpPanelTextData.noOrdersHeading || scpPanelTextData.noOrders;
+        wrapper.appendChild(heading);
+
+        var message = document.createElement('p');
+        message.textContent = scpPanelTextData.noOrders;
+        wrapper.appendChild(message);
+
+        if (scpPanelTextData.shopUrl) {
+            var link = document.createElement('a');
+            link.className = 'scp-btn';
+            link.href = scpPanelTextData.shopUrl;
+            link.textContent = scpPanelTextData.noOrdersShopLink || scpPanelTextData.noOrdersHeading;
+            wrapper.appendChild(link);
+        }
+
+        return wrapper;
     }
 
     loadOrders();

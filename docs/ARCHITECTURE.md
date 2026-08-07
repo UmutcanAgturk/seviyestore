@@ -5064,6 +5064,104 @@ var olan nonce-verification/line-length uyarıları kaldı). Gerçek
 WordPress+MariaDB üzerinde uçtan uca test bu sandboxta (Docker erişimi
 yok) yine yapılamadı.
 
+### 89. UX Turu 8 (14 madde + karanlık mod varsayılanı düzeltmesi)
+
+Kullanıcı "Daha ne yapabiliriz UX olarak" sorusuna önce 4'lü seçenekler
+sunuldu (kullanıcı hepsini reddetti), sonra "bana daha fazla öner 25 tane"
+istendi - 25 fikirlik bir liste sunuldu, kullanıcı bunlardan 13'ünü
+seçti + ayrı bir açık talimat daha ekledi ("website ilk açıldığı anda hep
+beyaz modda olsun kullanıcı isterse koyu modu açabilsin"). Bu bölüm o
+turun tamamını kapsıyor - yalnızca tema dosyaları değişti, hiçbir eklenti
+dokunulmadı.
+
+**Karanlık mod artık YALNIZCA kullanıcının kendi anahtarıyla
+tetikleniyor.** Önceden `@media (prefers-color-scheme: dark)` blokları
+(theme.css, auth.css, panel.css'in skeleton shimmer'ı) OS koyu tercihini
+`data-theme` hiç stampalanmamışken bile uyguluyordu - yeni bir ziyaretçi
+koyu OS'te siteyi hep koyu görüyordu. Bu bloklar TAMAMEN kaldırıldı;
+kalan tek tetikleyici `:root[data-theme="dark"]` (kullanıcının
+`localStorage.scpTheme` seçimi) - `initThemeToggle()`'ın kendi
+`currentTheme()`'i de artık `prefers-color-scheme`'e DÜŞMÜYOR, hiçbir
+seçim yoksa sabit `'light'`.
+
+**Mağaza sayfası: iki yeni otomatik/isteğe bağlı bölüm.**
+`scp_render_new_arrivals()` (`woocommerce_before_shop_loop`, öncelik 2 -
+Mağaza Vitrini hero'sundan hemen sonra) en son yayınlanan ürün 14 günden
+eskiyse HİÇBİR ŞEY basmıyor (aynı `scp_render_new_badge()` eşiği),
+değilse WooCommerce'in kendi `[products orderby="date"]` shortcode'unu
+Mağaza Vitrini'nin carousel CSS kalıbıyla basıyor.
+`scp_render_no_products_suggestions()`
+(`woocommerce_no_products_found`, öncelik 20) yalnızca GERÇEK bir arama
+sorgusunda (`?s=...`) çalışıyor - kategori listesini
+`scp_render_shop_filters()`'ın AYNI `.scp-shop-filters__categories`
+markup'ıyla, önerilen ürünleri `wc_get_products(orderby=>popularity)`
+ile basıyor.
+
+**Sepet/ödeme: üç değişiklik.** `scp_render_checkout_steps()` sepet/
+ödeme/onay sayfalarının üçünde de basılıyor,
+`.scp-order-timeline`'ı (sipariş durumu zaman çizelgesiyle AYNI görsel
+dil) yeniden kullanıyor; `is_order_received_page()` thank-you sayfasını
+ayırıyor (`is_checkout()` orada da true döner).
+`initCartQuantitySteppers()` (`scp-ui-kit.js`) sepet sayfasındaki
+`input.qty`'nin etrafına +/- ekliyor, değişiklikte sepet formunu
+`fetch` ile AYNI URL'e POST edip yalnızca WooCommerce'in KENDİ
+`.woocommerce-cart-form`/`.cart-collaterals` bloklarını DOM'da
+değiştiriyor - yeni bir REST endpoint yok. `initCheckoutInlineValidation()`
+her alanın `blur`'unda WC'nin ZATEN bastığı `validate-required`/
+`validate-email` sınıflarını okuyup anlık hata gösteriyor - sunucu
+doğrulamasının yerine geçmiyor.
+
+**Erişilebilirlik/performans: iki küçük düzeltme.** Komut paleti arama
+kutusunun `outline: none`'ı hiçbir görsel karşılığı olmadan duruyordu -
+artık diğer tüm input'larla aynı border-color/box-shadow ailesinden bir
+alt çizgi halkası var. "Sayfa geçişlerinde üst yükleme çubuğu" - AJAX
+tarafı zaten vardı (`scpBeginNetworkActivity()`/`scpEndNetworkActivity()`,
+her `scpApiFetch` çağrısında), yalnızca `beforeunload`'a bağlanarak TAM
+SAYFA gezinmelerini de aynı çubuğa bağladı.
+
+**Genel Bakış: sürükle-bırak widget sırası.** Dört widget
+(istatistikler/trend/en çok satanlar/şube kırılımı)
+`data-scp-dashboard-widget` ile işaretlendi;
+`initDashboardWidgetReorder()` (`overview-panel.js`) klasik
+"getDragAfterElement" vanilla-JS kalıbıyla sürüklenip bırakılabiliyor,
+sıra `localStorage`'a kaydedilip bir sonraki ziyarette veri yüklenmeden
+ÖNCE uygulanıyor.
+
+**Komut paletinde vurgulama.** `appendHighlightedLabel()` eşleşen alt
+diziyi DOM API'siyle (innerHTML DEĞİL) bir `<mark>`'e sarıyor.
+
+**Mobil: iki yeni yüzey, ikisi de yalnızca veli için.**
+`header.php`'ye eklenen `.scp-mobile-bottom-nav` (Ana Sayfa/Sepet/
+Siparişler/Profil - üst menüdekiyle AYNI dört hedef, `templates/partials/
+icon.php`'ye üç yeni glif eklendi) yalnızca 640px altında görünür, sol
+kenar çubuğuna sahip personel rolleri için basılmıyor.
+`initMiniCartSwipeToRemove()` mini sepet çekmecesindeki her satırı sola
+kaydırarak silinebilir yapıyor - kendi AJAX'ını icat etmiyor, eşik
+aşıldığında WooCommerce'in KENDİ `.remove_from_cart_button`'ına
+programatik `click()` gönderiyor. Tam sepet sayfası (masaüstü-tarzı
+tablo) bilerek kapsam dışı.
+
+**Karanlık modda logo kontrastı.** Yüklenen bir logo neredeyse her zaman
+açık arka plan için tasarlanır; koyu modda hem header hem login logosu
+artık sabit beyaz bir "kart" zemini üzerinde gösteriliyor - logonun
+kendi renkleri analiz edilmeden (build adımı olmayan bir tema, sunucu
+taraflı görüntü işleme yok) her logo için kontrastı garanti eden güvenli
+varsayılan.
+
+**Boş durum illüstrasyonu.** `.scp-empty-state` (bölüm 169'dan) bu ana
+kadar HİÇBİR YERDE kullanılmıyordu - ilk somut uygulaması Siparişlerim
+sayfasının "henüz siparişiniz yok" durumu (ikon + başlık + mesaj +
+"Mağazaya Git" düğmesi). Codebase'in geri kalanındaki düz durum-satırı
+metni (`setStatus()`) kasıtlı, tutarlı bir tasarım kararı olarak
+KORUNDU - onlarca panelin tamamını yeniden tasarlamak bu turun kapsamı
+dışında.
+
+**Doğrulama.** Değişen tüm dosyalarda `php -l`/`node --check` temiz,
+`phpcs` 0 yeni hata (yalnızca bu diff'ten önce de var olan nonce-
+verification/line-length uyarıları kaldı), tüm değişen CSS dosyalarında
+küme parantezi dengesi doğrulandı. Bu tur yalnızca tema dosyalarını
+değiştirdiği için hiçbir eklenti PHPUnit paketi etkilenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

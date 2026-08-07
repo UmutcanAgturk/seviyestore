@@ -94,6 +94,9 @@ function scp_enqueue_panel_assets(): void
     ];
 
     $text = [
+        'shopUrl' => esc_url_raw(
+            function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/')
+        ),
         'loadError' => __('Veriler yüklenirken bir hata oluştu.', 'seviye-storefront'),
         'saveError' => __('Kaydedilirken bir hata oluştu.', 'seviye-storefront'),
         'saved' => __('Kaydedildi.', 'seviye-storefront'),
@@ -209,6 +212,8 @@ function scp_enqueue_panel_assets(): void
         'sizeGuideSaved' => __('Beden rehberi kaydedildi.', 'seviye-storefront'),
         'sizeGuideLabelPlaceholder' => __('ör. S (4-5 yaş)', 'seviye-storefront'),
         'shopShowcaseSaved' => __('Mağaza vitrini kaydedildi.', 'seviye-storefront'),
+        'checkoutFieldRequired' => __('Bu alan zorunludur.', 'seviye-storefront'),
+        'checkoutFieldInvalidEmail' => __('Geçerli bir e-posta adresi girin.', 'seviye-storefront'),
         'confirmDeleteSupplier' => __(
             'Bu tedarikçiyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
             'seviye-storefront'
@@ -271,6 +276,8 @@ function scp_enqueue_panel_assets(): void
         'brandingSaved' => __('Logo güncellendi.', 'seviye-storefront'),
         'brandingRemoved' => __('Logo kaldırıldı.', 'seviye-storefront'),
         'noOrders' => __('Henüz bir siparişiniz yok.', 'seviye-storefront'),
+        'noOrdersHeading' => __('Henüz siparişiniz yok', 'seviye-storefront'),
+        'noOrdersShopLink' => __('Mağazaya Git', 'seviye-storefront'),
         'orderNumberLabel' => __('Sipariş No', 'seviye-storefront'),
         'orderNumberCopyLabel' => __('Kopyala', 'seviye-storefront'),
         'orderNumberCopied' => __('Sipariş numarası kopyalandı.', 'seviye-storefront'),
