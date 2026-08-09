@@ -100,18 +100,25 @@
             deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
             deleteButton.textContent = scpPanelTextData.remove;
             deleteButton.addEventListener('click', function () {
-                if (!window.confirm(scpPanelTextData.confirmDeleteCoupon)) {
-                    return;
-                }
+                // "Geri Al (undo) tost bildirimi" - artık `window.confirm()`
+                // ile HEMEN silmiyor: satır anında gizleniyor, birkaç
+                // saniyelik bir "Geri Al" penceresi açık kalıyor, asıl
+                // DELETE isteği yalnızca o süre geri alınmadan dolarsa
+                // gidiyor (bkz. scp-ui-kit.js'in scpConfirmableDelete()'i).
+                window.scpConfirmableDelete({
+                    element: row,
+                    message: scpPanelTextData.couponDeleted,
+                    onCommit: function () {
+                        apiFetch('commerce/coupons/' + coupon.id, { method: 'DELETE' }).then(function (result) {
+                            if (!result.ok) {
+                                row.hidden = false;
+                                setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                                return;
+                            }
 
-                apiFetch('commerce/coupons/' + coupon.id, { method: 'DELETE' }).then(function (result) {
-                    if (!result.ok) {
-                        setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
-                        return;
+                            loadCoupons();
+                        });
                     }
-
-                    setStatus(scpPanelTextData.couponDeleted);
-                    loadCoupons();
                 });
             });
             actionsCell.appendChild(deleteButton);

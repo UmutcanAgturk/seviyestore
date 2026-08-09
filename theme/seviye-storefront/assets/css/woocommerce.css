@@ -550,6 +550,41 @@
   filter: brightness(1.08);
 }
 
+/* "Sipariş özet sayfasında masaüstünde sabit (sticky) yan panel" - WC'nin
+   varsayılan checkout/form-checkout.php şablonu HİÇ değiştirilmedi
+   (bu temada bir override'ı yok): `#customer_details` (col2-set,
+   fatura/teslimat alanları) ve `#order_review_heading`/`#order_review`
+   (özet tablosu + #place_order) `form.checkout`'un DOĞRUDAN kardeşleri -
+   yalnızca CSS Grid ile ikisi yan yana dizilip `#order_review`e
+   `position: sticky` verildi, yeni bir markup/JS eklenmedi. Dar
+   ekranlarda (900px altı) grid hiç uygulanmıyor, WC'nin kendi doğal
+   dikey akışı (önce müşteri bilgileri, sonra özet) korunuyor. */
+@media (min-width: 900px) {
+  .woocommerce-checkout form.checkout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    align-items: start;
+    gap: 0 32px;
+  }
+
+  .woocommerce-checkout #customer_details {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .woocommerce-checkout #order_review_heading {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .woocommerce-checkout #order_review {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    top: 24px;
+  }
+}
+
 /* Checkout form fields */
 .woocommerce-checkout input[type="text"],
 .woocommerce-checkout input[type="email"],
@@ -1562,5 +1597,55 @@
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* "Mobilde sabit alt sepet özeti çubuğu" - scp-ui-kit.js'in
+   initStickyCartBar()'ı ekliyor (sepet sayfasında, form.woocommerce-cart-
+   form varsa). Masaüstünde hiç render edilmiyor - yalnızca aynı
+   `.scp-mobile-bottom-nav`/`.scp-layout` mobil kırılma noktasında
+   (bkz. theme.css). */
+.scp-sticky-cart-bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .scp-sticky-cart-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 19;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
+    background: var(--scp-surface);
+    border-top: 1px solid var(--scp-border);
+    box-shadow: var(--scp-shadow-1);
+  }
+
+  .scp-sticky-cart-bar[hidden] {
+    display: none;
+  }
+
+  .scp-sticky-cart-bar__total {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--scp-primary-dark);
+  }
+
+  /* Veli zonunda `.scp-mobile-bottom-nav` (header.php, theme.css) da
+     sabitse iki çubuk üst üste binmesin diye sepet çubuğu onun ÜSTÜNE
+     oturuyor - her ikisi de <body>'nin doğrudan çocuğu, kaynak sırası
+     nav ÖNCE geldiği için genel kardeş seçici (~) güvenle eşleşiyor. */
+  .scp-mobile-bottom-nav ~ .scp-sticky-cart-bar {
+    bottom: 64px;
+  }
+
+  body.scp-has-sticky-cart-bar .scp-layout {
+    padding-bottom: 128px;
   }
 }

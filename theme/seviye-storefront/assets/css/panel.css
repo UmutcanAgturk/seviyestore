@@ -1286,6 +1286,31 @@ button.scp-badge:hover {
   animation: scp-toast-out var(--scp-duration-base) var(--scp-ease-in) forwards;
 }
 
+/* "Silme işlemlerinde Geri Al (undo) tost bildirimi" -
+   window.scpConfirmableDelete()'in (scp-ui-kit.js) ürettiği tost, düz
+   `.scp-toast`'ın metin+düğme kalıbı. */
+.scp-toast--undo {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scp-toast__undo {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--scp-primary);
+  border-radius: 999px;
+  color: var(--scp-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scp-toast__undo:hover {
+  background: var(--scp-primary);
+  color: #fff;
+}
+
 @keyframes scp-toast-in {
   from {
     opacity: 0;

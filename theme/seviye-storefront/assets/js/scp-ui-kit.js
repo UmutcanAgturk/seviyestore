@@ -57,9 +57,77 @@
         return scpNetworkActivityBar;
     }
 
+    /**
+     * "Favicon'da arka planda çalışan işlem göstergesi" - üstteki ağ
+     * çubuğuyla AYNI sayaca (scpNetworkActivityCount) bağlı, tek
+     * farkı sekme arka plandayken (kullanıcı başka bir sekmedeyken) bile
+     * görünür olması. Var olan favicon(lar)a DOKUNMUYOR/DEĞİŞTİRMİYOR -
+     * WordPress'in kendi `wp_site_icon()`'unun bastığı `<link rel="icon">`
+     * etiketleri (varsa) olduğu gibi kalıyor; bunun yerine `<head>`'in
+     * SONUNA yeni, ayrı bir `<link>` ekleniyor (tarayıcılar birden fazla
+     * `rel="icon"` arasından SONUNCUYU tercih eder) - etkinlik bitince
+     * "eski href'e geri dön" diye bir şey İZLEMİYOR, o eklenen linki
+     * tamamen KALDIRIYOR, tarayıcı zaten var olan favicon'a kendiliğinden
+     * geri dönüyor. `--scp-primary`'yi (koyu modda farklı bir hex)
+     * `getComputedStyle` ile OKUYOR, sabit bir renk gömmüyor.
+     */
+    var scpFaviconIndicatorLink = null;
+
+    function scpFaviconIndicatorHref() {
+        var canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+
+        var ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            return null;
+        }
+
+        var primary = getComputedStyle(document.documentElement).getPropertyValue('--scp-primary').trim() || '#14326b';
+
+        ctx.beginPath();
+        ctx.arc(8, 8, 7, 0, Math.PI * 2);
+        ctx.fillStyle = primary;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(8, 8, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        return canvas.toDataURL('image/png');
+    }
+
+    function scpShowFaviconActivity() {
+        if (scpFaviconIndicatorLink) {
+            return;
+        }
+
+        var href = scpFaviconIndicatorHref();
+
+        if (!href) {
+            return;
+        }
+
+        var link = document.createElement('link');
+        link.rel = 'icon';
+        link.href = href;
+        document.head.appendChild(link);
+        scpFaviconIndicatorLink = link;
+    }
+
+    function scpHideFaviconActivity() {
+        if (scpFaviconIndicatorLink) {
+            scpFaviconIndicatorLink.remove();
+            scpFaviconIndicatorLink = null;
+        }
+    }
+
     window.scpBeginNetworkActivity = function () {
         scpNetworkActivityCount += 1;
         networkActivityBar().classList.add('scp-network-bar--active');
+        scpShowFaviconActivity();
     };
 
     window.scpEndNetworkActivity = function () {
@@ -67,6 +135,7 @@
 
         if (scpNetworkActivityCount === 0) {
             networkActivityBar().classList.remove('scp-network-bar--active');
+            scpHideFaviconActivity();
         }
     };
 
@@ -102,6 +171,68 @@
                 toast.remove();
             });
         }, 4000);
+    };
+
+    /**
+     * "Silme işlemlerinde Geri Al (undo) tost bildirimi" - önceden her
+     * silme `window.confirm()` İLE HEMEN silinip devam ediyordu:
+     * engelleyici bir tarayıcı diyaloğu + geri dönüşü olmayan bir istek.
+     * Bunun yerine Gmail'in "Gönderimi Geri Al"IYLA AYNI, gecikmeli-
+     * optimist kalıp: satır/kart HEMEN arayüzden gizleniyor, birkaç
+     * saniyelik bir "Geri Al" tost'u gösteriliyor, asıl silme isteği
+     * YALNIZCA o süre dolana kadar geri alınmazsa `options.onCommit()`
+     * ile ateşleniyor - kayıt sunucuda o ana kadar HİÇ silinmediği için
+     * "geri al" gerçek anlamda geri döndürülebilir, ayrı bir "restore"
+     * REST uç noktası icat etmeye gerek yok.
+     *
+     * @param {object} options
+     * @param {HTMLElement} options.element - hemen gizlenecek satır/kart
+     * @param {string} options.message - tost metni (ör. "Kupon silindi.")
+     * @param {function(): void} options.onCommit - gecikme dolunca çağrılır, gerçek DELETE isteğini yapar
+     * @param {function(): void} [options.onUndo] - kullanıcı geri alırsa çağrılır
+     */
+    window.scpConfirmableDelete = function (options) {
+        var DELAY_MS = 5000;
+
+        options.element.hidden = true;
+
+        var host = toastHost();
+        var toast = document.createElement('div');
+        toast.className = 'scp-toast scp-toast--undo';
+
+        var text = document.createElement('span');
+        text.textContent = options.message;
+        toast.appendChild(text);
+
+        var undoButton = document.createElement('button');
+        undoButton.type = 'button';
+        undoButton.className = 'scp-toast__undo';
+        undoButton.textContent = (typeof scpPanelText !== 'undefined' && scpPanelText.undo) || 'Geri Al';
+        toast.appendChild(undoButton);
+
+        host.appendChild(toast);
+
+        function leave() {
+            toast.classList.add('scp-toast--leaving');
+            toast.addEventListener('animationend', function () {
+                toast.remove();
+            });
+        }
+
+        var timer = window.setTimeout(function () {
+            leave();
+            options.onCommit();
+        }, DELAY_MS);
+
+        undoButton.addEventListener('click', function () {
+            window.clearTimeout(timer);
+            options.element.hidden = false;
+            leave();
+
+            if (typeof options.onUndo === 'function') {
+                options.onUndo();
+            }
+        });
     };
 
     // ---- Animated counter (dashboard stat tiles count up from 0 instead
@@ -1374,6 +1505,51 @@
         });
 
         container.appendChild(list);
+        initImageLazyPlaceholders();
+    }
+
+    /**
+     * "Görsellerde lazy-loading + blur-up placeholder" - tarayıcının
+     * kendi `loading="lazy"` özniteliği (WordPress çekirdeği zaten
+     * çoğu görsele otomatik ekliyor, bkz. wp_lazy_loading_enabled) yalnızca
+     * İNDİRMEYİ erteliyor, indirme sırasında/öncesinde boş bir kutu
+     * kalıyor. Bu, o boşluğu `.scp-skeleton`'IN AYNI shimmer animasyonuyla
+     * (panel.css, karanlık mod varyantı dahil - YENİ bir "blur" efekti
+     * İCAT ETMİYOR) dolduruyor: görsel `load`/`error` olayı ateşlenene
+     * kadar `.scp-skeleton` sınıfı taşıyor, sonra kaldırılıyor - CSS'in
+     * kendisi img'nin arkaplanını/üstündeki ::after shimmer'ı gösteriyor,
+     * yüklenen görsel doğal olarak onun üstünü kaplıyor. Tarayıcı önbelleğinden
+     * anında `complete` gelen görseller shimmer'sız atlanıyor (gereksiz
+     * yanıp sönme olmasın diye). Mağaza/sepet/mini-sepet gibi WooCommerce
+     * şablonlarının img'leri (`.woocommerce` kapsamı) + `.scp-recently-
+     * viewed` (yukarıdaki initRecentlyViewed() tarafından DOMContentLoaded
+     * SONRASINDA eklenen görseller için ayrıca çağrılıyor).
+     */
+    function initImageLazyPlaceholders() {
+        document.querySelectorAll('.woocommerce img, .scp-recently-viewed img').forEach(function (img) {
+            if (img.dataset.scpLazyBound) {
+                return;
+            }
+
+            img.dataset.scpLazyBound = '1';
+
+            if (!img.hasAttribute('loading')) {
+                img.setAttribute('loading', 'lazy');
+            }
+
+            if (img.complete && img.naturalWidth > 0) {
+                return;
+            }
+
+            img.classList.add('scp-skeleton', 'scp-img-placeholder');
+
+            function clear() {
+                img.classList.remove('scp-skeleton', 'scp-img-placeholder');
+            }
+
+            img.addEventListener('load', clear, { once: true });
+            img.addEventListener('error', clear, { once: true });
+        });
     }
 
     /**
@@ -1564,6 +1740,64 @@
     }
 
     /**
+     * "Mobilde sabit alt sepet özeti çubuğu" - sepet sayfasında
+     * (form.woocommerce-cart-form) mobilde ekranın altına sabitlenen,
+     * toplamı ve "Ödemeye Geç" düğmesini gösteren bir çubuk (CSS'i
+     * panel.css'in AYNI @media max-width:640px kırılma noktasında -
+     * masaüstünde hiç render edilmiyor). Kendi toplam/checkout-link
+     * mantığını İCAT ETMİYOR - initCartQuantitySteppers()'ın zaten
+     * güncellediği `.cart_totals`'ın kendi `.order-total .amount`'unu ve
+     * `a.checkout-button`'unun href/metnini OKUYOR; miktar
+     * güncellemesinden sonra initCartQuantitySteppers()'ın zaten
+     * tetiklediği `wc_fragment_refresh` olayında yeniden senkronlanıyor -
+     * ayrı bir REST endpoint veya polling yok. Aynı ekranda veli için
+     * `.scp-mobile-bottom-nav` da sabitse (header.php), çubuk onun
+     * ÜSTÜNE oturuyor (bottom: 64px, `.scp-layout`'un o navigasyon için
+     * zaten kullandığı AYNI 64px değeri) - iki sabit çubuk üst üste
+     * binmiyor.
+     */
+    function initStickyCartBar() {
+        var form = document.querySelector('form.woocommerce-cart-form');
+
+        if (!form) {
+            return;
+        }
+
+        var bar = document.createElement('div');
+        bar.className = 'scp-sticky-cart-bar';
+        bar.innerHTML = '<span class="scp-sticky-cart-bar__total" data-scp-sticky-cart-total></span>'
+            + '<a class="scp-btn" data-scp-sticky-cart-checkout></a>';
+        document.body.appendChild(bar);
+        document.body.classList.add('scp-has-sticky-cart-bar');
+
+        var totalEl = bar.querySelector('[data-scp-sticky-cart-total]');
+        var checkoutLink = bar.querySelector('[data-scp-sticky-cart-checkout]');
+
+        function sync() {
+            var amountEl = document.querySelector('.cart_totals .order-total .amount');
+            var checkoutButton = document.querySelector('a.checkout-button');
+
+            if (!amountEl || !checkoutButton) {
+                bar.hidden = true;
+                document.body.classList.remove('scp-has-sticky-cart-bar');
+                return;
+            }
+
+            bar.hidden = false;
+            document.body.classList.add('scp-has-sticky-cart-bar');
+            totalEl.textContent = amountEl.textContent;
+            checkoutLink.textContent = checkoutButton.textContent;
+            checkoutLink.href = checkoutButton.href;
+        }
+
+        sync();
+
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document.body).on('wc_fragment_refresh', sync);
+        }
+    }
+
+    /**
      * "Ödeme formunda gerçek zamanlı, satır içi doğrulama" - WooCommerce
      * kendi doğrulamasını yalnızca SUBMIT anında yapıyor (checkout.js,
      * dokunulmadı); bu fonksiyon her alanın kendi `blur`'unda WC'nin
@@ -1681,5 +1915,42 @@
         initStockSubscription();
         initCartQuantitySteppers();
         initCheckoutInlineValidation();
+        initStickyCartBar();
+        initAriaLiveRegions();
+        initImageLazyPlaceholders();
     });
+
+    /**
+     * "Ekran okuyucu için dinamik içerik duyuruları" - onlarca panel
+     * scriptinin (orders-panel.js, students-panel.js, ...) ortak
+     * `<p class="scp-status" data-scp-...-status>` kalıbı şimdiye kadar
+     * SESSİZDİ: `statusEl.textContent = 'Kaydedildi.'` gibi bir atama
+     * ekran okuyucuya HİÇBİR ŞEY duyurmuyordu, çünkü elementin kendisi
+     * `aria-live` taşımıyordu (scpToast()'ın host'u zaten
+     * `aria-live="polite"` taşıyor - bkz. toastHost() yukarıda - ama
+     * `.scp-status` bundan AYRI, çok daha yaygın kullanılan bir kalıp,
+     * 60'tan fazla dosyada 90'dan fazla kullanım). 91 kullanım yerinin
+     * HER BİRİNİ tek tek düzenlemek yerine (bkz. scpApiFetch/
+     * scpSkeletonRows'un AYNI "tek boğaz noktası" ilkesi) tek bir DOMContent
+     * Loaded taraması `.scp-status` ile eşleşen HER elemente
+     * `aria-live="polite"` + `aria-atomic="true"` + `role="status"`
+     * damgalıyor - ilk sayfa yüklemesinde DOM'da zaten var olan tüm
+     * durum satırlarını kapsıyor (neredeyse tamamı, JS yalnızca
+     * `textContent`'lerini sonradan dolduruyor).
+     */
+    function initAriaLiveRegions() {
+        document.querySelectorAll('.scp-status').forEach(function (el) {
+            if (!el.hasAttribute('aria-live')) {
+                el.setAttribute('aria-live', 'polite');
+            }
+
+            if (!el.hasAttribute('aria-atomic')) {
+                el.setAttribute('aria-atomic', 'true');
+            }
+
+            if (!el.hasAttribute('role')) {
+                el.setAttribute('role', 'status');
+            }
+        });
+    }
 })();

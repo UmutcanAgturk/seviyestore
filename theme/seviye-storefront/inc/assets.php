@@ -175,6 +175,7 @@ function scp_enqueue_panel_assets(): void
         ),
         'save' => __('Kaydet', 'seviye-storefront'),
         'cancel' => __('Vazgeç', 'seviye-storefront'),
+        'undo' => __('Geri Al', 'seviye-storefront'),
         'parentUpdated' => __('Veli bilgileri güncellendi.', 'seviye-storefront'),
         'confirmDeleteStudent' => __(
             'Bu öğrenciyi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
@@ -198,10 +199,6 @@ function scp_enqueue_panel_assets(): void
         'spendingLimitRemaining' => __('Kalan', 'seviye-storefront'),
         'couponSaved' => __('Kampanya kodu kaydedildi.', 'seviye-storefront'),
         'couponDeleted' => __('Kampanya kodu silindi.', 'seviye-storefront'),
-        'confirmDeleteCoupon' => __(
-            'Bu kampanya kodunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.',
-            'seviye-storefront'
-        ),
         'yes' => __('Evet', 'seviye-storefront'),
         'no' => __('Hayır', 'seviye-storefront'),
         'taxRateSaved' => __('Vergi oranı kaydedildi.', 'seviye-storefront'),

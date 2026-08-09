@@ -592,6 +592,28 @@ body {
   flex: 1 1 auto;
   min-width: 0;
   min-height: calc(100vh - 130px);
+  animation: scp-page-fade-in var(--scp-duration-slow) var(--scp-ease);
+}
+
+/* "Sayfa geçişlerinde yumuşak fade/slide animasyonu" - klasik çok-sayfalı
+   bir site (SPA değil), her gezinme kendi tam DOM'unu getiriyor; bu
+   yüzden JS'in eski sayfayı "dışarı" animasyonla çıkarmasını denemek
+   (kısa bir gecikmeyle geçekleşen gerçek navigasyonu geciktirip riske
+   atmak anlamına gelir - ödeme akışında ASLA istenmez) yerine, her yeni
+   sayfa boyandığında `.scp-site-main`'in kendisi otomatik olarak içeri
+   girer. `--scp-duration-slow` zaten `prefers-reduced-motion: reduce`
+   altında 0ms'e düşüyor (yukarıdaki :root bloğu) - animasyon o durumda
+   kendiliğinden etkisiz hale geliyor, ayrı bir medya sorgusu gerekmiyor. */
+@keyframes scp-page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ---- Left sidebar nav (/admin, /sube) - "menüleri üst tarafa koymak

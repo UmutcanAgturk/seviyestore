@@ -5233,6 +5233,94 @@ uyarıları kaldı), `woocommerce.css`/`panel.css` küme parantezi dengesi
 doğrulandı. Bu tur yalnızca tema dosyalarını değiştirdiği için hiçbir
 eklenti PHPUnit paketi etkilenmedi.
 
+### 91. UX Turu 9A (33 maddelik büyük seçimin 8 hızlı/self-contained maddesi)
+
+Kullanıcı önceki UX öneri listelerinden 33 madde birden seçti - tek bir
+riskli commit yerine 4 alt tura bölündü (9A-9D); bu bölüm yalnızca 9A'yı
+kapsıyor: mobil sepet çubuğu, erişilebilirlik/performans/görsel cila
+gibi masaüstünde/tek dosyada kendi kendine yeten (self-contained)
+maddeler, yeni bir domain kavramı veya backend gerektirmeyenler.
+
+**Mobilde sabit alt sepet özeti çubuğu.** `initStickyCartBar()`
+(scp-ui-kit.js) yalnızca `form.woocommerce-cart-form` varsa (sepet
+sayfası) çalışıyor; kendi toplam/checkout-link mantığını İCAT ETMİYOR -
+`initCartQuantitySteppers()`'ın zaten güncellediği `.cart_totals`'ın
+`.order-total .amount`'unu ve `a.checkout-button`'unun href/metnini
+OKUYUP kopyalıyor, miktar güncellemesinden sonra AYNI fonksiyonun
+tetiklediği `wc_fragment_refresh` olayında yeniden senkronlanıyor. Veli
+zonundaki `.scp-mobile-bottom-nav` (bölüm 89) da sabitse, CSS'in genel
+kardeş seçicisiyle (`.scp-mobile-bottom-nav ~ .scp-sticky-cart-bar`)
+onun ÜSTÜNE oturuyor - iki sabit çubuk üst üste binmiyor.
+
+**Ekran okuyucu için dinamik içerik duyuruları.** 60'tan fazla dosyada
+90'dan fazla kullanımı olan ortak `.scp-status` kalıbı (`<p
+class="scp-status" data-scp-...-status>`) şimdiye kadar SESSİZDİ - hiçbir
+`aria-live` taşımıyordu. Her kullanım yerini tek tek düzenlemek yerine
+`initAriaLiveRegions()` tek bir DOMContentLoaded taramasıyla eşleşen HER
+elemente `aria-live="polite"` + `aria-atomic="true"` + `role="status"`
+damgalıyor (scpApiFetch/scpSkeletonRows'un AYNI "tek boğaz noktası"
+ilkesi).
+
+**Görsellerde lazy-loading + blur-up placeholder.** `initImageLazyPlaceholders()`
+`.woocommerce`/`.scp-recently-viewed` kapsamındaki img'lere eksikse
+`loading="lazy"` ekliyor, ayrıca `load`/`error` ateşlenene kadar
+`.scp-skeleton`'IN (panel.css, karanlık mod varyantı dahil) AYNI shimmer
+sınıfını taşıtıyor - yeni bir "blur" efekti İCAT ETMİYOR. Önbellekten
+anında `complete` gelen görseller shimmer'sız atlanıyor.
+
+**Ağ hatası/500 sayfası illüstrasyonu.** Gerçek bir PHP fatal hatası
+(500) WordPress'in şablon hiyerarşisinin bir parçası DEĞİL (yalnızca 404
+öyle) - bu yüzden 404.php'ye paralel yeni bir `500.php` YAZILMADI.
+Bunun yerine zaten var olan `scp_service_worker_offline_html()`
+(inc/pwa.php, bölüm 51 - service worker'ın gerçek çevrimdışı
+fallback'i) önceden düz, markasız bir metin bloğuydu; artık 404.php'nin
+`.scp-not-found` kart görünümünü (ikon + başlık + ipucu + düğme) taklit
+ediyor - kendi renk token'larını statik hex olarak TEKRARLIYOR (offline
+iken theme.css'e bağlanamıyor) ve `localStorage.scpTheme`'i okuyan
+küçük bir satır içi script ile karanlık modu da destekliyor.
+
+**Sipariş özet sayfasında masaüstünde sabit yan panel.** WC'nin
+`checkout/form-checkout.php` şablonu HİÇ değiştirilmedi - `#customer_details`
+ve `#order_review_heading`/`#order_review` zaten `form.checkout`'un
+doğrudan kardeşleri; 900px üstünde CSS Grid ile yan yana dizilip
+`#order_review`e `position: sticky` verildi, yeni markup/JS yok. Dar
+ekranlarda grid hiç uygulanmıyor.
+
+**Sayfa geçişlerinde yumuşak fade/slide animasyonu.** Klasik çok
+sayfalı bir site (SPA değil) olduğu için JS'in eski sayfayı gerçek
+navigasyonu geciktirerek "dışarı" animasyonla çıkarmasını denemek YERİNE
+(ödeme akışında ASLA istenmeyen bir risk), `.scp-site-main` her yeni
+sayfa boyandığında kendiliğinden içeri giriyor
+(`@keyframes scp-page-fade-in`) - `--scp-duration-slow` zaten
+`prefers-reduced-motion: reduce` altında 0ms'e düştüğü için ayrı bir
+medya sorgusu gerekmiyor.
+
+**Favicon'da arka planda çalışan işlem göstergesi.** `scpBeginNetworkActivity()`/
+`scpEndNetworkActivity()`'nin (bölüm 89'un üst yükleme çubuğuyla AYNI
+sayaç) sonuna eklendi - etkinlik başlarken `<head>`'in SONUNA yeni,
+ayrı bir `<link rel="icon">` (canvas'ta çizilen küçük bir nokta,
+`--scp-primary`'yi `getComputedStyle` ile okuyarak) ekleniyor, WP'nin
+kendi site ikonu (varsa) HİÇ DEĞİŞTİRİLMİYOR; etkinlik bitince o link
+tamamen KALDIRILIYOR - tarayıcı zaten var olan favicon'a kendiliğinden
+dönüyor, "eski href'e geri dön" diye bir izleme mantığı yok.
+
+**Silme işlemlerinde Geri Al (undo) tost bildirimi.** Yeni genel amaçlı
+`window.scpConfirmableDelete()` (scp-ui-kit.js) - önceden her silme
+`window.confirm()` İLE HEMEN silinip devam ediyordu; artık Gmail'in
+"Gönderimi Geri Al"IYLA AYNI gecikmeli-optimist kalıp: satır HEMEN
+gizleniyor, 5 saniyelik bir "Geri Al" tost'u gösteriliyor, asıl DELETE
+isteği yalnızca süre dolana kadar geri alınmazsa ateşleniyor - kayıt
+sunucuda o ana kadar HİÇ silinmediği için geri alma gerçek anlamda geri
+döndürülebilir, sahte bir "restore" REST uç noktası icat etmeye gerek
+yok. İlk kullanım yeri: Kampanya Kodları (coupons-panel.js) - artık
+engelleyici bir onay diyaloğu yok.
+
+**Doğrulama.** Değişen tüm dosyalarda `php -l`/`node --check` temiz,
+`phpcs` 0 hata (yalnızca önceden de var olan nonce-verification/
+line-length uyarıları kaldı), üç CSS dosyasının da küme parantezi
+dengesi doğrulandı. Bu tur yalnızca tema dosyalarını değiştirdiği için
+hiçbir eklenti PHPUnit paketi etkilenmedi.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

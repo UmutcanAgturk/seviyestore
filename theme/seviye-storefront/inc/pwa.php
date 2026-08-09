@@ -334,6 +334,20 @@ self.addEventListener('fetch', function (event) {
 JS;
 }
 
+/**
+ * "Ağ hatası sayfası, 404'e benzer" - önceden bu sayfa yalnızca satır içi,
+ * markasız bir metin bloğuydu (`body{font-family:system-ui...}`). Artık
+ * 404.php'nin `.scp-not-found` kart görünümünü (ikon + başlık + ipucu +
+ * düğme) BİREBİR taklit ediyor - ama theme.css/panel.css'e BAĞLANAMIYOR
+ * (service worker'ın kendi offline fallback'i, tanım gereği ağ
+ * erişemezken sunuluyor), bu yüzden aynı renk token'ları burada statik
+ * hex değerler olarak TEKRARLANIYOR (theme.css'in :root'u - bkz.
+ * scp_service_worker_offline_html()'in çağrıldığı yer). Karanlık mod
+ * tercihini de aynı `localStorage.scpTheme` anahtarından okuyan küçük bir
+ * satır içi script var - "yalnızca kullanıcının kendi anahtarı, asla OS
+ * tercihi" kuralı burada da geçerli (bkz. initThemeToggle()'ın
+ * currentTheme()'i, scp-ui-kit.js).
+ */
 function scp_service_worker_offline_html(): string
 {
     $siteName = esc_html(get_bloginfo('name'));
@@ -341,15 +355,34 @@ function scp_service_worker_offline_html(): string
     return '<!doctype html><html lang="tr"><head><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<title>' . $siteName . ' - Çevrimdışı</title>'
-        . '<style>body{font-family:system-ui,sans-serif;background:#f3f5f9;color:#14326b;'
-        . 'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;'
-        . 'text-align:center;padding:24px}main{max-width:360px}h1{font-size:1.25rem}</style>'
-        . '</head><body><main>'
+        . '<style>'
+        . ':root{--bg:#f3f5f9;--surface:#ffffff;--text:#101828;--text-muted:#5c6579;'
+        . '--border:#e0e4eb;--primary:#14326b;--primary-light:#2a5cb8;}'
+        . '[data-theme="dark"]{--bg:#12151b;--surface:#171b22;--text:#f2f3f5;'
+        . '--text-muted:#9aa1ac;--border:#2c313a;--primary:#5b8def;--primary-light:#7ea6f2;}'
+        . 'body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);'
+        . 'color:var(--text);display:flex;align-items:center;justify-content:center;'
+        . 'min-height:100vh;margin:0;padding:24px}'
+        . 'main{max-width:360px;width:100%;background:var(--surface);border:1px solid var(--border);'
+        . 'border-radius:12px;padding:40px 28px;text-align:center;box-shadow:0 1px 3px rgba(16,24,40,.08)}'
+        . 'svg{color:var(--primary-light)}'
+        . 'h1{font-size:1.125rem;margin:16px 0 8px}'
+        . 'p{margin:0 0 20px;color:var(--text-muted);font-size:0.875rem;line-height:1.5}'
+        . 'a{display:inline-block;padding:10px 22px;background:var(--primary);color:#fff;'
+        . 'text-decoration:none;font-weight:700;font-size:0.875rem;border-radius:999px}'
+        . '</style></head><body><main>'
+        . '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        . 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        . '<path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/>'
+        . '<path d="M8.5 16.9a5 5 0 0 1 7 0"/><path d="M12 20h.01"/><path d="M2 2l20 20"/></svg>'
         . '<h1>Şu anda çevrimdışısınız</h1>'
         . '<p>' . $siteName . ' bu sayfayı görüntülemek için bir internet bağlantısı gerektiriyor. '
         . 'Bağlantınızı kontrol edip tekrar deneyin.</p>'
-        . '<p><a href="/">Yeniden dene</a></p>'
-        . '</main></body></html>';
+        . '<a href="/">Yeniden Dene</a>'
+        . '</main>'
+        . '<script>try{var t=localStorage.getItem("scpTheme");'
+        . 'if(t==="dark"){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}</script>'
+        . '</body></html>';
 }
 
 /**
