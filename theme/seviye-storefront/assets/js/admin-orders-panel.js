@@ -599,6 +599,10 @@
             metaRow(meta, scpPanelTextData.orderRefundedTotalLabel, formatMoney(order.refunded_total));
         }
 
+        if (order.delivery_type_label) {
+            metaRow(meta, scpPanelTextData.orderDeliveryTypeLabel, order.delivery_type_label);
+        }
+
         if (order.tracking_number) {
             metaRow(meta, scpPanelTextData.orderTrackingNumberLabel, order.tracking_number);
         }
@@ -669,6 +673,141 @@
         });
     }
 
+    /**
+     * "Aylık takvim görünümü (sipariş/teslimat tarihleri)" - a SEPARATE
+     * REST endpoint was NOT added: the calendar is just another rendering
+     * of whatever `lastLoadedOrders` the filter form already fetched (same
+     * `commerce/orders` call the list view uses), grouped by the day
+     * portion of each order's own `date` field (OrderPresenter's
+     * `Y-m-d H:i`). Navigating months sets the form's `from`/`to` fields to
+     * that month's bounds and re-runs the EXACT SAME `loadOrders()` path a
+     * manual date-range search would - no second fetch mechanism to keep
+     * in sync with the list view's filters (branch/status/product/etc. all
+     * still apply to the calendar too).
+     */
+    var calendarViewEl = root.querySelector('[data-scp-admin-orders-calendar]');
+    var calendarGridEl = root.querySelector('[data-scp-admin-orders-calendar-grid]');
+    var calendarTitleEl = root.querySelector('[data-scp-admin-orders-calendar-title]');
+    var calendarDayDetailEl = root.querySelector('[data-scp-admin-orders-calendar-day-detail]');
+    var calendarDayTitleEl = root.querySelector('[data-scp-admin-orders-calendar-day-title]');
+    var calendarDayListEl = root.querySelector('[data-scp-admin-orders-calendar-day-list]');
+    var viewToggleButtons = root.querySelectorAll('[data-scp-admin-orders-view]');
+    var currentView = 'list';
+    var calendarMonth = new Date();
+    calendarMonth.setDate(1);
+
+    var MONTH_NAMES = [
+        scpPanelTextData.calMonthJan, scpPanelTextData.calMonthFeb, scpPanelTextData.calMonthMar,
+        scpPanelTextData.calMonthApr, scpPanelTextData.calMonthMay, scpPanelTextData.calMonthJun,
+        scpPanelTextData.calMonthJul, scpPanelTextData.calMonthAug, scpPanelTextData.calMonthSep,
+        scpPanelTextData.calMonthOct, scpPanelTextData.calMonthNov, scpPanelTextData.calMonthDec
+    ];
+
+    function isoDate(date) {
+        return date.getFullYear() + '-'
+            + String(date.getMonth() + 1).padStart(2, '0') + '-'
+            + String(date.getDate()).padStart(2, '0');
+    }
+
+    function setView(view) {
+        currentView = view;
+        listEl.hidden = view !== 'list';
+        calendarViewEl.hidden = view !== 'calendar';
+
+        Array.prototype.forEach.call(viewToggleButtons, function (button) {
+            button.classList.toggle('is-active', button.getAttribute('data-scp-admin-orders-view') === view);
+        });
+
+        if (view === 'calendar') {
+            renderCalendar();
+        }
+    }
+
+    function goToMonth(monthDate) {
+        calendarMonth = monthDate;
+        form.from.value = isoDate(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
+        form.to.value = isoDate(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+        loadOrders();
+    }
+
+    function renderCalendarDay(isoDay, ordersForDay) {
+        calendarDayDetailEl.hidden = false;
+        calendarDayTitleEl.textContent = isoDay + ' (' + ordersForDay.length + ' '
+            + scpPanelTextData.overviewOrdersLabel + ')';
+        calendarDayListEl.innerHTML = '';
+        ordersForDay.forEach(function (order) {
+            calendarDayListEl.appendChild(renderOrder(order));
+        });
+        calendarDayDetailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function renderCalendar() {
+        calendarDayDetailEl.hidden = true;
+        calendarTitleEl.textContent = MONTH_NAMES[calendarMonth.getMonth()] + ' ' + calendarMonth.getFullYear();
+
+        var byDay = {};
+        lastLoadedOrders.forEach(function (order) {
+            if (!order.date) {
+                return;
+            }
+
+            var day = order.date.slice(0, 10);
+            (byDay[day] = byDay[day] || []).push(order);
+        });
+
+        calendarGridEl.innerHTML = '';
+
+        var firstOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+        var daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+        // getDay(): 0=Pazar..6=Cmt - grid is Pzt-first, so Pazar (0) needs
+        // 6 leading blanks, everything else needs (weekday - 1).
+        var leadingBlanks = firstOfMonth.getDay() === 0 ? 6 : firstOfMonth.getDay() - 1;
+
+        for (var i = 0; i < leadingBlanks; i++) {
+            calendarGridEl.appendChild(document.createElement('div'));
+        }
+
+        for (var day = 1; day <= daysInMonth; day++) {
+            var cellDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day);
+            var cellIso = isoDate(cellDate);
+            var dayOrders = byDay[cellIso] || [];
+
+            var cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'scp-order-calendar__day' + (dayOrders.length > 0 ? ' scp-order-calendar__day--has-orders' : '');
+
+            var dayNumber = document.createElement('span');
+            dayNumber.className = 'scp-order-calendar__day-number';
+            dayNumber.textContent = String(day);
+            cell.appendChild(dayNumber);
+
+            if (dayOrders.length > 0) {
+                var total = dayOrders.reduce(function (sum, order) {
+                    return sum + Number(order.total);
+                }, 0);
+
+                var countBadge = document.createElement('span');
+                countBadge.className = 'scp-order-calendar__day-count';
+                countBadge.textContent = String(dayOrders.length);
+                cell.appendChild(countBadge);
+
+                var totalEl = document.createElement('span');
+                totalEl.className = 'scp-order-calendar__day-total';
+                totalEl.textContent = formatMoney(total);
+                cell.appendChild(totalEl);
+
+                cell.addEventListener('click', function () {
+                    renderCalendarDay(this.getAttribute('data-scp-day'), byDay[this.getAttribute('data-scp-day')]);
+                });
+                cell.setAttribute('data-scp-day', cellIso);
+            } else {
+                cell.disabled = true;
+            }
+
+            calendarGridEl.appendChild(cell);
+        }
+    }
+
     // "Sipariş listesi CSV dışa aktarma" - exports whatever is CURRENTLY
     // loaded (i.e. whatever the filter form's own query already narrowed
     // it down to), not a separate REST call - lastLoadedOrders is just
@@ -688,6 +827,10 @@
             lastLoadedOrders = result.data;
             selectedOrderIds = [];
             updateBulkToolbar();
+
+            if (currentView === 'calendar') {
+                renderCalendar();
+            }
 
             if (result.data.length === 0) {
                 setStatus(scpPanelTextData.noOrders);
@@ -774,6 +917,24 @@
     });
 
     exportButton.addEventListener('click', exportOrdersToCsv);
+
+    Array.prototype.forEach.call(viewToggleButtons, function (button) {
+        button.addEventListener('click', function () {
+            setView(button.getAttribute('data-scp-admin-orders-view'));
+        });
+    });
+
+    root.querySelector('[data-scp-admin-orders-calendar-prev]').addEventListener('click', function () {
+        goToMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1));
+    });
+
+    root.querySelector('[data-scp-admin-orders-calendar-next]').addEventListener('click', function () {
+        goToMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1));
+    });
+
+    root.querySelector('[data-scp-admin-orders-calendar-day-close]').addEventListener('click', function () {
+        calendarDayDetailEl.hidden = true;
+    });
 
     if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {

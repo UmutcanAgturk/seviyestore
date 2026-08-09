@@ -41,6 +41,7 @@
     var scheduledStatusEl = root.querySelector('[data-scp-broadcast-scheduled-status]');
     var scheduledTable = root.querySelector('[data-scp-broadcast-scheduled-table]');
     var scheduledBody = root.querySelector('[data-scp-broadcast-scheduled-body]');
+    var previewButton = root.querySelector('[data-scp-broadcast-preview]');
     var apiFetch = scpApiFetch;
     var branchNames = {};
 
@@ -92,6 +93,145 @@
         }
 
         return channels;
+    }
+
+    /**
+     * "Toplu duyuru/e-posta gönderiminde önizleme modu" - gerçek gönderim
+     * ucuna (`notifications/broadcast`) HİÇ İSTEK ATMIYOR; başlık/mesaj/
+     * kanal seçimleri zaten form'un kendisinde bulunduğu için tamamen
+     * istemci tarafında, `.scp-modal`/`.scp-modal-overlay` kalıbını
+     * (bölüm 89'un klavye kısayolları yardımıyla AYNI) yeniden kullanan
+     * bir modal açıyor. Her seçili kanal için AYRI bir kart - e-posta
+     * bir "zarf" görünümünde (başlık + gövde), panel bildirimi ZATEN VAR
+     * olan `.scp-notification-item` görünümünü taklit ediyor, SMS/WhatsApp
+     * ise 160 karakter sınırını aşan mesajlarda kesileceğini gösteren düz
+     * bir baloncuk.
+     */
+    function openPreview() {
+        var subject = form.subject.value.trim();
+        var body = form.body.value.trim();
+        var channels = selectedChannels();
+
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-modal-overlay';
+
+        var modal = document.createElement('div');
+        modal.className = 'scp-modal scp-broadcast-preview-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        var title = document.createElement('h2');
+        title.textContent = scpPanelTextData.broadcastPreviewTitle;
+        modal.appendChild(title);
+
+        if (channels.length === 0) {
+            var noChannel = document.createElement('p');
+            noChannel.className = 'scp-status scp-status--error';
+            noChannel.textContent = scpPanelTextData.broadcastPreviewNoChannel;
+            modal.appendChild(noChannel);
+        }
+
+        if (channels.indexOf('email') !== -1) {
+            var emailCard = document.createElement('div');
+            emailCard.className = 'scp-broadcast-preview-card scp-broadcast-preview-card--email';
+
+            var emailLabel = document.createElement('span');
+            emailLabel.className = 'scp-broadcast-preview-card__label';
+            emailLabel.textContent = scpPanelTextData.broadcastPreviewEmailLabel;
+            emailCard.appendChild(emailLabel);
+
+            var emailSubject = document.createElement('strong');
+            emailSubject.textContent = subject || scpPanelTextData.broadcastPreviewEmptySubject;
+            emailCard.appendChild(emailSubject);
+
+            var emailBody = document.createElement('p');
+            emailBody.textContent = body || scpPanelTextData.broadcastPreviewEmptyBody;
+            emailCard.appendChild(emailBody);
+
+            modal.appendChild(emailCard);
+        }
+
+        if (channels.indexOf('panel') !== -1) {
+            var panelCard = document.createElement('div');
+            panelCard.className = 'scp-broadcast-preview-card scp-broadcast-preview-card--panel';
+
+            var panelLabel = document.createElement('span');
+            panelLabel.className = 'scp-broadcast-preview-card__label';
+            panelLabel.textContent = scpPanelTextData.broadcastPreviewPanelLabel;
+            panelCard.appendChild(panelLabel);
+
+            var panelSubject = document.createElement('strong');
+            panelSubject.textContent = subject || scpPanelTextData.broadcastPreviewEmptySubject;
+            panelCard.appendChild(panelSubject);
+
+            var panelBody = document.createElement('p');
+            panelBody.textContent = body || scpPanelTextData.broadcastPreviewEmptyBody;
+            panelCard.appendChild(panelBody);
+
+            modal.appendChild(panelCard);
+        }
+
+        ['sms', 'whatsapp'].forEach(function (channel) {
+            if (channels.indexOf(channel) === -1) {
+                return;
+            }
+
+            var card = document.createElement('div');
+            card.className = 'scp-broadcast-preview-card scp-broadcast-preview-card--' + channel;
+
+            var label = document.createElement('span');
+            label.className = 'scp-broadcast-preview-card__label';
+            label.textContent = channel === 'sms'
+                ? scpPanelTextData.broadcastPreviewSmsLabel
+                : scpPanelTextData.broadcastPreviewWhatsappLabel;
+            card.appendChild(label);
+
+            var text = (subject ? subject + ': ' : '') + body;
+            var bubble = document.createElement('p');
+            bubble.textContent = text || scpPanelTextData.broadcastPreviewEmptyBody;
+            card.appendChild(bubble);
+
+            if (text.length > 160) {
+                var truncationNote = document.createElement('small');
+                truncationNote.textContent = scpPanelTextData.broadcastPreviewTruncationNote;
+                card.appendChild(truncationNote);
+            }
+
+            modal.appendChild(card);
+        });
+
+        var actions = document.createElement('div');
+        actions.className = 'scp-modal__actions';
+
+        var closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'scp-btn';
+        closeButton.textContent = scpPanelTextData.broadcastPreviewClose;
+        actions.appendChild(closeButton);
+        modal.appendChild(actions);
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+            }
+        }
+
+        closeButton.addEventListener('click', close);
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        closeButton.focus();
     }
 
     function scheduledStatusLabel(status) {
@@ -226,6 +366,10 @@
             );
         });
     });
+
+    if (previewButton) {
+        previewButton.addEventListener('click', openPreview);
+    }
 
     if (scpPanelData.canViewAllBranches) {
         apiFetch('branches').then(function (result) {

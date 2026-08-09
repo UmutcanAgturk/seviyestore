@@ -84,6 +84,8 @@ final class OrderPresenter
             'refunded_total' => (float) $order->get_total_refunded(),
             'can_return' => $this->canReturn($order),
             'items' => array_values($items),
+            'delivery_type' => $this->deliveryType($order),
+            'delivery_type_label' => $this->deliveryTypeLabel($order),
         ];
 
         $presented = array_merge($presented, $this->fulfillment->present($order));
@@ -119,6 +121,30 @@ final class OrderPresenter
         $deadline = $createdAt->getTimestamp() + self::RETURN_WINDOW_DAYS * DAY_IN_SECONDS;
 
         return time() <= $deadline;
+    }
+
+    /**
+     * "Teslimat adresi tipi seçimi (Okula/Eve Teslim)" - `_scp_delivery_type`
+     * ödeme sayfasının kendi `woocommerce_checkout_fields` radio alanınca
+     * yazılıyor (bkz. theme's inc/woocommerce.php). Bu özellikten ÖNCE
+     * verilmiş siparişlerde meta hiç yok - `null` dönüyor, boş string değil,
+     * çağıran taraf ("Belirtilmedi" mi "Eve Teslim" mi göstereceğine)
+     * kendi karar versin diye.
+     */
+    private function deliveryType(WC_Order $order): ?string
+    {
+        $value = $order->get_meta('_scp_delivery_type');
+
+        return in_array($value, ['school', 'home'], true) ? $value : null;
+    }
+
+    private function deliveryTypeLabel(WC_Order $order): ?string
+    {
+        return match ($this->deliveryType($order)) {
+            'school' => __('Okula Teslim', 'seviye-commerce'),
+            'home' => __('Eve Teslim', 'seviye-commerce'),
+            default => null,
+        };
     }
 
     /**

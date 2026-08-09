@@ -327,6 +327,89 @@
     }
 
     /**
+     * "Genel Bakış özelleştirilebilir tarih aralığı karşılaştırması" - ayrı
+     * bir REST ucu İCAT ETMEK yerine reports/overview'a `from`/`to` (Aralık
+     * A) ve isteğe bağlı `compare_from`/`compare_to` (Aralık B) query
+     * parametreleri eklendi (bkz. OverviewRestController::show()) - aynı
+     * kapsamlama (HQ/şube) ve aynı "completed" sipariş tanımı, tek bir
+     * istekte iki aralığın toplamı+yüzdesel değişimi birlikte dönüyor.
+     */
+    function initCompareForm() {
+        var form = root.querySelector('[data-scp-overview-compare-form]');
+
+        if (!form) {
+            return;
+        }
+
+        var compareStatusEl = root.querySelector('[data-scp-overview-compare-status]');
+        var resultEl = root.querySelector('[data-scp-overview-compare-result]');
+        var bSideEl = root.querySelector('[data-scp-overview-compare-b]');
+
+        function rangeLabel(from, to) {
+            return formatShortDate(from) + ' – ' + formatShortDate(to);
+        }
+
+        function applySide(prefix, label, summary) {
+            root.querySelector('[data-scp-overview-compare-' + prefix + '-label]').textContent = label;
+            root.querySelector('[data-scp-overview-compare-' + prefix + '-total]').textContent = formatMoney(summary.total);
+            root.querySelector('[data-scp-overview-compare-' + prefix + '-count]').textContent =
+                summary.order_count + ' ' + scpPanelTextData.overviewOrdersLabel;
+        }
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            var formData = new FormData(form);
+            var params = new URLSearchParams();
+            ['from', 'to', 'compare_from', 'compare_to'].forEach(function (key) {
+                var value = formData.get(key);
+
+                if (value) {
+                    params.set(key, value);
+                }
+            });
+
+            compareStatusEl.textContent = '';
+            resultEl.hidden = true;
+
+            apiFetch('reports/overview?' + params.toString()).then(function (result) {
+                if (!result.ok || !result.data.custom_range) {
+                    compareStatusEl.textContent = (result.data && result.data.message) || scpPanelTextData.loadError;
+                    compareStatusEl.classList.add('scp-status--error');
+                    return;
+                }
+
+                compareStatusEl.textContent = '';
+                compareStatusEl.classList.remove('scp-status--error');
+                resultEl.hidden = false;
+
+                var primary = result.data.custom_range;
+                applySide('a', rangeLabel(primary.from, primary.to), primary);
+
+                var comparison = result.data.custom_range_comparison;
+                var deltaEl = root.querySelector('[data-scp-overview-compare-delta]');
+
+                if (!comparison) {
+                    bSideEl.hidden = true;
+                    return;
+                }
+
+                bSideEl.hidden = false;
+                applySide('b', rangeLabel(comparison.from, comparison.to), comparison);
+
+                if (comparison.percent_change === null) {
+                    deltaEl.textContent = '';
+                    deltaEl.className = 'scp-badge';
+                } else {
+                    var isPositive = comparison.percent_change >= 0;
+                    deltaEl.textContent = (isPositive ? '+' : '') + comparison.percent_change + '%';
+                    deltaEl.className = 'scp-badge ' + (isPositive ? 'scp-badge--positive' : 'scp-badge--negative');
+                }
+            });
+        });
+    }
+
+    /**
      * "Dashboard widget sürükle-bırak yeniden sıralama" - dört widget
      * sarmalayıcısı (bkz. templates/zone.php'nin `data-scp-dashboard-widget`
      * işaretlemesi) kendi aralarında sürüklenip bırakılabiliyor, yeni sıra
@@ -440,4 +523,5 @@
 
     load();
     initDashboardWidgetReorder();
+    initCompareForm();
 })();

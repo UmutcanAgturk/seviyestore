@@ -34,6 +34,17 @@ if (!defined('ABSPATH')) {
         </div>
 
         <p class="scp-status" data-scp-orders-status></p>
+
+        <div class="scp-view-toggle" role="group" aria-label="<?php esc_attr_e('Görünüm', 'seviye-storefront'); ?>">
+            <button type="button" class="scp-btn scp-btn--ghost is-active" data-scp-orders-view="list">
+                <?php esc_html_e('Liste', 'seviye-storefront'); ?>
+            </button>
+            <button type="button" class="scp-btn scp-btn--ghost" data-scp-orders-view="timeline">
+                <?php esc_html_e('Zaman Çizelgesi', 'seviye-storefront'); ?>
+            </button>
+        </div>
+
         <div class="scp-orders-list" data-scp-orders-list></div>
+        <div class="scp-order-history-timeline" data-scp-orders-timeline hidden></div>
     </section>
 </div>

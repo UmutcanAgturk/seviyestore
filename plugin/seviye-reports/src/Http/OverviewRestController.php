@@ -14,6 +14,7 @@ use Seviye\Reports\Support\DailyTrendBuilder;
 use Seviye\Students\Contracts\StudentLookupInterface;
 use WC_Order;
 use WC_Order_Item_Product;
+use WP_REST_Request;
 use WP_REST_Response;
 
 /**
@@ -58,6 +59,12 @@ final class OverviewRestController extends AbstractRestController
             'methods' => 'GET',
             'callback' => [$this, 'show'],
             'permission_callback' => [$this, 'canViewReports'],
+            'args' => [
+                'from' => ['type' => 'string', 'required' => false],
+                'to' => ['type' => 'string', 'required' => false],
+                'compare_from' => ['type' => 'string', 'required' => false],
+                'compare_to' => ['type' => 'string', 'required' => false],
+            ],
         ]);
     }
 
@@ -74,34 +81,96 @@ final class OverviewRestController extends AbstractRestController
         return $this->branchMemberships->branchIdForUser(get_current_user_id()) !== null;
     }
 
-    public function show(): WP_REST_Response
+    public function show(WP_REST_Request $request): WP_REST_Response
     {
         $isHq = current_user_can(ReportCapability::VIEW_REPORTS->value);
         $ownBranchId = $isHq ? null : $this->branchMemberships->branchIdForUser(get_current_user_id());
 
-        $records = $this->records($ownBranchId);
+        $customFrom = $this->parseDate($request->get_param('from'));
+        $customTo = $this->parseDate($request->get_param('to'));
+        $compareFrom = $this->parseDate($request->get_param('compare_from'));
+        $compareTo = $this->parseDate($request->get_param('compare_to'));
+
+        $defaultSince = (new DateTimeImmutable('-' . self::WINDOW_DAYS . ' days'))->format('Y-m-d');
+        $earliestNeeded = $defaultSince;
+
+        foreach ([$customFrom, $compareFrom] as $candidate) {
+            if ($candidate !== null && $candidate < $earliestNeeded) {
+                $earliestNeeded = $candidate;
+            }
+        }
+
+        $records = $this->records($ownBranchId, $earliestNeeded);
 
         $today = (new DateTimeImmutable('today'))->format('Y-m-d');
         $weekStart = (new DateTimeImmutable('-6 days'))->format('Y-m-d');
         $monthStart = (new DateTimeImmutable('-' . (self::WINDOW_DAYS - 1) . ' days'))->format('Y-m-d');
 
-        return new WP_REST_Response([
-            'today' => $this->periodSummary($records, $today, $today),
-            'week' => $this->periodSummary($records, $weekStart, $today),
-            'month' => $this->periodSummary($records, null, null),
-            'top_products' => $this->topProducts($records),
-            'branch_breakdown' => $isHq ? $this->branchBreakdown($records) : [],
-            'daily_trend' => $this->dailyTrendBuilder->build($records, $monthStart, $today),
-        ]);
+        // A custom range reaching further back than the standard 30-day
+        // window widens the wc_get_orders() query above so periodSummary()
+        // can see it - but every OTHER widget on this dashboard still
+        // advertises itself as "Son 30 Gün" and must stay bounded to
+        // exactly that, not silently grow because a comparison range asked
+        // for older data in the SAME request.
+        $windowRecords = array_values(array_filter(
+            $records,
+            static fn (array $record): bool => $record['date'] >= $defaultSince
+        ));
+
+        $response = [
+            'today' => $this->periodSummary($windowRecords, $today, $today),
+            'week' => $this->periodSummary($windowRecords, $weekStart, $today),
+            'month' => $this->periodSummary($windowRecords, $monthStart, $today),
+            'top_products' => $this->topProducts($windowRecords),
+            'branch_breakdown' => $isHq ? $this->branchBreakdown($windowRecords) : [],
+            'daily_trend' => $this->dailyTrendBuilder->build($windowRecords, $monthStart, $today),
+            'custom_range' => null,
+            'custom_range_comparison' => null,
+        ];
+
+        if ($customFrom !== null && $customTo !== null) {
+            $primarySummary = $this->periodSummary($records, $customFrom, $customTo);
+            $response['custom_range'] = array_merge(
+                ['from' => $customFrom, 'to' => $customTo],
+                $primarySummary
+            );
+
+            if ($compareFrom !== null && $compareTo !== null) {
+                $compareSummary = $this->periodSummary($records, $compareFrom, $compareTo);
+                $response['custom_range_comparison'] = array_merge(
+                    ['from' => $compareFrom, 'to' => $compareTo],
+                    $compareSummary,
+                    ['percent_change' => $this->percentChange($compareSummary['total'], $primarySummary['total'])]
+                );
+            }
+        }
+
+        return new WP_REST_Response($response);
+    }
+
+    private function parseDate(mixed $value): ?string
+    {
+        if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function percentChange(float $previous, float $current): ?float
+    {
+        if ($previous <= 0.0) {
+            return null;
+        }
+
+        return round((($current - $previous) / $previous) * 100, 1);
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function records(?int $ownBranchId): array
+    private function records(?int $ownBranchId, string $since): array
     {
-        $since = (new DateTimeImmutable('-' . self::WINDOW_DAYS . ' days'))->format('Y-m-d');
-
         $orders = wc_get_orders([
             'status' => self::REPORT_STATUS,
             'limit' => -1,

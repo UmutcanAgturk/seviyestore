@@ -37,6 +37,15 @@ if (!defined('ABSPATH')) {
 
         <div class="scp-bulk-actions" data-scp-admin-orders-bulk-actions hidden></div>
 
+        <div class="scp-view-toggle" role="group" aria-label="<?php esc_attr_e('Görünüm', 'seviye-storefront'); ?>">
+            <button type="button" class="scp-btn scp-btn--ghost is-active" data-scp-admin-orders-view="list">
+                <?php esc_html_e('Liste', 'seviye-storefront'); ?>
+            </button>
+            <button type="button" class="scp-btn scp-btn--ghost" data-scp-admin-orders-view="calendar">
+                <?php esc_html_e('Takvim', 'seviye-storefront'); ?>
+            </button>
+        </div>
+
         <form class="scp-form scp-form--inline" data-scp-admin-orders-form>
             <label data-scp-admin-orders-branch-field hidden>
                 <span><?php esc_html_e('Şube', 'seviye-storefront'); ?></span>
@@ -84,5 +93,32 @@ if (!defined('ABSPATH')) {
         </form>
 
         <div class="scp-orders-list" data-scp-admin-orders-list></div>
+
+        <div class="scp-order-calendar" data-scp-admin-orders-calendar hidden>
+            <div class="scp-order-calendar__header">
+                <button type="button" class="scp-btn scp-btn--ghost" data-scp-admin-orders-calendar-prev>‹</button>
+                <span data-scp-admin-orders-calendar-title></span>
+                <button type="button" class="scp-btn scp-btn--ghost" data-scp-admin-orders-calendar-next>›</button>
+            </div>
+            <div class="scp-order-calendar__weekdays">
+                <span><?php esc_html_e('Pzt', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Sal', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Çar', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Per', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Cum', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Cmt', 'seviye-storefront'); ?></span>
+                <span><?php esc_html_e('Paz', 'seviye-storefront'); ?></span>
+            </div>
+            <div class="scp-order-calendar__grid" data-scp-admin-orders-calendar-grid></div>
+            <div class="scp-order-calendar__day-detail" data-scp-admin-orders-calendar-day-detail hidden>
+                <div class="scp-card__header">
+                    <h3 data-scp-admin-orders-calendar-day-title></h3>
+                    <button type="button" class="scp-btn scp-btn--ghost" data-scp-admin-orders-calendar-day-close>
+                        <?php esc_html_e('Kapat', 'seviye-storefront'); ?>
+                    </button>
+                </div>
+                <div data-scp-admin-orders-calendar-day-list></div>
+            </div>
+        </div>
     </section>
 </div>

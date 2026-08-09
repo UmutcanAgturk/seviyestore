@@ -234,6 +234,7 @@
     function renderOrder(order) {
         var card = document.createElement('div');
         card.className = 'scp-card scp-card--nested';
+        card.setAttribute('data-scp-order-id', String(order.id));
 
         var header = document.createElement('div');
         header.className = 'scp-card__header';
@@ -270,6 +271,10 @@
         metaRow(meta, scpPanelTextData.orderSubtotalLabel, formatMoney(order.subtotal));
         metaRow(meta, scpPanelTextData.orderTaxLabel, formatMoney(order.total_tax));
         metaRow(meta, scpPanelTextData.orderTotalLabel, formatMoney(order.total));
+
+        if (order.delivery_type_label) {
+            metaRow(meta, scpPanelTextData.orderDeliveryTypeLabel, order.delivery_type_label);
+        }
 
         if (order.tracking_number) {
             metaRow(meta, scpPanelTextData.orderTrackingNumberLabel, order.tracking_number);
@@ -379,6 +384,10 @@
             loadedOrders = result.data;
             populateSpendingSummaryToolbar(loadedOrders);
 
+            if (currentOrdersView === 'timeline') {
+                renderTimeline(loadedOrders);
+            }
+
             if (result.data.length === 0) {
                 setStatus('');
                 listEl.appendChild(renderEmptyOrdersState());
@@ -429,6 +438,127 @@
 
         return wrapper;
     }
+
+    /**
+     * "Sipariş geçmişi zaman çizelgesi/tüneli (yıllara göre gruplu)" - AYNI
+     * `loadedOrders` dizisinin (Yıllık Harcama Özeti'nin de kullandığı)
+     * ikinci bir görünümü, yeni bir REST çağrısı yok. Yıl başlıkları en
+     * yeniden en eskiye, her yıl içindeki siparişler de tarihe göre azalan
+     * sırada - tıklanan düğüm Liste görünümüne geçip ilgili sipariş
+     * kartına (renderOrder()'ın artık işaretlediği `data-scp-order-id`)
+     * kaydırıyor, kartın kendi ayrıntılarını (kalemler/iade/yazdır) İKİNCİ
+     * bir yerde YENİDEN İNŞA ETMİYOR.
+     */
+    var viewToggleButtons = root.querySelectorAll('[data-scp-orders-view]');
+    var timelineEl = root.querySelector('[data-scp-orders-timeline]');
+    var currentOrdersView = 'list';
+
+    function setOrdersView(view) {
+        currentOrdersView = view;
+        listEl.hidden = view !== 'list';
+        timelineEl.hidden = view !== 'timeline';
+
+        Array.prototype.forEach.call(viewToggleButtons, function (button) {
+            button.classList.toggle('is-active', button.getAttribute('data-scp-orders-view') === view);
+        });
+
+        if (view === 'timeline') {
+            renderTimeline(loadedOrders);
+        }
+    }
+
+    function jumpToOrderInList(orderId) {
+        setOrdersView('list');
+
+        var card = listEl.querySelector('[data-scp-order-id="' + orderId + '"]');
+
+        if (!card) {
+            return;
+        }
+
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        card.classList.add('scp-order-history-timeline__highlight-target');
+        window.setTimeout(function () {
+            card.classList.remove('scp-order-history-timeline__highlight-target');
+        }, 2000);
+    }
+
+    function renderTimeline(orders) {
+        timelineEl.innerHTML = '';
+
+        var byYear = {};
+        orders.forEach(function (order) {
+            if (!order.date) {
+                return;
+            }
+
+            var year = order.date.slice(0, 4);
+            (byYear[year] = byYear[year] || []).push(order);
+        });
+
+        var years = Object.keys(byYear).sort().reverse();
+
+        if (years.length === 0) {
+            timelineEl.appendChild(renderEmptyOrdersState());
+            return;
+        }
+
+        years.forEach(function (year) {
+            var yearSection = document.createElement('div');
+            yearSection.className = 'scp-order-history-timeline__year';
+
+            var yearHeading = document.createElement('h3');
+            yearHeading.className = 'scp-order-history-timeline__year-heading';
+            yearHeading.textContent = year;
+            yearSection.appendChild(yearHeading);
+
+            var track = document.createElement('div');
+            track.className = 'scp-order-history-timeline__track';
+
+            byYear[year]
+                .slice()
+                .sort(function (a, b) {
+                    return a.date < b.date ? 1 : -1;
+                })
+                .forEach(function (order) {
+                    var node = document.createElement('button');
+                    node.type = 'button';
+                    node.className = 'scp-order-history-timeline__node';
+
+                    var dot = document.createElement('span');
+                    dot.className = 'scp-order-history-timeline__dot';
+                    node.appendChild(dot);
+
+                    var content = document.createElement('span');
+                    content.className = 'scp-order-history-timeline__content';
+
+                    var dateEl = document.createElement('strong');
+                    dateEl.textContent = order.date;
+                    content.appendChild(dateEl);
+
+                    var summaryEl = document.createElement('span');
+                    summaryEl.textContent = scpPanelTextData.orderNumberLabel + ' #' + order.number
+                        + ' – ' + formatMoney(order.total) + ' – ' + order.status_label;
+                    content.appendChild(summaryEl);
+
+                    node.appendChild(content);
+                    node.addEventListener('click', function () {
+                        jumpToOrderInList(order.id);
+                    });
+
+                    track.appendChild(node);
+                });
+
+            yearSection.appendChild(track);
+            timelineEl.appendChild(yearSection);
+        });
+    }
+
+    Array.prototype.forEach.call(viewToggleButtons, function (button) {
+        button.addEventListener('click', function () {
+            setOrdersView(button.getAttribute('data-scp-orders-view'));
+        });
+    });
 
     loadOrders();
 })();

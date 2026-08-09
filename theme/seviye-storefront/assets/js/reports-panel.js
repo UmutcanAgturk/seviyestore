@@ -44,10 +44,18 @@
     var tableBody = root.querySelector('[data-scp-reports-body]');
     var csvButton = root.querySelector('[data-scp-report-csv]');
     var xlsxButton = root.querySelector('[data-scp-report-xlsx]');
+    var periodDeltaEl = root.querySelector('[data-scp-report-period-delta]');
+    var periodDeltaTotalEl = root.querySelector('[data-scp-report-period-delta-total]');
+    var periodDeltaBadgeEl = root.querySelector('[data-scp-report-period-delta-badge]');
+    var periodDeltaHintEl = root.querySelector('[data-scp-report-period-delta-hint]');
     var comparisonChart = root.querySelector('[data-scp-comparison-chart]');
     var comparisonChartHost = root.querySelector('[data-scp-comparison-chart-host]');
     var comparisonModeButtons = root.querySelectorAll('[data-scp-comparison-mode]');
+    var comparisonViewButtons = root.querySelectorAll('[data-scp-comparison-view]');
+    var comparisonHeatmapWrap = root.querySelector('[data-scp-comparison-heatmap]');
+    var comparisonHeatmapTable = root.querySelector('[data-scp-comparison-heatmap-table]');
     var comparisonMode = 'branch';
+    var comparisonView = 'bar';
     var lastReportRows = [];
 
     function setStatus(message, isError) {
@@ -173,11 +181,22 @@
             return;
         }
 
+        comparisonChart.hidden = false;
+
+        if (comparisonView === 'heatmap') {
+            comparisonChartHost.hidden = true;
+            comparisonHeatmapWrap.hidden = false;
+            renderComparisonHeatmap();
+            return;
+        }
+
+        comparisonChartHost.hidden = false;
+        comparisonHeatmapWrap.hidden = true;
+
         var items = comparisonMode === 'branch'
             ? aggregateReportRows(lastReportRows, 'branch_id', 'branch_name')
             : aggregateReportRows(lastReportRows, 'product_id', 'product_name');
 
-        comparisonChart.hidden = false;
         comparisonChartHost.innerHTML = '';
 
         var max = items.reduce(function (acc, item) {
@@ -211,6 +230,102 @@
         });
     }
 
+    /**
+     * "Şube performans karşılaştırmasında heatmap" - AYNI `lastReportRows`
+     * (branch_id/name + product_id/name + total_price per pair) yeniden
+     * kullanılıyor, yeni bir REST çağrısı yok; tek fark çubuk grafiğin
+     * TEK bir boyutu (ya şube ya ürün) aggregate etmesine karşılık
+     * heatmap'in İKİ boyutu AYNI ANDA bir matrise dökmesi - bu yüzden
+     * ayrı bir görselleştirme fonksiyonu, `comparisonMode`'dan (Şubelere/
+     * Ürünlere Göre) bağımsız. Satır/sütun sayısı ilk 8 şube × ilk 8 ürünle
+     * sınırlı (toplam ciroya göre) - üstel şekilde büyüyen bir tabloyu
+     * okunaksız kılmamak için, tıpkı aggregateReportRows()'un kendi
+     * "ilk 10" sınırı gibi. Hücre arka plan opaklığı o hücrenin toplamının
+     * MATRİSTEKİ en yüksek hücreye oranı - satır/sütun bazlı değil, tüm
+     * matris için TEK bir ölçek, aksi halde düşük hacimli bir şube/ürün
+     * kendi satırı/sütunu içinde yanıltıcı biçimde "koyu" görünürdü.
+     */
+    function renderComparisonHeatmap() {
+        var branchTotals = {};
+        var branchNames = {};
+        var productTotals = {};
+        var productNames = {};
+        var cellTotals = {};
+
+        lastReportRows.forEach(function (row) {
+            branchNames[row.branch_id] = row.branch_name;
+            branchTotals[row.branch_id] = (branchTotals[row.branch_id] || 0) + row.total_price;
+
+            productNames[row.product_id] = row.product_name;
+            productTotals[row.product_id] = (productTotals[row.product_id] || 0) + row.total_price;
+
+            var key = row.branch_id + ':' + row.product_id;
+            cellTotals[key] = (cellTotals[key] || 0) + row.total_price;
+        });
+
+        function topIdsByTotal(totals) {
+            return Object.keys(totals)
+                .sort(function (a, b) {
+                    return totals[b] - totals[a];
+                })
+                .slice(0, 8);
+        }
+
+        var topBranchIds = topIdsByTotal(branchTotals);
+        var topProductIds = topIdsByTotal(productTotals);
+
+        var overallMax = 0;
+        topBranchIds.forEach(function (branchId) {
+            topProductIds.forEach(function (productId) {
+                overallMax = Math.max(overallMax, cellTotals[branchId + ':' + productId] || 0);
+            });
+        });
+
+        comparisonHeatmapTable.innerHTML = '';
+
+        var headRow = document.createElement('tr');
+        headRow.appendChild(document.createElement('th'));
+        topProductIds.forEach(function (productId) {
+            var th = document.createElement('th');
+            th.textContent = productNames[productId];
+            headRow.appendChild(th);
+        });
+        comparisonHeatmapTable.appendChild(headRow);
+
+        topBranchIds.forEach(function (branchId) {
+            var row = document.createElement('tr');
+
+            var rowHead = document.createElement('th');
+            rowHead.textContent = branchNames[branchId];
+            row.appendChild(rowHead);
+
+            topProductIds.forEach(function (productId) {
+                var cell = document.createElement('td');
+                var value = cellTotals[branchId + ':' + productId] || 0;
+                var intensity = overallMax > 0 ? value / overallMax : 0;
+
+                cell.className = 'scp-heatmap__cell';
+                cell.style.backgroundColor = 'rgba(37, 99, 235, ' + (0.08 + intensity * 0.72) + ')';
+                cell.textContent = value > 0 ? formatMoney(value) : '–';
+                cell.title = branchNames[branchId] + ' × ' + productNames[productId] + ': ' + formatMoney(value);
+
+                row.appendChild(cell);
+            });
+
+            comparisonHeatmapTable.appendChild(row);
+        });
+    }
+
+    comparisonViewButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            comparisonView = button.getAttribute('data-scp-comparison-view');
+            comparisonViewButtons.forEach(function (btn) {
+                btn.classList.toggle('is-active', btn === button);
+            });
+            renderComparisonChart();
+        });
+    });
+
     comparisonModeButtons.forEach(function (button) {
         button.addEventListener('click', function () {
             comparisonMode = button.getAttribute('data-scp-comparison-mode');
@@ -220,6 +335,77 @@
             renderComparisonChart();
         });
     });
+
+    function sumTotal(rows) {
+        return rows.reduce(function (sum, row) {
+            return sum + Number(row.total_price);
+        }, 0);
+    }
+
+    /**
+     * "Raporlarda önceki döneme göre yüzdesel değişim rozeti" - yalnızca
+     * form'un `from`/`to` alanları İKİSİ de doldurulmuşsa anlamlı bir
+     * "önceki dönem" var demektir (filtresiz/açık uçlu bir sorguda
+     * karşılaştırılacak eşdeğer bir önceki aralık tanımsız). Önceki dönem,
+     * AYNI gün sayısında, `from`'un HEMEN öncesinde biten ikinci bir
+     * `reports/sales` isteğiyle (aynı ürün/kategori/şube filtreleriyle)
+     * çekiliyor - yeni bir REST ucu yok, yalnızca tarihleri kaydırılmış
+     * AYNI endpoint'e ikinci bir çağrı.
+     */
+    function loadPeriodDelta(params, currentTotal) {
+        var from = params.get('from');
+        var to = params.get('to');
+
+        if (!from || !to) {
+            periodDeltaEl.hidden = true;
+            return;
+        }
+
+        var fromDate = new Date(from + 'T00:00:00');
+        var toDate = new Date(to + 'T00:00:00');
+        var spanDays = Math.max(1, Math.round((toDate - fromDate) / 86400000) + 1);
+
+        var prevTo = new Date(fromDate);
+        prevTo.setDate(prevTo.getDate() - 1);
+        var prevFrom = new Date(prevTo);
+        prevFrom.setDate(prevFrom.getDate() - (spanDays - 1));
+
+        function isoDate(date) {
+            return date.getFullYear() + '-'
+                + String(date.getMonth() + 1).padStart(2, '0') + '-'
+                + String(date.getDate()).padStart(2, '0');
+        }
+
+        var prevParams = new URLSearchParams(params);
+        prevParams.set('from', isoDate(prevFrom));
+        prevParams.set('to', isoDate(prevTo));
+
+        apiFetch('reports/sales?' + prevParams.toString()).then(function (result) {
+            if (!result.ok) {
+                periodDeltaEl.hidden = true;
+                return;
+            }
+
+            var previousTotal = sumTotal(result.data);
+
+            periodDeltaEl.hidden = false;
+            periodDeltaTotalEl.textContent = formatMoney(currentTotal);
+            periodDeltaHintEl.textContent = scpPanelTextData.reportPeriodPreviousHint
+                .replace('%1$s', isoDate(prevFrom))
+                .replace('%2$s', isoDate(prevTo));
+
+            if (previousTotal <= 0) {
+                periodDeltaBadgeEl.textContent = '';
+                periodDeltaBadgeEl.className = 'scp-badge';
+                return;
+            }
+
+            var percentChange = Math.round(((currentTotal - previousTotal) / previousTotal) * 1000) / 10;
+            var isPositive = percentChange >= 0;
+            periodDeltaBadgeEl.textContent = (isPositive ? '+' : '') + percentChange + '%';
+            periodDeltaBadgeEl.className = 'scp-badge ' + (isPositive ? 'scp-badge--positive' : 'scp-badge--negative');
+        });
+    }
 
     function loadReport() {
         var params = currentParams();
@@ -232,6 +418,7 @@
             }
 
             renderRows(result.data);
+            loadPeriodDelta(params, sumTotal(result.data));
         });
     }
 

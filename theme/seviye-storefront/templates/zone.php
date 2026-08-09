@@ -162,6 +162,53 @@ get_header();
                         </div>
                     </div>
                 </div>
+
+                <div class="scp-dashboard-widget" data-scp-dashboard-widget="compare">
+                    <button
+                        type="button"
+                        class="scp-dashboard-widget__handle"
+                        draggable="true"
+                        aria-label="<?php esc_attr_e('Widget\'ı sürükle', 'seviye-storefront'); ?>"
+                    >⠿</button>
+                    <h3><?php esc_html_e('Tarih Aralığı Karşılaştırması', 'seviye-storefront'); ?></h3>
+                    <form class="scp-form scp-form--inline" data-scp-overview-compare-form>
+                        <label>
+                            <span><?php esc_html_e('Aralık A - Başlangıç', 'seviye-storefront'); ?></span>
+                            <input type="date" name="from" required>
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Aralık A - Bitiş', 'seviye-storefront'); ?></span>
+                            <input type="date" name="to" required>
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Aralık B - Başlangıç (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                            <input type="date" name="compare_from">
+                        </label>
+                        <label>
+                            <span><?php esc_html_e('Aralık B - Bitiş (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                            <input type="date" name="compare_to">
+                        </label>
+                        <div class="scp-form__actions">
+                            <button type="submit" class="scp-btn"><?php esc_html_e('Karşılaştır', 'seviye-storefront'); ?></button>
+                        </div>
+                    </form>
+
+                    <p class="scp-status" data-scp-overview-compare-status></p>
+
+                    <div class="scp-compare-result" data-scp-overview-compare-result hidden>
+                        <div class="scp-compare-result__side">
+                            <span class="scp-compare-result__label" data-scp-overview-compare-a-label></span>
+                            <span class="scp-compare-result__value" data-scp-overview-compare-a-total></span>
+                            <span class="scp-compare-result__meta" data-scp-overview-compare-a-count></span>
+                        </div>
+                        <div class="scp-compare-result__side" data-scp-overview-compare-b hidden>
+                            <span class="scp-compare-result__label" data-scp-overview-compare-b-label></span>
+                            <span class="scp-compare-result__value" data-scp-overview-compare-b-total></span>
+                            <span class="scp-compare-result__meta" data-scp-overview-compare-b-count></span>
+                            <span class="scp-badge" data-scp-overview-compare-delta></span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     <?php else : ?>

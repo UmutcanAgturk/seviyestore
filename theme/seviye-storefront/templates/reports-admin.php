@@ -64,6 +64,12 @@ if (!defined('ABSPATH')) {
             </div>
         </form>
 
+        <p class="scp-report-period-delta" data-scp-report-period-delta hidden>
+            <span data-scp-report-period-delta-total></span>
+            <span class="scp-badge" data-scp-report-period-delta-badge></span>
+            <span class="scp-report-period-delta__hint" data-scp-report-period-delta-hint></span>
+        </p>
+
         <div class="scp-table-wrapper">
             <table class="scp-table" data-scp-reports-table hidden>
                 <thead>
@@ -95,7 +101,22 @@ if (!defined('ABSPATH')) {
                     ><?php esc_html_e('Ürünlere Göre', 'seviye-storefront'); ?></button>
                 </div>
             </div>
+            <div class="scp-comparison-chart__toggle">
+                <button
+                    type="button"
+                    class="scp-btn scp-btn--ghost scp-btn--small is-active"
+                    data-scp-comparison-view="bar"
+                ><?php esc_html_e('Çubuk', 'seviye-storefront'); ?></button>
+                <button
+                    type="button"
+                    class="scp-btn scp-btn--ghost scp-btn--small"
+                    data-scp-comparison-view="heatmap"
+                ><?php esc_html_e('Isı Haritası (Şube × Ürün)', 'seviye-storefront'); ?></button>
+            </div>
             <div data-scp-comparison-chart-host></div>
+            <div class="scp-table-wrapper" data-scp-comparison-heatmap hidden>
+                <table class="scp-heatmap" data-scp-comparison-heatmap-table></table>
+            </div>
         </div>
 
         <?php if (current_user_can('scp_view_reports') || current_user_can('scp_view_own_reports')) : ?>

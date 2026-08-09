@@ -67,6 +67,9 @@ if (!defined('ABSPATH')) {
                 <input type="datetime-local" name="scheduled_at">
             </label>
             <div class="scp-form__actions">
+                <button type="button" class="scp-btn scp-btn--ghost" data-scp-broadcast-preview>
+                    <?php esc_html_e('Önizle', 'seviye-storefront'); ?>
+                </button>
                 <button type="submit" class="scp-btn"><?php esc_html_e('Gönder', 'seviye-storefront'); ?></button>
             </div>
         </form>

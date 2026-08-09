@@ -628,6 +628,44 @@
   color: var(--scp-text-muted);
 }
 
+/* "Teslimat adresi tipi seçimi (Okula/Eve Teslim)" - inc/woocommerce.php's
+   scp_add_delivery_type_field(), a `woocommerce_checkout_fields` radio
+   field. WC's own woocommerce_form_field() (wc-template-functions.php)
+   renders the field's OWN heading as a bare <label> and each option as
+   an <input type="radio"> immediately followed by a `<label class="radio">`
+   - `label.radio` targets only the per-option labels, leaving the
+   heading label styled by the existing `.form-row label` rule above. */
+.scp-delivery-type-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-bottom: 20px;
+}
+
+.scp-delivery-type-field > label:not(.radio) {
+  flex-basis: 100%;
+}
+
+.scp-delivery-type-field input[type="radio"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+.scp-delivery-type-field label.radio {
+  flex: 1 1 160px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 0;
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  font-size: var(--scp-text-base);
+  font-weight: 500;
+  color: var(--scp-text);
+  cursor: pointer;
+}
+
 @media (max-width: 782px) {
   .single-product div.product {
     grid-template-columns: 1fr;
@@ -1547,6 +1585,14 @@
 
 .scp-stock-subscription__note {
   margin: 8px 0 0;
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text-muted);
+}
+
+/* "Ürün sayfasında tahmini teslimat tarihi gösterimi" -
+   inc/woocommerce.php's scp_render_estimated_delivery(). */
+.scp-estimated-delivery {
+  margin: 12px 0 0;
   font-size: var(--scp-text-sm);
   color: var(--scp-text-muted);
 }

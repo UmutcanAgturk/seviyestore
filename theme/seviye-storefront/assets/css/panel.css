@@ -192,6 +192,173 @@
   background: var(--scp-primary);
 }
 
+/* "Aylık takvim görünümü" - Liste/Takvim toggle, assets/js/admin-orders-panel.js's
+   setView(). Reuses .scp-btn--ghost, only the active one gets a filled
+   background so the pair reads as a segmented control. */
+.scp-view-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.scp-view-toggle [data-scp-admin-orders-view].is-active {
+  color: #fff;
+  background: var(--scp-primary);
+  border-color: var(--scp-primary);
+}
+
+.scp-order-calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+
+.scp-order-calendar__weekdays,
+.scp-order-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.scp-order-calendar__weekdays {
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+  text-align: center;
+}
+
+.scp-order-calendar__day {
+  min-height: 64px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  font: inherit;
+  cursor: default;
+}
+
+.scp-order-calendar__day:disabled {
+  opacity: 0.5;
+}
+
+.scp-order-calendar__day--has-orders {
+  cursor: pointer;
+  border-color: var(--scp-primary-light);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.scp-order-calendar__day--has-orders:hover {
+  background: var(--scp-primary-bg, var(--scp-surface-alt));
+  border-color: var(--scp-primary);
+}
+
+.scp-order-calendar__day-number {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.scp-order-calendar__day-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--scp-primary);
+}
+
+.scp-order-calendar__day-total {
+  font-size: 0.6875rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-order-calendar__day-detail {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--scp-border);
+}
+
+/* "Sipariş geçmişi zaman çizelgesi/tüneli" - assets/js/orders-panel.js's
+   renderTimeline(). A vertical dot-and-line track per year, reusing the
+   same left-border-accent idiom the fulfillment timeline already uses
+   elsewhere on this page, just at the whole-history scale. */
+.scp-order-history-timeline__year {
+  margin-bottom: 24px;
+}
+
+.scp-order-history-timeline__year-heading {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+}
+
+.scp-order-history-timeline__track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 2px solid var(--scp-border);
+  padding-left: 16px;
+}
+
+.scp-order-history-timeline__node {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-left: -19px;
+  background: none;
+  border: none;
+  border-radius: var(--scp-radius-sm);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.scp-order-history-timeline__node:hover,
+.scp-order-history-timeline__node:focus-visible {
+  background: var(--scp-surface-alt);
+}
+
+.scp-order-history-timeline__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--scp-primary);
+  flex-shrink: 0;
+}
+
+.scp-order-history-timeline__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-order-history-timeline__content strong {
+  color: var(--scp-text);
+  font-size: 0.875rem;
+}
+
+.scp-order-history-timeline__highlight-target {
+  animation: scp-order-history-highlight 2s ease;
+}
+
+@keyframes scp-order-history-highlight {
+  0%, 100% {
+    box-shadow: none;
+  }
+
+  20% {
+    box-shadow: 0 0 0 3px var(--scp-primary-light);
+  }
+}
+
 /* "Admin sipariş listesinde toplu işlem" - assets/js/admin-orders-panel.js's
    updateBulkToolbar() toggles [hidden] itself; empty/hidden by default so
    it takes no space until at least one order is selected. */
@@ -366,6 +533,18 @@
 .scp-badge--info {
   color: var(--scp-info);
   background: var(--scp-info-bg);
+}
+
+/* Tarih aralığı karşılaştırması + rapor yüzdesel değişim rozetleri - bir
+   önceki/karşılaştırılan döneme göre artış/azalış yönünü gösterir. */
+.scp-badge--positive {
+  color: var(--scp-success-text);
+  background: var(--scp-success-bg);
+}
+
+.scp-badge--negative {
+  color: var(--scp-danger);
+  background: var(--scp-danger-bg);
 }
 
 /* A <button> element carrying .scp-badge (the products panel's own-branch
@@ -767,13 +946,105 @@ button.scp-badge:hover {
   color: var(--scp-text-muted);
 }
 
+/* "Genel Bakış özelleştirilebilir tarih aralığı karşılaştırması" - iki
+   aralığın sonucu, .scp-stat-tile'ın AYNI kart görünümüyle yan yana. */
+.scp-compare-result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.scp-compare-result__side {
+  padding: 16px;
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scp-compare-result__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-text-muted);
+}
+
+.scp-compare-result__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--scp-primary);
+}
+
+.scp-compare-result__meta {
+  font-size: 0.8125rem;
+  color: var(--scp-text-muted);
+}
+
+.scp-compare-result__side [data-scp-overview-compare-delta] {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 .scp-comparison-chart {
   margin: 20px 0;
+}
+
+/* "Raporlarda önceki döneme göre yüzdesel değişim rozeti" -
+   assets/js/reports-panel.js's loadPeriodDelta(). */
+.scp-report-period-delta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.scp-report-period-delta__hint {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--scp-text-muted);
 }
 
 .scp-comparison-chart__toggle {
   display: flex;
   gap: 8px;
+  margin-bottom: 8px;
+}
+
+.scp-comparison-chart__toggle [data-scp-comparison-view].is-active {
+  color: #fff;
+  background: var(--scp-primary);
+  border-color: var(--scp-primary);
+}
+
+/* "Şube performans karşılaştırmasında heatmap" - assets/js/reports-panel.js's
+   renderComparisonHeatmap(). Cell background is set inline per-cell (data-
+   driven opacity), only the static grid chrome lives here. */
+.scp-heatmap {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.scp-heatmap th,
+.scp-heatmap td {
+  padding: 8px 10px;
+  border: 1px solid var(--scp-border);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.scp-heatmap th {
+  background: var(--scp-surface-alt);
+  text-align: left;
+  font-weight: 600;
+}
+
+.scp-heatmap__cell {
+  text-align: center;
+  color: var(--scp-text);
 }
 
 .scp-comparison-chart__row {
@@ -1479,6 +1750,53 @@ button.scp-badge:hover {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* "Toplu duyuru/e-posta gönderiminde önizleme modu" -
+   assets/js/broadcast-panel.js's openPreview(). One card per selected
+   channel, styled just enough to visually distinguish an e-posta "zarf"
+   from a panel bildirimi/SMS-WhatsApp bubble - not a pixel-accurate
+   render of the real templates, just enough to catch typos before send. */
+.scp-broadcast-preview-card {
+  padding: 14px 16px;
+  margin: 0 0 16px;
+  background: var(--scp-surface-alt);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-broadcast-preview-card__label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--scp-primary);
+}
+
+.scp-broadcast-preview-card strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.scp-broadcast-preview-card p {
+  margin: 0;
+  color: var(--scp-text);
+  white-space: pre-wrap;
+}
+
+.scp-broadcast-preview-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--scp-text-muted);
+  font-size: 0.75rem;
+}
+
+.scp-broadcast-preview-card--sms,
+.scp-broadcast-preview-card--whatsapp {
+  border-radius: 16px;
 }
 
 /* "İlk kez giriş yapan personel için onboarding tour" -

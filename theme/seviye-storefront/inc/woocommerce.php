@@ -61,6 +61,14 @@ add_action('woocommerce_before_thankyou', 'scp_render_checkout_steps');
 add_action('woocommerce_after_single_product', 'scp_render_product_faq', 20);
 add_action('woocommerce_after_checkout_form', 'scp_render_checkout_faq');
 
+// "Teslimat adresi tipi seçimi (Okula/Eve Teslim)" - WC'nin kendi
+// `woocommerce_checkout_fields` filtresine tek bir radio alanı ekliyor
+// (yeni bir form/adım İCAT ETMİYOR) - WC'nin standart doğrulama/kaydetme
+// akışının İÇİNDE kalıyor, `$_POST`'u elle ayrıştırmaya gerek yok.
+add_filter('woocommerce_checkout_fields', 'scp_add_delivery_type_field');
+add_action('woocommerce_checkout_update_order_meta', 'scp_save_delivery_type_field');
+add_action('woocommerce_order_details_after_order_table', 'scp_render_delivery_type_order_detail');
+
 // "Mağaza Vitrini" - öncelik 1, scp_render_category_banner()'dan (4) ÖNCE -
 // yalnızca mağaza ana sayfasında (is_shop(), kategori arşivlerinde DEĞİL -
 // onların zaten kendi banner'ı var) gösterilen hero + öne çıkan ürünler
@@ -115,6 +123,12 @@ add_action('woocommerce_after_single_product_summary', 'scp_render_recently_view
 // alanının (priority 30 - stok yoksa burada "Stokta yok" mesajı basılır)
 // HEMEN ardından.
 add_action('woocommerce_single_product_summary', 'scp_render_stock_subscription', 31);
+
+// "Ürün sayfasında tahmini teslimat tarihi gösterimi" - priority 32,
+// stok bildirimi alanından (31) hemen sonra; stokta yoksa hiç basılmaz
+// (bkz. scp_render_estimated_delivery() - "ne zaman teslim edilir"in
+// stokta olmayan bir ürün için anlamı yok).
+add_action('woocommerce_single_product_summary', 'scp_render_estimated_delivery', 32);
 
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
@@ -454,6 +468,86 @@ function scp_render_no_products_suggestions(): void
             </ul>
         <?php endif; ?>
     </div>
+    <?php
+}
+
+/**
+ * "Teslimat adresi tipi seçimi (Okula/Eve Teslim)" - ödeme sayfasının
+ * `order` alan grubuna (fatura/teslimat adreslerinden ÖNCE render edilen,
+ * "Sipariş Notu" gibi alanların bulunduğu grup) tek bir zorunlu radio
+ * ekliyor. `priority => -1` fatura adımından önce en üstte görünmesini
+ * sağlıyor - veli teslimat türünü, adres formunu doldurmadan ÖNCE
+ * seçebilsin diye.
+ *
+ * @param array<string, array<string, array<string, mixed>>> $fields
+ * @return array<string, array<string, array<string, mixed>>>
+ */
+function scp_add_delivery_type_field(array $fields): array
+{
+    $fields['order']['scp_delivery_type'] = [
+        'type' => 'radio',
+        'label' => __('Teslimat Türü', 'seviye-storefront'),
+        'required' => true,
+        'class' => ['scp-delivery-type-field', 'form-row-wide'],
+        'options' => [
+            'school' => __('Okula Teslim', 'seviye-storefront'),
+            'home' => __('Eve Teslim', 'seviye-storefront'),
+        ],
+        'default' => 'home',
+        'priority' => 5,
+    ];
+
+    return $fields;
+}
+
+/**
+ * `woocommerce_checkout_update_order_meta` - WC'nin kendi doğrulama/
+ * kaydetme akışı ZATEN tamamlandıktan SONRA çalışıyor (bu hook'a
+ * ulaşıldıysa `scp_delivery_type` `required => true` olduğu için mutlaka
+ * gönderilmiştir), ama yine de yalnızca bilinen iki değerden birini kabul
+ * ediyor - `$_POST`'a doğrudan güvenmek yerine son bir doğrulama katmanı.
+ */
+function scp_save_delivery_type_field(int $orderId): void
+{
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce's own checkout nonce is verified upstream by WC_Checkout::process_checkout() before this hook fires (same reasoning as WooCommerceCartHooks.php's add-to-cart hooks).
+    $value = isset($_POST['scp_delivery_type']) ? sanitize_text_field(wp_unslash($_POST['scp_delivery_type'])) : '';
+
+    if (!in_array($value, ['school', 'home'], true)) {
+        return;
+    }
+
+    $order = wc_get_order($orderId);
+
+    if ($order instanceof WC_Order) {
+        $order->update_meta_data('_scp_delivery_type', $value);
+        $order->save();
+    }
+}
+
+/**
+ * Sipariş detayı (veli "Siparişlerim", personel Sipariş Yönetimi, yazdırma
+ * görünümü - hepsi WC'nin AYNI `woocommerce_order_details_after_order_table`
+ * hook'unu, temanın kendi şablonları YERİNE `single-order.php`/thank-you
+ * için kullanır) sonuna teslimat türü satırı ekliyor. Bu hook'un
+ * OrderPresenter'ın JSON çıktısıyla hiçbir ilgisi yok - panel.js'lerin
+ * kendi `renderOrder()`'ları AYRICA `order.delivery_type_label`'ı okuyor
+ * (bkz. OrderPresenter::present()); bu fonksiyon yalnızca WC'nin KENDİ
+ * PHP şablonlarıyla render edilen (ör. e-posta, thank-you sayfası) yerler
+ * için.
+ */
+function scp_render_delivery_type_order_detail(WC_Order $order): void
+{
+    $value = $order->get_meta('_scp_delivery_type');
+
+    if ($value === '') {
+        return;
+    }
+
+    $label = $value === 'school'
+        ? __('Okula Teslim', 'seviye-storefront')
+        : __('Eve Teslim', 'seviye-storefront');
+    ?>
+    <p><strong><?php esc_html_e('Teslimat Türü:', 'seviye-storefront'); ?></strong> <?php echo esc_html($label); ?></p>
     <?php
 }
 
@@ -1155,4 +1249,57 @@ function scp_render_stock_subscription(): void
         '<div class="scp-stock-subscription" data-scp-stock-subscription data-product-id="%s"></div>',
         esc_attr((string) $product->get_id())
     );
+}
+
+/**
+ * "Ürün sayfasında tahmini teslimat tarihi gösterimi" - platformun gerçek
+ * bir kargo/lojistik entegrasyonu YOK (ne bir kargo firması API'si, ne de
+ * şube bazlı hazırlık süresi verisi var), bu yüzden burada da İCAT
+ * EDİLMİYOR - sabit, açıkça "tahmini" etiketlenmiş bir hazırlık+kargo
+ * penceresi (bkz. sabitler) iş günü bazında hesaplanıp bir ARALIK olarak
+ * gösteriliyor. Gerçek teslimat OrderFulfillment'ın kendi
+ * shipped_at/delivered_at alanlarıyla ayrıca takip ediliyor - bu yalnızca
+ * satın almadan ÖNCEki bir beklenti göstergesi.
+ */
+function scp_render_estimated_delivery(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product || !$product->is_in_stock()) {
+        return;
+    }
+
+    $processingDays = 2;
+    $shippingDays = 3;
+
+    $earliest = scp_add_business_days(new DateTimeImmutable('today'), $processingDays);
+    $latest = scp_add_business_days($earliest, $shippingDays);
+
+    printf(
+        '<p class="scp-estimated-delivery">%s</p>',
+        esc_html(sprintf(
+            /* translators: 1: earliest estimated delivery date, 2: latest estimated delivery date. */
+            __('Tahmini Teslimat: %1$s - %2$s', 'seviye-storefront'),
+            wp_date(get_option('date_format'), $earliest->getTimestamp()),
+            wp_date(get_option('date_format'), $latest->getTimestamp())
+        ))
+    );
+}
+
+/**
+ * Cumartesi/Pazar'ı ATLAYARAK $days iş günü ileri gider - scp_render_estimated_delivery()'nin
+ * tek kullanıcısı, ama genel bir "N iş günü ekle" yardımcısı olarak ayrı
+ * tutuldu (tarih aritmetiğini render fonksiyonunun İÇİNE gömmek yerine).
+ */
+function scp_add_business_days(DateTimeImmutable $date, int $days): DateTimeImmutable
+{
+    while ($days > 0) {
+        $date = $date->modify('+1 day');
+
+        if ((int) $date->format('N') < 6) {
+            $days--;
+        }
+    }
+
+    return $date;
 }

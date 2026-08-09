@@ -5438,6 +5438,104 @@ Mod) ve İleri/Geç akışıyla genişletildi.
 (34 test, 86 doğrulama) ve `seviye-students` (47 test, 86 doğrulama)
 eklentilerinin TAM PHPUnit paketleri geçti.
 
+### 93. UX Turu 9C (33 maddelik büyük seçimin sipariş/rapor odaklı maddeleri)
+
+9A/9B'nin devamı - bu bölüm 9C'yi kapsıyor: Genel Bakış'ta tarih
+aralığı karşılaştırması, sipariş yönetiminde takvim/zaman çizelgesi
+görünümleri, raporlamada heatmap/yüzdesel değişim, toplu duyuru
+önizlemesi, ve checkout'ta teslimat türü + tahmini teslimat tarihi.
+
+**Genel Bakış özelleştirilebilir tarih aralığı karşılaştırması.**
+`OverviewRestController::show()` yeni `from`/`to` (Aralık A) ve isteğe
+bağlı `compare_from`/`compare_to` (Aralık B) query parametreleri kabul
+ediyor - yeni bir REST ucu YOK, aynı endpoint'e opsiyonel parametreler
+eklendi. Bir sorun kendim yakalayıp DÜZELTTİM: özel aralık standart
+30 günden daha eskiye gidince `wc_get_orders()` sorgusu GENİŞLİYOR
+(`$earliestNeeded`), ama "Son 30 Gün" diye etiketlenen DİĞER
+widget'lar (top_products/branch_breakdown/daily_trend/month) bu genişletilmiş
+veri setini görürse yanlışlıkla büyürlerdi - bu yüzden onlar için ayrı,
+`$defaultSince`'e göre filtrelenmiş bir `$windowRecords` alt kümesi
+kullanılıyor, yalnızca custom_range/custom_range_comparison tam veri
+setini görüyor. `percent_change` `null` döner (0/0 belirsizliği) önceki
+dönem toplamı 0 veya negatifse. Yeni `.scp-badge--positive`/
+`--negative` rozet varyantları (bu bölümün 9C-5 maddesiyle PAYLAŞILIYOR).
+
+**Aylık takvim görünümü (sipariş/teslimat tarihleri).** Sipariş
+Yönetimi paneline (personel) Liste/Takvim görünüm anahtarı eklendi.
+Takvim AYRI bir REST çağrısı YAPMIYOR - `lastLoadedOrders`'ı (filtre
+formunun zaten çektiği) günün `date` alanına göre gruplayıp bir ay
+ızgarasına döküyor; ay gezinme düğmeleri `from`/`to` filtre alanlarını
+o ayın sınırlarına ayarlayıp AYNI `loadOrders()` yolunu tetikliyor - iki
+ayrı veri kaynağı yok, tüm filtreler (şube/durum/ürün) takvimde de
+geçerli kalıyor. Bir günün hücresine tıklamak, o günün siparişlerini
+`renderOrder()`'ı (kart render'ı İKİNCİ kez YAZILMADAN) yeniden
+kullanarak gösteriyor.
+
+**Sipariş geçmişi zaman çizelgesi/tüneli (yıllara göre gruplu).**
+Veli'nin "Siparişlerim" sayfasına AYNI desende bir Liste/Zaman
+Çizelgesi anahtarı - `loadedOrders`'ı (Yıllık Harcama Özeti'nin de
+kullandığı DİZİ) yıla göre gruplayıp en yeniden en eskiye sıralıyor.
+Bir zaman çizelgesi düğümüne tıklamak Liste görünümüne geçip
+`renderOrder()`'ın artık işaretlediği `data-scp-order-id`'ye
+kaydırıyor - sipariş detaylarını (kalemler/iade/yazdır) İKİNCİ bir
+yerde YENİDEN İNŞA ETMİYOR.
+
+**Şube performans karşılaştırmasında heatmap.** Raporlar
+sayfasındaki mevcut "Şubelere Göre/Ürünlere Göre" çubuk grafiğine
+(bölüm 62'nin karşılaştırma grafiği) bir "Isı Haritası (Şube × Ürün)"
+görünüm anahtarı eklendi - AYNI `lastReportRows`'u (branch_id/name +
+product_id/name + total_price) yeniden kullanıyor, çünkü heatmap tek
+bir çubuk grafiğin aksine İKİ boyutu AYNI ANDA bir matrise döküyor.
+İlk 8 şube × ilk 8 ürünle sınırlı (okunaksız büyümesin diye); hücre
+arka plan opaklığı TÜM matris için TEK bir ölçek (satır/sütun bazlı
+DEĞİL) - aksi halde düşük hacimli bir şube kendi satırı içinde
+yanıltıcı biçimde "koyu" görünürdü.
+
+**Raporlarda önceki döneme göre yüzdesel değişim rozeti.** Raporlar
+sayfasının `from`/`to` filtresi doldurulduğunda, AYNI uzunlukta (gün
+sayısı), `from`'un hemen ÖNCESİNDE biten ikinci bir `reports/sales`
+isteği (aynı ürün/kategori/şube filtreleriyle) atılıp iki dönemin
+toplamı karşılaştırılıyor - yeni bir REST ucu yok. Filtre boşsa
+("tüm zamanlar" sorgusu) rozet hiç gösterilmiyor - karşılaştırılacak
+eşdeğer bir "önceki dönem" tanımsız.
+
+**Toplu duyuru/e-posta gönderiminde önizleme modu.** Yeni "Önizle"
+düğmesi gerçek gönderim ucuna (`notifications/broadcast`) HİÇ istek
+ATMIYOR - başlık/mesaj/kanal seçimleri zaten form'un kendisinde
+olduğu için tamamen istemci tarafında, bölüm 89'un klavye kısayolları
+yardımıyla AYNI `.scp-modal`/`.scp-modal-overlay` kalıbını kullanan
+bir modal açıyor. Seçili her kanal için AYRI bir kart - e-posta bir
+"zarf" görünümünde, panel bildirimi/SMS/WhatsApp kendi görsel diliyle;
+160 karakteri aşan SMS/WhatsApp mesajlarında bir bölünme uyarısı.
+
+**Teslimat adresi tipi seçimi (Okula/Eve Teslim).** WC'nin kendi
+`woocommerce_checkout_fields` filtresine tek bir radio alanı eklendi
+(yeni bir form/adım İCAT EDİLMEDİ) - WC'nin standart doğrulama/
+kaydetme akışının İÇİNDE kalıyor, `$_POST`'u elle ayrıştırmaya gerek
+yok (`woocommerce_checkout_update_order_meta` WC'nin KENDİ nonce
+kontrolünden SONRA çalışıyor - `WooCommerceCartHooks.php`'nin
+add-to-cart kancalarıyla AYNI gerekçeyle phpcs:ignore edildi). Seçim
+`_scp_delivery_type` order meta'sına yazılıyor; `OrderPresenter`
+`delivery_type`/`delivery_type_label` alanlarıyla genişletildi (hem
+veli hem personel sipariş görünümlerinde otomatik görünüyor - iki
+ayrı yerde tekrar yazılmadı).
+
+**Ürün sayfasında tahmini teslimat tarihi gösterimi.** Platformun
+gerçek bir kargo/lojistik entegrasyonu YOK, bu yüzden burada da İCAT
+EDİLMEDİ - sabit, açıkça "Tahmini Teslimat" etiketli bir hazırlık
+(2 iş günü) + kargo (3 iş günü) penceresi iş günü bazında (hafta
+sonu ATLANARAK) hesaplanıp bir tarih ARALIĞI olarak gösteriliyor.
+Yalnızca stoktaki ürünlerde basılıyor.
+
+**Doğrulama.** Değişen tüm dosyalarda `php -l`/`node --check` temiz;
+`vendor/bin/phpcs` 0 hata (yalnızca önceden de var olan nonce-
+verification/line-length uyarıları kaldı - `scp_save_delivery_type_field()`'in
+YENİ nonce uyarısı `WooCommerceCartHooks.php` emsaliyle
+phpcs:ignore edildi); iki CSS dosyasının küme parantezi dengesi
+doğrulandı; `seviye-commerce` (34 test, 86 doğrulama) ve
+`seviye-reports` (24 test, 63 doğrulama) eklentilerinin TAM PHPUnit
+paketleri geçti.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş
