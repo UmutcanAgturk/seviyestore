@@ -42,6 +42,7 @@
     var summaryToolbar = root.querySelector('[data-scp-spending-summary-toolbar]');
     var summaryYearSelect = root.querySelector('[data-scp-spending-summary-year]');
     var summaryButton = root.querySelector('[data-scp-spending-summary-button]');
+    var summaryInfographicButton = root.querySelector('[data-scp-spending-summary-infographic-button]');
     var apiFetch = scpApiFetch;
 
     function setStatus(message, isError) {
@@ -372,6 +373,15 @@
 
         window.scpPrintSpendingSummary(summary, year, scpPanelTextData, formatMoney);
     });
+
+    if (summaryInfographicButton) {
+        summaryInfographicButton.addEventListener('click', function () {
+            var year = summaryYearSelect.value;
+            var summary = buildSpendingSummary(loadedOrders, year);
+
+            window.scpShowSpendingInfographic(summary, year, scpPanelTextData, formatMoney);
+        });
+    }
 
     function loadOrders() {
         apiFetch('commerce/orders/mine').then(function (result) {

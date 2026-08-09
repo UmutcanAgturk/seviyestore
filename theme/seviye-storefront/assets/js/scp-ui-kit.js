@@ -155,6 +155,69 @@
     });
 
     /**
+     * "Ses/haptic geri bildirim aç-kapa ayarı" - `window.scpToast()` her
+     * panel scriptinin başarı/hata bildirimi için ZATEN kullandığı TEK
+     * boğaz noktası (scpApiFetch/scpBeginNetworkActivity'nin aynı ilkesi)
+     * - onun İÇİNE eklenerek onlarca ayrı çağrı yerini tek tek
+     * değiştirmek yerine tüm platformdaki başarı/hata anları otomatik
+     * olarak ses+titreşim kazanıyor. Yeni bir ses dosyası İCAT
+     * EDİLMEDİ - Web Audio API ile anlık, kısa bir ton üretiliyor (varlık
+     * indirmeye gerek yok); `navigator.vibrate()` yalnızca destekleyen
+     * mobil tarayıcılarda çalışır, diğerlerinde sessizce yoksayılır.
+     * Varsayılan AÇIK (opt-out) - `localStorage.scpFeedbackEnabled`
+     * `'0'` olarak ayarlanana kadar. AudioContext'in tarayıcı otomatik
+     * oynatma politikası bir kullanıcı jesti gerektirir - scpToast'a
+     * giden HER çağrı zaten bir kullanıcı eylemine (form gönderimi,
+     * düğme tıklaması) tepki olarak tetiklendiği için bu genelde
+     * sorun değil; engellenirse try/catch sessizce hiçbir şey yapmıyor.
+     */
+    function scpPlayFeedback(variant) {
+        var enabled = true;
+
+        try {
+            enabled = localStorage.getItem('scpFeedbackEnabled') !== '0';
+        } catch (e) {
+            enabled = true;
+        }
+
+        if (!enabled) {
+            return;
+        }
+
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(variant === 'error' ? [40, 40, 40] : 15);
+        }
+
+        try {
+            var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+            if (!AudioContextClass) {
+                return;
+            }
+
+            var ctx = new AudioContextClass();
+            var oscillator = ctx.createOscillator();
+            var gain = ctx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = variant === 'error' ? 220 : 880;
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+            oscillator.start();
+            oscillator.stop(ctx.currentTime + 0.15);
+            oscillator.addEventListener('ended', function () {
+                ctx.close();
+            });
+        } catch (e) {
+            // Web Audio kullanılamıyor/engellendi - sessiz no-op, toast
+            // görsel olarak zaten gösterildi.
+        }
+    }
+
+    /**
      * @param {string} message
      * @param {'default'|'success'|'error'} [variant]
      */
@@ -164,6 +227,10 @@
         toast.className = 'scp-toast' + (variant ? ' scp-toast--' + variant : '');
         toast.textContent = message;
         host.appendChild(toast);
+
+        if (variant === 'success' || variant === 'error') {
+            scpPlayFeedback(variant);
+        }
 
         window.setTimeout(function () {
             toast.classList.add('scp-toast--leaving');
@@ -1326,6 +1393,203 @@
         updateLabel();
     }
 
+    /**
+     * "Ses/haptic geri bildirim aç-kapa ayarı" - `initThemeToggle()`'ın
+     * AYNI localStorage + `[data-scp-*-toggle]` kalıbı; asıl ses/titreşim
+     * mantığı `window.scpToast()`'un içine gömülü `scpPlayFeedback()`'te
+     * yaşıyor (bkz. o fonksiyonun docblock'u) - bu yalnızca tercihi
+     * değiştiren düğme.
+     */
+    function initFeedbackToggle() {
+        var button = document.querySelector('[data-scp-feedback-toggle]');
+
+        if (!button) {
+            return;
+        }
+
+        var textData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        function isEnabled() {
+            try {
+                return localStorage.getItem('scpFeedbackEnabled') !== '0';
+            } catch (e) {
+                return true;
+            }
+        }
+
+        function updateLabel() {
+            var enabled = isEnabled();
+            button.textContent = enabled
+                ? (textData.feedbackToggleOff || 'Ses/Titreşimi Kapat')
+                : (textData.feedbackToggleOn || 'Ses/Titreşimi Aç');
+            button.setAttribute('aria-pressed', String(enabled));
+        }
+
+        button.addEventListener('click', function () {
+            var next = isEnabled() ? '0' : '1';
+
+            try {
+                localStorage.setItem('scpFeedbackEnabled', next);
+            } catch (e) {
+                // Privacy-mode/iframe contexts can block localStorage - the
+                // toggle still works for the rest of THIS page view.
+            }
+
+            updateLabel();
+        });
+
+        updateLabel();
+    }
+
+    /**
+     * ""Yenilikler" paneli (What's New)" - header.php'nin
+     * `[data-scp-whats-new-trigger]` düğmesi. `openShortcutsHelp()`'in AYNI
+     * `.scp-modal`/`.scp-modal-overlay` kalıbı - yeni bir backend/REST
+     * uç noktası YOK, içerik burada sabit (hardcoded) bir liste; platform
+     * her yeni özellik turunda büyüdüğü için bu liste yalnızca en son
+     * birkaç öne çıkanı tutuyor (tam liste zaten docs/ARCHITECTURE.md'de).
+     * "Yeni" rozeti `localStorage.scpWhatsNewSeenId`'yi listenin İLK
+     * (en yeni) girdisinin `id`'siyle karşılaştırıyor - notifications-bell.js
+     * ile AYNI "sunucu tarafı bir sayaç yerine yerel karşılaştırma" ilkesi,
+     * çünkü bu içerik kullanıcıya özel değil, tüm siteye ortak.
+     */
+    var SCP_WHATS_NEW_ENTRIES = [
+        {
+            id: '9d-back-to-school',
+            title: 'Okula Dönüş Sezonu teması',
+            body: 'Mağaza Vitrini panelinden tek tıkla açılıp kapatılabilen hazır bir sezonluk banner paketi eklendi.'
+        },
+        {
+            id: '9c-order-calendar',
+            title: 'Sipariş takvimi ve karşılaştırmalı raporlar',
+            body: 'Siparişler artık aylık takvim görünümünde, Genel Bakış ise iki farklı tarih aralığını karşılaştırabiliyor.'
+        },
+        {
+            id: '9b-help-tips',
+            title: 'Bağlamsal yardım ipuçları',
+            body: 'Panellerdeki "?" simgeleri artık ilgili alanı kısa bir açıklamayla anlatıyor.'
+        },
+        {
+            id: '8-command-palette',
+            title: 'Hızlı arama (⌘K) ve klavye kısayolları',
+            body: 'Üst menüdeki "Bul" düğmesi veya Cmd/Ctrl+K ile herhangi bir sayfaya anında atlayabilirsiniz.'
+        },
+        {
+            id: 'showcase-size-guide',
+            title: 'Mağaza Vitrini ve Beden Rehberi',
+            body: 'Mağaza ana sayfasına özelleştirilebilir bir hero eklendi, ürün sayfalarına da beden rehberi tetikleyicisi.'
+        }
+    ];
+
+    function openWhatsNew() {
+        var textData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-modal-overlay';
+
+        var modal = document.createElement('div');
+        modal.className = 'scp-modal scp-whats-new-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        var title = document.createElement('h2');
+        title.textContent = textData.whatsNewTitle || 'Yenilikler';
+        modal.appendChild(title);
+
+        var list = document.createElement('ul');
+        list.className = 'scp-whats-new-modal__list';
+
+        SCP_WHATS_NEW_ENTRIES.forEach(function (entry) {
+            var item = document.createElement('li');
+
+            var itemTitle = document.createElement('strong');
+            itemTitle.textContent = entry.title;
+            item.appendChild(itemTitle);
+
+            var itemBody = document.createElement('p');
+            itemBody.textContent = entry.body;
+            item.appendChild(itemBody);
+
+            list.appendChild(item);
+        });
+
+        modal.appendChild(list);
+
+        var actions = document.createElement('div');
+        actions.className = 'scp-modal__actions';
+
+        var closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'scp-btn';
+        closeButton.textContent = textData.whatsNewClose || 'Kapat';
+        actions.appendChild(closeButton);
+        modal.appendChild(actions);
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+            }
+        }
+
+        closeButton.addEventListener('click', close);
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        closeButton.focus();
+    }
+
+    function initWhatsNewTrigger() {
+        var trigger = document.querySelector('[data-scp-whats-new-trigger]');
+        var badge = document.querySelector('[data-scp-whats-new-badge]');
+
+        if (!trigger || !SCP_WHATS_NEW_ENTRIES.length) {
+            return;
+        }
+
+        var latestId = SCP_WHATS_NEW_ENTRIES[0].id;
+
+        function seenId() {
+            try {
+                return localStorage.getItem('scpWhatsNewSeenId');
+            } catch (e) {
+                return latestId;
+            }
+        }
+
+        function markSeen() {
+            try {
+                localStorage.setItem('scpWhatsNewSeenId', latestId);
+            } catch (e) {
+                // Privacy-mode/iframe contexts can block localStorage - the
+                // badge simply reappears on the next page view.
+            }
+
+            if (badge) {
+                badge.hidden = true;
+            }
+        }
+
+        if (badge && seenId() !== latestId) {
+            badge.hidden = false;
+        }
+
+        trigger.addEventListener('click', function () {
+            openWhatsNew();
+            markSeen();
+        });
+    }
+
     // ---- Yukarı kaydır düğmesi ----
 
     /**
@@ -1386,6 +1650,89 @@
         dl.appendChild(dd);
     }
 
+    /**
+     * "Baskı/PDF çıktılarına okul logosu + marka şablonu" - yeni bir logo/
+     * marka veri kaynağı İCAT EDİLMEDİ: header.php'de HER sayfada ZATEN
+     * render edilen `.scp-site-header__brand-link`'in (logo `<img>`'ı VEYA
+     * logo yoksa `.scp-site-header__mark` baş harf rozeti, artı
+     * `bloginfo('name')`'in kendi metin düğümü) DOM'unu okuyor - okul
+     * logosu değiştiğinde (branding-panel.js üzerinden) her iki yerin de
+     * ayrı ayrı güncellenmesi gerekmiyor, marka şablonu OTOMATİK olarak
+     * güncel kalıyor.
+     */
+    function appendPrintBrandHeader(root) {
+        var brandLink = document.querySelector('.scp-site-header__brand-link');
+
+        if (!brandLink) {
+            return;
+        }
+
+        var header = document.createElement('div');
+        header.className = 'scp-print-brand';
+
+        var logoImg = brandLink.querySelector('.scp-site-header__logo');
+
+        if (logoImg && logoImg.src) {
+            var logo = document.createElement('img');
+            logo.className = 'scp-print-brand__logo';
+            logo.src = logoImg.src;
+            logo.alt = '';
+            header.appendChild(logo);
+        }
+
+        var lastChild = brandLink.lastChild;
+        var siteName = lastChild && lastChild.nodeType === Node.TEXT_NODE ? lastChild.textContent.trim() : '';
+
+        if (siteName) {
+            var name = document.createElement('span');
+            name.className = 'scp-print-brand__name';
+            name.textContent = siteName;
+            header.appendChild(name);
+        }
+
+        if (header.childNodes.length > 0) {
+            root.appendChild(header);
+        }
+    }
+
+    /**
+     * "Kurumsal siparişlerde PDF'e dijital onay kutusu" - admin-orders-panel.js'in
+     * (Genel Merkez/Bölge Müdürü/Şube personeli - "kurumsal" iç kullanım,
+     * velinin KENDİ fişi DEĞİL) print düğmesi `options.approvalBox: true`
+     * geçtiğinde `scpPrintOrder()`'ın çıktısına eklenen, kağıt üzerinde
+     * ıslak imza/parafla doldurulacak bir onay şeridi. Gerçek bir e-imza
+     * altyapısı (sertifika, zaman damgası vb.) İCAT EDİLMEDİ - platformun
+     * "gerçek bir X entegrasyonu yok, açıkça etiketlenmiş basit bir
+     * karşılığı var" ilkesi (bkz. scp_render_estimated_delivery()'nin AYNI
+     * gerekçesi) burada da geçerli; bu yalnızca yazdırılan kağıda basılan
+     * bir onay kutusu + imza/tarih satırı.
+     */
+    function appendPrintApprovalBox(root, text) {
+        var box = document.createElement('div');
+        box.className = 'scp-print-approval-box';
+
+        var heading = document.createElement('p');
+        heading.className = 'scp-print-approval-box__heading';
+        heading.textContent = '☐ ' + (text.approvalBoxLabel || 'Onaylandı');
+        box.appendChild(heading);
+
+        var fields = document.createElement('dl');
+        [
+            text.approvalBoxNameLabel || 'Onaylayan Ad Soyad',
+            text.approvalBoxSignatureLabel || 'İmza',
+            text.approvalBoxDateLabel || 'Tarih'
+        ].forEach(function (label) {
+            var dt = document.createElement('dt');
+            dt.textContent = label;
+            var dd = document.createElement('dd');
+            fields.appendChild(dt);
+            fields.appendChild(dd);
+        });
+        box.appendChild(fields);
+
+        root.appendChild(box);
+    }
+
     window.scpPrintOrder = function (order, text, formatMoney, options) {
         options = options || {};
 
@@ -1398,6 +1745,7 @@
         }
 
         root.innerHTML = '';
+        appendPrintBrandHeader(root);
 
         var heading = document.createElement('h1');
         heading.textContent = (text.orderPrintTitle || 'Sipariş') + ' - #' + order.number;
@@ -1452,6 +1800,10 @@
         table.appendChild(tbody);
         root.appendChild(table);
 
+        if (options.approvalBox) {
+            appendPrintApprovalBox(root, text);
+        }
+
         document.body.classList.add('scp-printing-order');
 
         var cleanup = function () {
@@ -1490,6 +1842,7 @@
         }
 
         root.innerHTML = '';
+        appendPrintBrandHeader(root);
 
         var heading = document.createElement('h1');
         heading.textContent = (text.spendingSummaryPrintTitle || '') + ' - ' + year;
@@ -1545,6 +1898,152 @@
         window.addEventListener('afterprint', cleanup);
         window.print();
         setTimeout(cleanup, 2000);
+    };
+
+    /**
+     * "Yıl sonu alışveriş özetini eğlenceli infografik olarak sun" -
+     * scpPrintSpendingSummary()'nin AYNI `buildSpendingSummary()` çıktısını
+     * (orders-panel.js, yeni bir sorgu/REST endpoint YOK) yazdırılabilir
+     * bir tabloya değil, `.scp-modal`/`.scp-modal-overlay` içinde büyük,
+     * renkli istatistik karolarına dönüştürüyor - sayaçlar
+     * `window.scpAnimateCounter()`'ın (bölüm 172, dashboard widget'larıyla
+     * AYNI) 0'dan yukarı sayma animasyonuyla giriyor. Öğrenci bazlı
+     * kırılım yeni bir grafik kütüphanesi İCAT ETMEDEN, yüzdesi CSS
+     * `width`'e çevrilen düz renkli çubuklarla gösteriliyor. `navigator.share`
+     * mevcutsa (üçüncü parti bir SDK değil, tarayıcının kendi Web Share
+     * API'si) bir "Paylaş" düğmesi de eklenir - yoksa hiç gösterilmez.
+     */
+    window.scpShowSpendingInfographic = function (summary, year, text, formatMoney) {
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-modal-overlay';
+
+        var modal = document.createElement('div');
+        modal.className = 'scp-modal scp-spending-infographic';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        var heading = document.createElement('h2');
+        heading.textContent = (text.spendingSummaryPrintTitle || 'Yıllık Harcama Özeti') + ' - ' + year;
+        modal.appendChild(heading);
+
+        var tiles = document.createElement('div');
+        tiles.className = 'scp-spending-infographic__tiles';
+
+        [
+            { value: summary.orderCount, label: text.spendingSummaryOrderCountLabel, isMoney: false },
+            { value: summary.total, label: text.orderTotalLabel, isMoney: true }
+        ].forEach(function (stat) {
+            var tile = document.createElement('div');
+            tile.className = 'scp-spending-infographic__tile';
+
+            var value = document.createElement('strong');
+            tile.appendChild(value);
+
+            var label = document.createElement('span');
+            label.textContent = stat.label || '';
+            tile.appendChild(label);
+
+            tiles.appendChild(tile);
+
+            window.scpAnimateCounter(value, stat.value, stat.isMoney ? formatMoney : undefined);
+        });
+
+        modal.appendChild(tiles);
+
+        var studentNames = Object.keys(summary.byStudent);
+
+        if (studentNames.length > 0) {
+            var studentHeading = document.createElement('h3');
+            studentHeading.textContent = text.spendingSummaryByStudentLabel || '';
+            modal.appendChild(studentHeading);
+
+            var bars = document.createElement('div');
+            bars.className = 'scp-spending-infographic__bars';
+
+            var maxAmount = studentNames.reduce(function (max, name) {
+                return Math.max(max, summary.byStudent[name]);
+            }, 0);
+
+            studentNames
+                .sort(function (a, b) {
+                    return summary.byStudent[b] - summary.byStudent[a];
+                })
+                .forEach(function (name, index) {
+                    var amount = summary.byStudent[name];
+                    var row = document.createElement('div');
+                    row.className = 'scp-spending-infographic__bar-row';
+
+                    var rowLabel = document.createElement('span');
+                    rowLabel.className = 'scp-spending-infographic__bar-label';
+                    rowLabel.textContent = name;
+                    row.appendChild(rowLabel);
+
+                    var track = document.createElement('div');
+                    track.className = 'scp-spending-infographic__bar-track';
+
+                    var fill = document.createElement('div');
+                    fill.className = 'scp-spending-infographic__bar-fill scp-spending-infographic__bar-fill--' + (index % 5);
+                    fill.style.width = (maxAmount > 0 ? (amount / maxAmount) * 100 : 0) + '%';
+                    fill.textContent = formatMoney(amount);
+                    track.appendChild(fill);
+
+                    row.appendChild(track);
+                    bars.appendChild(row);
+                });
+
+            modal.appendChild(bars);
+        }
+
+        var actions = document.createElement('div');
+        actions.className = 'scp-modal__actions';
+
+        if (navigator.share) {
+            var shareButton = document.createElement('button');
+            shareButton.type = 'button';
+            shareButton.className = 'scp-btn scp-btn--ghost';
+            shareButton.textContent = text.spendingInfographicShare || 'Paylaş';
+            shareButton.addEventListener('click', function () {
+                navigator.share({
+                    title: heading.textContent,
+                    text: heading.textContent + ' - ' + formatMoney(summary.total)
+                }).catch(function () {
+                    // Kullanıcı paylaşımı iptal etti/paylaşım hedefi bulunamadı -
+                    // sessizce hiçbir şey yapılmıyor, tarayıcının kendi paylaşım
+                    // arayüzü zaten bir hata mesajı gösteriyorsa gösterir.
+                });
+            });
+            actions.appendChild(shareButton);
+        }
+
+        var closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'scp-btn';
+        closeButton.textContent = text.whatsNewClose || 'Kapat';
+        actions.appendChild(closeButton);
+        modal.appendChild(actions);
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+            }
+        }
+
+        closeButton.addEventListener('click', close);
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        closeButton.focus();
     };
 
     /**
@@ -1777,6 +2276,52 @@
     }
 
     /**
+     * "Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı -
+     * `initStockSubscription()`'ın AYNI hazır olma kontrolü. Sunucudaki
+     * `ProductViewerTracker`'ın (plugin/seviye-commerce) döndürdüğü sayı
+     * GERÇEK - sayfayı şu an açık tutan diğer giriş yapmış kullanıcıların
+     * sayısı, uydurma bir rakam DEĞİL. Kendi görüntülemesi dahil sayı 2'nin
+     * altındaysa (yalnızca kendisi bakıyorsa) rozet hiç gösterilmiyor -
+     * "1 kişi görüntülüyor" (yalnızca kendisi) yanıltıcı/anlamsız olurdu.
+     * `REFRESH_MS`'de bir yeniden gönderiliyor - hem sayıyı güncel tutmak
+     * hem de kendi "şu an bakıyorum" kaydının süresinin dolmasını
+     * (ProductViewerTracker::WINDOW_SECONDS) önlemek için.
+     */
+    function initSocialProofViewers() {
+        var container = document.querySelector('[data-scp-social-proof-viewers]');
+
+        if (!container || typeof scpApiFetch === 'undefined' || typeof scpPanel === 'undefined') {
+            return;
+        }
+
+        var productId = container.dataset.productId;
+        var REFRESH_MS = 60000;
+        var text = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        function poll() {
+            scpApiFetch('commerce/products/' + productId + '/viewing', { method: 'POST' }).then(function (result) {
+                if (!result.ok) {
+                    return;
+                }
+
+                var count = Number(result.data.viewer_count) || 0;
+
+                if (count < 2) {
+                    container.hidden = true;
+                    return;
+                }
+
+                var template = text.socialProofViewersLabel || '%d kişi şu anda bu ürüne bakıyor';
+                container.textContent = template.replace('%d', String(count));
+                container.hidden = false;
+            });
+        }
+
+        poll();
+        window.setInterval(poll, REFRESH_MS);
+    }
+
+    /**
      * "Sepette miktar +/- anlık güncelleme" - WooCommerce'in KENDİ
      * `cart/cart.php` şablonundaki `input.qty` alanının etrafına +/-
      * düğmeleri ekliyor; değişiklikte "Sepeti Güncelle" düğmesine
@@ -1950,6 +2495,86 @@
     }
 
     /**
+     * "Ürün sayfasında AJAX beden/renk değişimi" - WooCommerce'in KENDİ
+     * varyasyon formu (`form.variations_form`, `wc-add-to-cart-variation.js`
+     * - bu tema hiçbir yerde dokunmadı/override etmedi) zaten sayfa
+     * yenilenmeden fiyat/görsel/stok güncelliyor; tek eksik, ham
+     * `<select>` açılır menüsünün mağazanın tercih ettiği tıklanabilir
+     * "swatch" (çip) görünümünde OLMAMASI. Bu fonksiyon YENİ BİR VARYASYON
+     * MEKANİZMASI İCAT ETMİYOR - yalnızca her `<select>`'in seçeneklerini
+     * bir düğme sırasına dönüştürüp, bir düğmeye tıklandığında gerçek
+     * `<select>`'in değerini değiştirip native bir `change` event'i
+     * gönderiyor; WC'nin kendi jQuery `change` dinleyicisi bunu native
+     * `dispatchEvent` ile de yakalıyor (jQuery `.on()` DOM event'lerini
+     * dinler), bu yüzden WC'nin kendi AJAX'sız (embedded JSON'dan) anlık
+     * fiyat/görsel/stok güncellemesi hiç değişmeden çalışmaya devam ediyor.
+     * `<select>` DOM'dan kaldırılmıyor (yalnızca CSS ile gizleniyor) -
+     * WC'nin kendi doğrulama/sepete ekleme mantığı hâlâ ondan okuyor.
+     */
+    function scanAndInitVariationSwatches() {
+        document.querySelectorAll('form.variations_form table.variations select').forEach(function (select) {
+            if (select.dataset.scpSwatchesInit === '1') {
+                return;
+            }
+
+            var options = Array.prototype.slice.call(select.options).filter(function (option) {
+                return option.value !== '';
+            });
+
+            if (options.length < 2) {
+                return;
+            }
+
+            select.dataset.scpSwatchesInit = '1';
+            select.classList.add('scp-variation-swatches-select');
+
+            var swatches = document.createElement('div');
+            swatches.className = 'scp-variation-swatches';
+
+            var buttons = options.map(function (option) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'scp-variation-swatches__option';
+                button.textContent = option.textContent;
+                button.dataset.value = option.value;
+                button.setAttribute('aria-pressed', String(option.value === select.value));
+                button.classList.toggle('is-selected', option.value === select.value);
+
+                button.addEventListener('click', function () {
+                    select.value = option.value;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    buttons.forEach(function (other) {
+                        var isSelected = other === button;
+                        other.classList.toggle('is-selected', isSelected);
+                        other.setAttribute('aria-pressed', String(isSelected));
+                    });
+                });
+
+                swatches.appendChild(button);
+
+                return button;
+            });
+
+            select.insertAdjacentElement('afterend', swatches);
+        });
+    }
+
+    function initVariationSwatches() {
+        scanAndInitVariationSwatches();
+
+        // WooCommerce'in kendi varyasyon formu, ödeme yöntemi geçişinde
+        // olduğu gibi kimi temalarda AJAX ile yeniden çizilebiliyor - yeni
+        // gelen select'lere de aynı swatch'ları bağla. `scanAndInitVariationSwatches()`
+        // zaten `data-scp-swatches-init` ile idempotent olduğundan bu
+        // dinleyici yalnızca BİR KEZ bağlanıyor (initVariationSwatches()
+        // bootstrap'ta tek sefer çağrılıyor).
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document.body).on('wc_variation_form', scanAndInitVariationSwatches);
+        }
+    }
+
+    /**
      * "Ödeme formunda gerçek zamanlı, satır içi doğrulama" - WooCommerce
      * kendi doğrulamasını yalnızca SUBMIT anında yapıyor (checkout.js,
      * dokunulmadı); bu fonksiyon her alanın kendi `blur`'unda WC'nin
@@ -2063,10 +2688,14 @@
         initScrollToTop();
         initResponsiveTables();
         initThemeToggle();
+        initFeedbackToggle();
+        initWhatsNewTrigger();
         initRecentlyViewed();
         initStockSubscription();
+        initSocialProofViewers();
         initCartQuantitySteppers();
         initCheckoutInlineValidation();
+        initVariationSwatches();
         initStickyCartBar();
         initAriaLiveRegions();
         initImageLazyPlaceholders();

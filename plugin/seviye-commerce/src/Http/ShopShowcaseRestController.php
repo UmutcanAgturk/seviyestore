@@ -43,6 +43,7 @@ final class ShopShowcaseRestController extends AbstractRestController
                     'heading' => ['required' => false, 'type' => 'string'],
                     'subheading' => ['required' => false, 'type' => 'string'],
                     'image_attachment_id' => ['required' => false, 'type' => 'integer'],
+                    'seasonal_theme' => ['required' => false, 'type' => 'string'],
                 ],
             ],
         ]);
@@ -61,10 +62,17 @@ final class ShopShowcaseRestController extends AbstractRestController
             return new WP_REST_Response(['message' => __('Geçersiz görsel.', 'seviye-commerce')], 422);
         }
 
+        $seasonalTheme = trim((string) $request->get_param('seasonal_theme'));
+
+        if ($seasonalTheme !== '' && !in_array($seasonalTheme, ShopShowcase::SEASONAL_THEMES, true)) {
+            return new WP_REST_Response(['message' => __('Geçersiz sezonluk tema.', 'seviye-commerce')], 422);
+        }
+
         $showcase = new ShopShowcase(
             trim((string) $request->get_param('heading')),
             trim((string) $request->get_param('subheading')),
-            $imageAttachmentId > 0 ? $imageAttachmentId : null
+            $imageAttachmentId > 0 ? $imageAttachmentId : null,
+            $seasonalTheme
         );
 
         $this->settings->set(ShopShowcase::SETTING_KEY, ShopShowcase::serialize($showcase));
@@ -73,7 +81,7 @@ final class ShopShowcaseRestController extends AbstractRestController
     }
 
     /**
-     * @return array{heading: string, subheading: string, image_attachment_id: ?int, image_url: ?string}
+     * @return array{heading: string, subheading: string, image_attachment_id: ?int, image_url: ?string, seasonal_theme: string}
      */
     private function serialize(ShopShowcase $showcase): array
     {
@@ -84,6 +92,7 @@ final class ShopShowcaseRestController extends AbstractRestController
             'image_url' => $showcase->imageAttachmentId
                 ? (wp_get_attachment_image_url($showcase->imageAttachmentId, 'large') ?: null)
                 : null,
+            'seasonal_theme' => $showcase->seasonalTheme,
         ];
     }
 

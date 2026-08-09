@@ -22,6 +22,7 @@ use Seviye\Commerce\Http\OrdersRestController;
 use Seviye\Commerce\Http\ProductOwnershipBridge;
 use Seviye\Commerce\Http\ProductReviewGate;
 use Seviye\Commerce\Http\ProductsRestController;
+use Seviye\Commerce\Http\ProductViewingRestController;
 use Seviye\Commerce\Http\ProductVisibilityHooks;
 use Seviye\Commerce\Http\ShopShowcaseRestController;
 use Seviye\Commerce\Http\SizeGuideRestController;
@@ -48,6 +49,7 @@ use Seviye\Commerce\Support\OrderFulfillment;
 use Seviye\Commerce\Support\OrderPayloadBuilder;
 use Seviye\Commerce\Support\ProductGradeLevels;
 use Seviye\Commerce\Support\ProductOwnership;
+use Seviye\Commerce\Support\ProductViewerTracker;
 use Seviye\Commerce\Support\ShopShowcase;
 use Seviye\Commerce\Support\SizeGuide;
 use Seviye\Commerce\Support\SizeGuideRow;
@@ -279,6 +281,7 @@ final class CommerceModule implements ModuleInterface
                     'image_url' => $showcase->imageAttachmentId
                         ? (wp_get_attachment_image_url($showcase->imageAttachmentId, 'large') ?: null)
                         : null,
+                    'seasonal_theme' => $showcase->seasonalTheme,
                 ];
             },
             10,
@@ -364,6 +367,16 @@ final class CommerceModule implements ModuleInterface
         // WC_Customer directly.
         $container->get(RestApiRegistrar::class)->register(
             static fn (): CustomerAddressRestController => new CustomerAddressRestController()
+        );
+
+        // "Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı - aynı
+        // self-service/authenticated-only gating, WordPress'in KENDİ
+        // transient önbelleğine yazıyor (bkz. ProductViewerTracker), yeni
+        // bir tablo/migration YOK.
+        $container->get(RestApiRegistrar::class)->register(
+            static fn (): ProductViewingRestController => new ProductViewingRestController(
+                new ProductViewerTracker()
+            )
         );
 
         // "Öğrenci/veli bazlı harcama limiti" - reuses Students' own

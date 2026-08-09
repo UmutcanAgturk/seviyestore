@@ -374,6 +374,60 @@ body {
   color: var(--scp-primary);
 }
 
+/* "Ses/haptic geri bildirim aç-kapa ayarı" - header.php's
+   [data-scp-feedback-toggle], wired by scp-ui-kit.js's
+   initFeedbackToggle(). Same utility-button shape as .scp-theme-toggle
+   right above it. */
+.scp-feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--scp-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.scp-feedback-toggle:hover {
+  border-color: var(--scp-primary);
+  color: var(--scp-primary);
+}
+
+/* ""Yenilikler" paneli (What's New)" - header.php's
+   [data-scp-whats-new-trigger], wired by scp-ui-kit.js's
+   initWhatsNewTrigger()/openWhatsNew(). Same utility-button shape as
+   .scp-notif-bell__toggle right above it, `position: relative` so the
+   unread dot (.scp-whats-new-trigger__badge) can sit in its corner. */
+.scp-whats-new-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--scp-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--scp-text);
+  cursor: pointer;
+}
+
+.scp-whats-new-trigger:hover {
+  border-color: var(--scp-primary);
+  color: var(--scp-primary);
+}
+
+.scp-whats-new-trigger__badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--scp-danger);
+}
+
 .scp-notif-bell {
   position: relative;
 }

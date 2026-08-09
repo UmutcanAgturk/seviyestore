@@ -5536,6 +5536,103 @@ doğrulandı; `seviye-commerce` (34 test, 86 doğrulama) ve
 `seviye-reports` (24 test, 63 doğrulama) eklentilerinin TAM PHPUnit
 paketleri geçti.
 
+### 94. UX Turu 9D (33 maddelik büyük seçimin son 10 maddesi)
+
+9A/9B/9C'nin devamı - 33 maddelik seçimin kalan 10 maddesi (9D-10,
+ilk 9 maddenin planlanması sırasında atlanan "sosyal kanıt sayacı"
+maddesinin fark edilip eklenmesiyle oluştu).
+
+**Terk edilmiş sepet hatırlatma e-postası.** Yeni bir sepet/oturum
+modeli İCAT EDİLMEDİ - WooCommerce'in KENDİ "kalıcı sepet" mekanizması
+(`_woocommerce_persistent_cart_{blog_id}` user meta) kullanılıyor.
+Platformun kendi izlemesi minimal: `_scp_cart_last_updated_at` (4 WC
+sepet-değişikliği kancasında güncellenir) + `_scp_cart_reminder_sent_at`
+(aynı sepet durumu için tekrar göndermeyi önler). WC'nin KENDİ kalıcı
+sepet meta'sını gönderim ANINDA okumak, tamamlanmış siparişleri otomatik
+DIŞARIDA bırakıyor (WC `empty_cart()` başarılı ödemede o meta'yı zaten
+siliyor) - ayrı bir "sipariş verildi mi" kontrolü GEREKMİYOR. WP Cron
+`daily`, 24 saatlik gecikme.
+
+**Ses/haptic geri bildirim aç-kapa ayarı.** Tek bir "boğaz noktası" -
+`scpPlayFeedback()` doğrudan mevcut `window.scpToast()`'un İÇİNE
+gömüldü (onlarca panel scripti zaten bunu çağırıyor), her çağrı
+noktasına ayrı ayrı DOKUNULMADI. Web Audio API (programatik sinüs
+tonu, ses dosyası YOK) + `navigator.vibrate()`; `localStorage`
+(varsayılan AÇIK/opt-out).
+
+**Baskı/PDF çıktılarına okul logosu + marka şablonu.** Yeni bir
+logo/marka veri kaynağı İCAT EDİLMEDİ - `appendPrintBrandHeader()`
+header.php'nin HER sayfada zaten render ettiği
+`.scp-site-header__brand-link`'in DOM'unu okuyor (logo `<img>`'ı VEYA
+baş harf rozeti + site adı metin düğümü); okul logosu değişince
+(branding-panel.js) fiş şablonu da otomatik güncel kalıyor. Hem
+`scpPrintOrder()` hem `scpPrintSpendingSummary()`'ye eklendi.
+
+**Okula-dönüş sezonu özel mağaza teması/banner paketi.** Mağaza
+Vitrini'nin (`ShopShowcase`) `seasonalTheme` alanıyla genişletildi -
+yeni bir renk/metin düzenleyici İCAT EDİLMEDİ, admin yalnızca hazır
+("back_to_school") bir paketi açıp kapatıyor. `scp_render_seasonal_shop_banner()`
+hero'nun ÜSTÜNDE, metni/rengi SABİT bir şerit basıyor.
+
+**"Yenilikler" paneli (What's New).** `openShortcutsHelp()`'in AYNI
+`.scp-modal`/`.scp-modal-overlay` kalıbı - içerik sabit (hardcoded) bir
+JS listesi, yeni bir REST ucu YOK. Header'daki tetikleyici düğme,
+`localStorage.scpWhatsNewSeenId`'yi listenin en yeni girdisinin
+`id`'siyle karşılaştırıp bir "yeni" rozeti gösteriyor/gizliyor.
+
+**Ürün sayfasında AJAX beden/renk değişimi.** WooCommerce'in KENDİ
+varyasyon formu (`wc-add-to-cart-variation.js`) zaten sayfa
+yenilenmeden fiyat/görsel/stok güncelliyor - yeni bir varyasyon
+mekanizması İCAT EDİLMEDİ. `initVariationSwatches()` yalnızca ham
+`<select>`'lerin seçeneklerini tıklanabilir "swatch" düğmelerine
+çeviriyor; bir düğmeye tıklamak gerçek `<select>`'in değerini
+değiştirip native bir `change` event'i gönderiyor (WC'nin kendi jQuery
+dinleyicisi bunu native `dispatchEvent` ile de yakalıyor).
+
+**Ürün etiketine tıklayınca aynı etiketli ürünlere hızlı geçiş.**
+WC'nin KENDİ "Etiket: X, Y" satırı (`woocommerce_template_single_meta()`)
+DEĞİŞTİRİLMEDİ - o satırın linkleri hâlâ normal etiket arşivine
+gidiyor. Bunun ALTINA, Beden Rehberi'yle AYNI `.scp-quick-view__*`
+modal kalıbını kullanan bir "hızlı geçiş" tetikleyicisi eklendi -
+`wc_get_products(['tag' => [...]])` ile aynı etiketli en fazla 6 diğer
+ürün bir modalde gösteriliyor, sayfa yenilenmeden.
+
+**Kurumsal siparişlerde PDF'e dijital onay kutusu.** `scpPrintOrder()`'a
+yeni bir `options.approvalBox` bayrağı eklendi - yalnızca
+admin-orders-panel.js'in (kurumsal/personel bağlamı) yazdır düğmesi
+`true` geçiyor, velinin kendi fişinde (orders-panel.js) YOK. Gerçek bir
+e-imza altyapısı İCAT EDİLMEDİ - kağıt üzerinde ıslak imza/parafla
+doldurulacak bir onay şeridi + ad/imza/tarih satırları.
+
+**Yıl sonu alışveriş özetini eğlenceli infografik olarak sun.**
+`scpPrintSpendingSummary()`'nin AYNI `buildSpendingSummary()` çıktısını
+(yeni bir sorgu YOK) yazdırılabilir bir tabloya değil,
+`.scp-modal` içinde büyük, renkli istatistik karolarına dönüştüren
+`scpShowSpendingInfographic()`. Sayaçlar `window.scpAnimateCounter()`'ın
+(bölüm 172) 0'dan yukarı sayma animasyonuyla giriyor; öğrenci bazlı
+kırılım yeni bir grafik kütüphanesi İCAT EDİLMEDEN CSS `width`'e
+çevrilen renkli çubuklarla gösteriliyor. `navigator.share` mevcutsa
+(üçüncü parti bir SDK değil, tarayıcının kendi Web Share API'si) bir
+"Paylaş" düğmesi eklenir.
+
+**"Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı.** Sayı
+GERÇEK, uydurma bir rakam DEĞİL - yeni bir presence/websocket altyapısı
+İCAT EDİLMEDİ, WordPress'in KENDİ transient önbelleği kullanıldı
+(`ProductViewerTracker`, plugin/seviye-commerce). Ürün sayfasını
+görüntüleyen her giriş yapmış kullanıcı kendi `user_id`'sini 3 dakikalık
+bir pencereye ekliyor (`commerce/products/{id}/viewing`, self-service/
+authenticated-only - `CustomerAddressRestController`'la AYNI gating).
+Yalnızca giriş yapmış kullanıcılar sayılıyor (platformda anonim
+ziyaretçi yok), sayı 2'nin altındaysa (yalnızca kendisi bakıyorsa)
+rozet hiç gösterilmiyor.
+
+**Doğrulama.** Değişen/yeni tüm dosyalarda `php -l`/`node --check`
+temiz; `vendor/bin/phpcs` 0 hata (yalnızca önceden de var olan
+line-length uyarısı kaldı); üç CSS dosyasının küme parantezi dengesi
+doğrulandı; `seviye-commerce` (36 test, 89 doğrulama) ve
+`seviye-notifications` (59 test, 125 doğrulama) eklentilerinin TAM
+PHPUnit paketleri geçti.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

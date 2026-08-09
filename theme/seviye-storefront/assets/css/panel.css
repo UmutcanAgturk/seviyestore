@@ -122,6 +122,26 @@
     color: #000;
   }
 
+  .scp-print-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #000;
+  }
+
+  .scp-print-brand__logo {
+    max-height: 48px;
+    max-width: 160px;
+    object-fit: contain;
+  }
+
+  .scp-print-brand__name {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
   #scp-print-order-root h1 {
     margin-bottom: 16px;
     font-size: 1.25rem;
@@ -155,6 +175,38 @@
     padding: 6px 8px;
     border: 1px solid #999;
     text-align: left;
+  }
+
+  /* "Kurumsal siparişlerde PDF'e dijital onay kutusu" -
+     scp-ui-kit.js's appendPrintApprovalBox(), yalnızca
+     admin-orders-panel.js'in (kurumsal/personel) print düğmesi bu bölümü
+     ekliyor. */
+  .scp-print-approval-box {
+    margin-top: 28px;
+    padding-top: 12px;
+    border-top: 1px solid #999;
+  }
+
+  .scp-print-approval-box__heading {
+    margin: 0 0 16px;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .scp-print-approval-box dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 16px 12px;
+  }
+
+  .scp-print-approval-box dt {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .scp-print-approval-box dd {
+    margin: 0;
+    border-bottom: 1px solid #999;
   }
 }
 
@@ -1745,6 +1797,121 @@ button.scp-badge:hover {
   color: var(--scp-text-muted);
   font-size: var(--scp-text-sm);
 }
+
+/* ""Yenilikler" paneli (What's New)" - assets/js/scp-ui-kit.js's
+   openWhatsNew(). .scp-shortcuts-modal__list'in AYNI modal içeriği, farkı
+   dt/dd çifti yerine düz bir liste olması (her girdi bir başlık + kısa
+   açıklama). */
+.scp-whats-new-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.scp-whats-new-modal__list li {
+  padding-left: 14px;
+  border-left: 3px solid var(--scp-primary);
+}
+
+.scp-whats-new-modal__list strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--scp-text);
+  font-size: var(--scp-text-base);
+}
+
+.scp-whats-new-modal__list p {
+  margin: 0;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+}
+
+/* "Yıl sonu alışveriş özetini eğlenceli infografik olarak sun" -
+   assets/js/scp-ui-kit.js's scpShowSpendingInfographic(). Renkler
+   .scp-module-tile'ın (bölüm 174) AYNI paletinden alınmış - platformda
+   zaten var olan renk sistemine yeni bir palet eklemek yerine. */
+.scp-spending-infographic {
+  width: min(560px, 100%);
+}
+
+.scp-spending-infographic__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.scp-spending-infographic__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  text-align: center;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius-lg);
+}
+
+.scp-spending-infographic__tile strong {
+  font-size: var(--scp-text-2xl, 2.25rem);
+  font-weight: 700;
+  color: var(--scp-primary);
+}
+
+.scp-spending-infographic__tile span {
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text-muted);
+}
+
+.scp-spending-infographic h3 {
+  margin: 0 0 12px;
+  font-size: var(--scp-text-md);
+}
+
+.scp-spending-infographic__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.scp-spending-infographic__bar-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 140px) 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.scp-spending-infographic__bar-label {
+  overflow: hidden;
+  font-size: var(--scp-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scp-spending-infographic__bar-track {
+  overflow: hidden;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-spending-infographic__bar-fill {
+  min-width: fit-content;
+  padding: 4px 8px;
+  color: #fff;
+  font-size: var(--scp-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-spending-infographic__bar-fill--0 { background: #2563eb; }
+.scp-spending-infographic__bar-fill--1 { background: #0f9d63; }
+.scp-spending-infographic__bar-fill--2 { background: #ea580c; }
+.scp-spending-infographic__bar-fill--3 { background: #7c3aed; }
+.scp-spending-infographic__bar-fill--4 { background: #be123c; }
 
 .scp-modal__actions {
   display: flex;

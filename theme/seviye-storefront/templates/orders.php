@@ -31,6 +31,9 @@ if (!defined('ABSPATH')) {
             <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-spending-summary-button>
                 <?php esc_html_e('Özeti İndir (Yazdır)', 'seviye-storefront'); ?>
             </button>
+            <button type="button" class="scp-btn scp-btn--ghost scp-btn--small" data-scp-spending-summary-infographic-button>
+                <?php esc_html_e('İnfografik Olarak Gör', 'seviye-storefront'); ?>
+            </button>
         </div>
 
         <p class="scp-status" data-scp-orders-status></p>

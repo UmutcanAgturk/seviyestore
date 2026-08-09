@@ -44,7 +44,7 @@ final class ShopShowcaseTest extends TestCase
     public function testSerializeEmptyShowcaseProducesEmptyJsonObject(): void
     {
         self::assertSame(
-            '{"heading":"","subheading":"","image_attachment_id":null}',
+            '{"heading":"","subheading":"","image_attachment_id":null,"seasonal_theme":""}',
             ShopShowcase::serialize(new ShopShowcase())
         );
     }
@@ -52,5 +52,20 @@ final class ShopShowcaseTest extends TestCase
     public function testDefaultConstructedShowcaseIsEmpty(): void
     {
         self::assertTrue((new ShopShowcase())->isEmpty());
+    }
+
+    public function testSeasonalThemeAloneMakesShowcaseNonEmpty(): void
+    {
+        $showcase = new ShopShowcase(seasonalTheme: ShopShowcase::SEASONAL_THEME_BACK_TO_SCHOOL);
+
+        self::assertFalse($showcase->isEmpty());
+        self::assertSame(ShopShowcase::SEASONAL_THEME_BACK_TO_SCHOOL, $showcase->seasonalTheme);
+    }
+
+    public function testFromArrayRejectsUnknownSeasonalTheme(): void
+    {
+        $showcase = ShopShowcase::fromArray(['seasonal_theme' => 'halloween']);
+
+        self::assertSame('', $showcase->seasonalTheme);
     }
 }

@@ -1,8 +1,8 @@
 /**
  * "Mağaza Vitrini" management for /admin - HQ-only (scp_manage_shop_showcase).
  * See plugin/seviye-commerce/src/Http/ShopShowcaseRestController.php - GET
- * returns the whole showcase (heading/subheading/image), PUT REPLACES it
- * whole (no per-field endpoint, so every PUT below resends all three
+ * returns the whole showcase (heading/subheading/image/seasonal_theme), PUT
+ * REPLACES it whole (no per-field endpoint, so every PUT below resends all
  * fields together, tracking `currentImageAttachmentId` locally between
  * calls). Image upload reuses branding-panel.js's exact /wp/v2/media flow
  * (scpUploadMedia()).
@@ -48,6 +48,7 @@
     function applyShowcase(showcase) {
         form.heading.value = showcase.heading || '';
         form.subheading.value = showcase.subheading || '';
+        form.seasonal_theme.value = showcase.seasonal_theme || '';
         currentImageAttachmentId = showcase.image_attachment_id || null;
         applyPreview(showcase.image_url);
     }
@@ -58,7 +59,8 @@
             body: JSON.stringify({
                 heading: form.heading.value,
                 subheading: form.subheading.value,
-                image_attachment_id: imageAttachmentId
+                image_attachment_id: imageAttachmentId,
+                seasonal_theme: form.seasonal_theme.value
             })
         });
     }

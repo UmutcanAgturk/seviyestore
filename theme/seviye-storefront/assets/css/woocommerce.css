@@ -978,6 +978,79 @@
   margin-bottom: 0;
 }
 
+/* ---- "Ürün etiketine tıklayınca aynı etiketli ürünlere hızlı geçiş" -
+   inc/woocommerce.php's scp_render_tag_quick_switch(). Tetikleyici düğmesi
+   .scp-size-guide-trigger'ın AYNI görünümü, birden fazla etiket varsa yan
+   yana sarabilsin diye kendi wrapper'ı (`<p>`) flex. ---- */
+.scp-tag-quick-switch-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.scp-tag-quick-switch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--scp-primary);
+  background: none;
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.scp-tag-quick-switch-trigger:hover {
+  background: var(--scp-surface-alt);
+  border-color: var(--scp-primary-light);
+}
+
+.scp-tag-quick-switch__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.scp-tag-quick-switch__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  color: var(--scp-text);
+  text-decoration: none;
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius-sm);
+  transition: border-color 0.15s ease;
+}
+
+.scp-tag-quick-switch__item:hover {
+  border-color: var(--scp-primary-light);
+}
+
+.scp-tag-quick-switch__item img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--scp-surface-alt);
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-tag-quick-switch__item-name {
+  font-size: var(--scp-text-sm);
+  font-weight: 600;
+}
+
+.scp-tag-quick-switch__item-price {
+  font-size: var(--scp-text-xs);
+  color: var(--scp-text-muted);
+}
+
 /* ---- Ödeme sonrası kutlama animasyonu - assets/js/scp-ui-kit.js's
    initOrderCelebration() injects/removes this container + its particles;
    this file only supplies the look. ---- */
@@ -1052,6 +1125,60 @@
 
 .scp-shop-showcase__section {
   margin: 0 0 24px;
+}
+
+/* ---- "Okula-dönüş sezonu özel mağaza teması/banner paketi" -
+   scp_render_seasonal_shop_banner() (inc/woocommerce.php). Hero'nun
+   (.scp-shop-showcase) ÜSTÜNDE, hazır (preset) bir renk/ikon paketiyle -
+   yeni bir renk seçici İCAT ETMİYOR, admin yalnızca paketi açıp kapatıyor
+   (bkz. templates/shop-showcase-admin.php'nin "Sezonluk Tema" select'i). ---- */
+.scp-seasonal-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 14px 20px;
+  border-radius: var(--scp-radius-lg);
+  color: #fff;
+}
+
+.scp-seasonal-banner--back-to-school {
+  background: linear-gradient(135deg, #b45309, #d97706 55%, #f59e0b);
+}
+
+.scp-seasonal-banner__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+}
+
+.scp-seasonal-banner__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.scp-seasonal-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scp-seasonal-banner__heading {
+  font-size: var(--scp-text-md, 1rem);
+}
+
+.scp-seasonal-banner__message {
+  font-size: var(--scp-text-sm);
+  opacity: 0.92;
+}
+
+@media (max-width: 640px) {
+  .scp-seasonal-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
 }
 
 /* ---- "Ödeme formunda gerçek zamanlı satır içi doğrulama" -
@@ -1595,6 +1722,83 @@
   margin: 12px 0 0;
   font-size: var(--scp-text-sm);
   color: var(--scp-text-muted);
+}
+
+/* "Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı -
+   assets/js/scp-ui-kit.js's initSocialProofViewers(). Varsayılan
+   `hidden` - PHP tarafı yalnızca boş bir işaretçi basıyor (bkz.
+   scp_render_social_proof_viewer_badge()), gerçek sayı REST'ten gelene ve
+   2'nin üzerinde çıkana kadar görünmüyor. */
+.scp-social-proof-viewers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: var(--scp-text-sm);
+  font-weight: 600;
+  color: var(--scp-danger);
+}
+
+.scp-social-proof-viewers::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: scp-social-proof-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes scp-social-proof-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* "Ürün sayfasında AJAX beden/renk değişimi" - assets/js/scp-ui-kit.js's
+   initVariationSwatches(). Ham `<select>` DOM'da kalıyor (WooCommerce'in
+   kendi varyasyon JS'i hâlâ ondan okuyor), yalnızca görsel olarak
+   gizleniyor - swatch düğmeleri onun YERİNE geçiyor. */
+.scp-variation-swatches-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.scp-variation-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 0;
+}
+
+.scp-variation-swatches__option {
+  padding: 6px 14px;
+  border: 1px solid var(--scp-border);
+  border-radius: 999px;
+  background: var(--scp-surface);
+  color: var(--scp-text);
+  font-size: var(--scp-text-sm);
+  cursor: pointer;
+}
+
+.scp-variation-swatches__option:hover {
+  border-color: var(--scp-primary);
+}
+
+.scp-variation-swatches__option.is-selected {
+  border-color: var(--scp-primary);
+  background: var(--scp-primary);
+  color: #fff;
+  font-weight: 600;
 }
 
 /* ---- "Sipariş alındı" (order-received/thank-you) sayfası - WooCommerce'in

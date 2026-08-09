@@ -26,6 +26,7 @@ use Seviye\Notifications\Database\Migrations\CreateScheduledBroadcastsTable;
 use Seviye\Notifications\Dispatch\NotificationDispatcher;
 use Seviye\Notifications\Dispatch\NotificationDispatcherInterface;
 use Seviye\Notifications\Domain\NotificationChannel;
+use Seviye\Notifications\Http\AbandonedCartReminderHooks;
 use Seviye\Notifications\Http\BroadcastRestController;
 use Seviye\Notifications\Http\EmailSettingsRestController;
 use Seviye\Notifications\Http\NotificationsRestController;
@@ -39,6 +40,7 @@ use Seviye\Notifications\Repository\NotificationRepositoryInterface;
 use Seviye\Notifications\Repository\ScheduledBroadcastRepositoryInterface;
 use Seviye\Notifications\Repository\WpdbNotificationRepository;
 use Seviye\Notifications\Repository\WpdbScheduledBroadcastRepository;
+use Seviye\Notifications\Support\AbandonedCartReminderBuilder;
 use Seviye\Notifications\Support\BackInStockNotificationListener;
 use Seviye\Notifications\Support\LowStockNotificationListener;
 use Seviye\Notifications\Support\OrderPlacedNotificationListener;
@@ -225,6 +227,18 @@ final class NotificationsModule implements ModuleInterface
                 $container->get(ScheduledBroadcastRepositoryInterface::class),
                 $container->get(BranchParentLookupInterface::class),
                 $container->get(NotificationDispatcherInterface::class)
+            ))->register();
+
+            // "Terk edilmiş sepet hatırlatma e-postası" - see
+            // AbandonedCartReminderHooks's own docblock. A WP Cron job like
+            // WeeklyDigestHooks above, deferred to `init` for the same
+            // dependency-readiness reason even though its own dependencies
+            // (NotificationDispatcherInterface, its own pure builder) are
+            // both already bound inside this module - kept consistent with
+            // every other hook registration in this closure.
+            (new AbandonedCartReminderHooks(
+                $container->get(NotificationDispatcherInterface::class),
+                new AbandonedCartReminderBuilder()
             ))->register();
         });
 

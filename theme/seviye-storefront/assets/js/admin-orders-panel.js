@@ -531,7 +531,11 @@
      * "Yazdırılabilir sipariş görünümü" - orders-panel.js'in AYNI
      * düğmesi, bu dosyada da yinelenmiş (bölüm 68). Admin bağlamında
      * ayrıca veli adı da fiş'e ekleniyor - window.scpPrintOrder()'ın
-     * `options.customerName` parametresi bunun için var.
+     * `options.customerName` parametresi bunun için var. "Kurumsal
+     * siparişlerde PDF'e dijital onay kutusu" - `options.approvalBox: true`
+     * yalnızca BURADA (kurumsal/personel bağlamı) geçiliyor, veli fişinde
+     * (orders-panel.js) YOK - onay kutusu iç kurumsal onay içindir, velinin
+     * kendi fişinde anlamı olmazdı.
      */
     function renderOrderPrintButton(order) {
         var button = document.createElement('button');
@@ -540,7 +544,8 @@
         button.textContent = scpPanelTextData.orderPrintLabel;
         button.addEventListener('click', function () {
             window.scpPrintOrder(order, scpPanelTextData, formatMoney, {
-                customerName: order.customer_name || ''
+                customerName: order.customer_name || '',
+                approvalBox: true
             });
         });
 

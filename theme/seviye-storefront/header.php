@@ -127,7 +127,18 @@ if (!defined('ABSPATH')) {
                 <ul class="scp-list" data-scp-notif-list></ul>
             </div>
         </div>
+        <button
+            type="button"
+            class="scp-whats-new-trigger"
+            data-scp-whats-new-trigger
+            aria-label="<?php esc_attr_e('Yenilikler', 'seviye-storefront'); ?>"
+        >
+            <?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- scp_module_icon_svg() returns one of a fixed set of hardcoded inline SVG strings (templates/partials/icon.php), no user input reaches it. ?>
+            <span class="scp-site-header__nav-icon"><?php echo scp_module_icon_svg('sparkle'); ?></span>
+            <span class="scp-whats-new-trigger__badge" data-scp-whats-new-badge hidden></span>
+        </button>
         <button type="button" class="scp-theme-toggle" data-scp-theme-toggle></button>
+        <button type="button" class="scp-feedback-toggle" data-scp-feedback-toggle></button>
         <span class="scp-site-header__user">
             <?php scp_render_avatar(wp_get_current_user()->display_name); ?>
             <?php echo esc_html(wp_get_current_user()->display_name); ?>

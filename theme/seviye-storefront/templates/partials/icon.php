@@ -103,6 +103,10 @@ function scp_module_icon_svg(string $name): string
         'logout' => '<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/>'
             . '<path d="M16 17l5-5-5-5M21 12H9"/>',
         'bell' => '<path d="M6 9a6 6 0 0 1 12 0v5l2 3H4l2-3V9Z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+        // "Yenilikler" (What's New) paneli düğmesi için - header.php'nin
+        // scp_render_whats_new_trigger()'ı.
+        'sparkle' => '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>'
+            . '<path d="M12 8l1.5 3.5L17 13l-3.5 1.5L12 18l-1.5-3.5L7 13l3.5-1.5Z"/>',
     ];
 
     if (! isset($paths[$name])) {

@@ -62,6 +62,20 @@ if (!defined('ABSPATH')) {
                 <textarea name="subheading" rows="2" placeholder="<?php esc_attr_e('ör. Okul kıyafetlerinde %20 indirim', 'seviye-storefront'); ?>"></textarea>
             </label>
 
+            <label>
+                <span><?php esc_html_e('Sezonluk Tema', 'seviye-storefront'); ?></span>
+                <select name="seasonal_theme">
+                    <option value=""><?php esc_html_e('Yok', 'seviye-storefront'); ?></option>
+                    <option value="back_to_school"><?php esc_html_e('Okula Dönüş Sezonu', 'seviye-storefront'); ?></option>
+                </select>
+            </label>
+            <p class="scp-form__hint">
+                <?php esc_html_e(
+                    'Seçilirse, mağaza ana sayfasının en üstünde hazır (metni/rengi düzenlenemeyen) bir sezonluk şerit gösterilir.',
+                    'seviye-storefront'
+                ); ?>
+            </p>
+
             <div class="scp-form__actions">
                 <button type="submit" class="scp-btn"><?php esc_html_e('Kaydet', 'seviye-storefront'); ?></button>
             </div>

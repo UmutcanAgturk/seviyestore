@@ -130,6 +130,17 @@ add_action('woocommerce_single_product_summary', 'scp_render_stock_subscription'
 // stokta olmayan bir ürün için anlamı yok).
 add_action('woocommerce_single_product_summary', 'scp_render_estimated_delivery', 32);
 
+// "Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı - priority 33,
+// tahmini teslimat bilgisinden (32) hemen sonra. Stok durumundan BAĞIMSIZ
+// (estimated delivery'nin aksine) - stokta olmayan bir ürüne de bakılabilir.
+add_action('woocommerce_single_product_summary', 'scp_render_social_proof_viewer_badge', 33);
+
+// "Ürün etiketine tıklayınca aynı etiketli ürünlere hızlı geçiş" -
+// priority 41, WC'nin KENDİ "Etiket: ..." satırının (woocommerce_template_single_meta,
+// priority 40, dokunulmadı - o satırın linkleri hâlâ etiket arşivine
+// normal şekilde gidiyor) HEMEN ardından.
+add_action('woocommerce_single_product_summary', 'scp_render_tag_quick_switch', 41);
+
 add_filter('woocommerce_enqueue_styles', '__return_empty_array');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
@@ -296,11 +307,15 @@ function scp_render_mini_cart_drawer(): void
 
 /**
  * "Mağaza Vitrini" - yalnızca mağaza ANA sayfasında (`is_shop()`) gösterilen
- * iki bağımsız isteğe bağlı parça: (1) HQ'nun `scp_commerce_shop_showcase`
+ * ÜÇ bağımsız isteğe bağlı parça: (1) HQ'nun `scp_commerce_shop_showcase`
  * filtre köprüsü üzerinden düzenlediği (bkz. CommerceModule::boot() ve
  * templates/shop-showcase-admin.php) başlık/alt başlık/arka plan görseli
- * hero'su - hepsi boşsa hiçbir şey basılmaz; (2) WooCommerce'in KENDİ
- * "Öne Çıkan" ürün işaretlemesi (`wc_get_featured_product_ids()` - ürün
+ * hero'su - hepsi boşsa hiçbir şey basılmaz; (2) "sezonluk tema" seçiliyse
+ * (ör. "Okula Dönüş Sezonu") hero'nun ÜSTÜNDE basılan hazır (preset), metni
+ * SABİT bir şerit - yeni bir metin/renk düzenleme alanı İCAT ETMİYOR, admin
+ * yalnızca AÇIK/KAPALI + hangi hazır tema olduğunu seçiyor (bkz.
+ * Support\ShopShowcase::SEASONAL_THEMES); (3) WooCommerce'in KENDİ "Öne
+ * Çıkan" ürün işaretlemesi (`wc_get_featured_product_ids()` - ürün
  * düzenleme ekranındaki standart yıldız simgesi, bu platform tarafından
  * icat edilmiş yeni bir alan DEĞİL) doluysa, WooCommerce'in KENDİ
  * `[featured_products]` shortcode'u kullanılarak basılan bir ürün şeridi -
@@ -322,6 +337,9 @@ function scp_render_shop_showcase(): void
     $heading = is_array($showcase) ? (string) ($showcase['heading'] ?? '') : '';
     $subheading = is_array($showcase) ? (string) ($showcase['subheading'] ?? '') : '';
     $imageUrl = is_array($showcase) ? ($showcase['image_url'] ?? null) : null;
+    $seasonalTheme = is_array($showcase) ? (string) ($showcase['seasonal_theme'] ?? '') : '';
+
+    scp_render_seasonal_shop_banner($seasonalTheme);
 
     if ($heading !== '' || $subheading !== '' || $imageUrl) {
         $style = $imageUrl ? sprintf('background-image:url(%s)', esc_url((string) $imageUrl)) : '';
@@ -347,6 +365,49 @@ function scp_render_shop_showcase(): void
         </div>
         <?php
     }
+}
+
+/**
+ * Hazır (preset) sezonluk mağaza şeridi - `$theme` değeri
+ * `Seviye\Commerce\Support\ShopShowcase::SEASONAL_THEMES` içindeki bir
+ * anahtar (şu an yalnızca `back_to_school`) ya da boş dize. Tema, plugin
+ * sınıfına DOĞRUDAN bağımlı olmasın diye (scp_render_shop_showcase()'ın
+ * kendi filtre köprüsüyle AYNI gevşek bağlantı ilkesi) ham dize karşılaştırması
+ * yapılıyor. Metin/renk admin tarafından düzenlenemez - "paket" olmasının
+ * anlamı bu; yalnızca hangi hazır paketin açık olduğu seçilebilir.
+ */
+function scp_render_seasonal_shop_banner(string $theme): void
+{
+    if ($theme === '') {
+        return;
+    }
+
+    $presets = [
+        'back_to_school' => [
+            'heading' => __('Okula Dönüş Sezonu', 'seviye-storefront'),
+            'message' => __(
+                'Yeni eğitim yılı için okul kıyafeti ve malzemelerinizi şimdiden tamamlayın.',
+                'seviye-storefront'
+            ),
+        ],
+    ];
+
+    if (!isset($presets[$theme])) {
+        return;
+    }
+
+    $preset = $presets[$theme];
+    ?>
+    <div class="scp-seasonal-banner scp-seasonal-banner--<?php echo esc_attr(str_replace('_', '-', $theme)); ?>">
+        <span class="scp-seasonal-banner__icon" aria-hidden="true">
+            <?php echo scp_module_icon_svg('products'); ?>
+        </span>
+        <div class="scp-seasonal-banner__text">
+            <strong class="scp-seasonal-banner__heading"><?php echo esc_html($preset['heading']); ?></strong>
+            <span class="scp-seasonal-banner__message"><?php echo esc_html($preset['message']); ?></span>
+        </div>
+    </div>
+    <?php
 }
 
 /**
@@ -903,6 +964,119 @@ function scp_format_size_guide_range(mixed $min, mixed $max): string
 }
 
 /**
+ * "Ürün etiketine tıklayınca aynı etiketli ürünlere hızlı geçiş" -
+ * WC'nin KENDİ "Etiket: X, Y" satırı (`woocommerce_template_single_meta()`,
+ * priority 40, dokunulmadı) zaten her etiketi kendi arşiv sayfasına
+ * (`product_tag` taksonomisi) bağlıyor - o normal navigasyon burada
+ * DEĞİŞTİRİLMEDİ. Bu yalnızca aynı satırın altına, her etiket için sayfa
+ * yenilenmeden aynı etiketli birkaç ürünü gösteren bir "hızlı geçiş"
+ * tetikleyicisi ekliyor - Beden Rehberi'yle (scp_render_size_guide_trigger())
+ * AYNI `.scp-quick-view__*`/`data-scp-quick-view-*` kalıbını kullanıyor,
+ * initQuickView() zaten bu genel delege edilmiş tıklama dinleyicisiyle
+ * çalıştığından burada YENİ BİR JS GEREKMİYOR.
+ */
+function scp_render_tag_quick_switch(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    $tagIds = $product->get_tag_ids();
+
+    if (empty($tagIds)) {
+        return;
+    }
+
+    $terms = get_terms(['taxonomy' => 'product_tag', 'include' => $tagIds, 'hide_empty' => true]);
+
+    if (!is_array($terms) || $terms === []) {
+        return;
+    }
+
+    $triggers = [];
+
+    foreach ($terms as $term) {
+        $otherProducts = wc_get_products([
+            'tag' => [$term->slug],
+            'exclude' => [$product->get_id()],
+            'limit' => 6,
+            'status' => 'publish',
+            'return' => 'objects',
+        ]);
+
+        if (empty($otherProducts)) {
+            continue;
+        }
+
+        $triggers[] = ['term' => $term, 'products' => $otherProducts];
+    }
+
+    if ($triggers === []) {
+        return;
+    }
+
+    ?>
+    <p class="scp-tag-quick-switch-triggers">
+        <?php foreach ($triggers as $trigger) : ?>
+            <?php $termId = $trigger['term']->term_id; ?>
+            <button
+                type="button"
+                class="scp-quick-view-trigger scp-tag-quick-switch-trigger"
+                data-scp-quick-view-trigger
+                data-scp-quick-view-target="scp-tag-quick-switch-<?php echo esc_attr((string) $termId); ?>"
+            >
+                <?php echo esc_html(sprintf(
+                    /* translators: %s: product tag name (e.g. "Kışlık"). */
+                    __('"%s" ile aynı etiketli diğer ürünler', 'seviye-storefront'),
+                    $trigger['term']->name
+                )); ?>
+            </button>
+            <template id="scp-tag-quick-switch-<?php echo esc_attr((string) $termId); ?>">
+                <div class="scp-quick-view__header">
+                    <button
+                        type="button"
+                        class="scp-quick-view__close"
+                        data-scp-quick-view-close
+                        aria-label="<?php esc_attr_e('Kapat', 'seviye-storefront'); ?>"
+                    >&times;</button>
+                </div>
+                <div class="scp-quick-view__body">
+                    <h2><?php echo esc_html($trigger['term']->name); ?></h2>
+                    <div class="scp-tag-quick-switch__grid">
+                        <?php foreach ($trigger['products'] as $otherProduct) : ?>
+                            <a
+                                class="scp-tag-quick-switch__item"
+                                href="<?php echo esc_url((string) get_permalink($otherProduct->get_id())); ?>"
+                            >
+                                <?php
+                                $otherImageId = $otherProduct->get_image_id();
+                                $otherImageUrl = $otherImageId
+                                    ? wp_get_attachment_image_url($otherImageId, 'thumbnail')
+                                    : wc_placeholder_img_src('thumbnail');
+                                ?>
+                                <img src="<?php echo esc_url((string) $otherImageUrl); ?>" alt="">
+                                <span class="scp-tag-quick-switch__item-name">
+                                    <?php echo esc_html($otherProduct->get_name()); ?>
+                                </span>
+                                <span class="scp-tag-quick-switch__item-price">
+                                    <?php echo wp_kses_post($otherProduct->get_price_html()); ?>
+                                </span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                    <a class="scp-btn scp-btn--ghost" href="<?php echo esc_url((string) get_term_link($trigger['term'])); ?>">
+                        <?php esc_html_e('Tümünü Gör', 'seviye-storefront'); ?>
+                    </a>
+                </div>
+            </template>
+        <?php endforeach; ?>
+    </p>
+    <?php
+}
+
+/**
  * Renders above the product loop on the shop page and every product
  * category archive - not on the single product page, where a search/filter
  * bar has no product grid below it to act on.
@@ -1302,4 +1476,28 @@ function scp_add_business_days(DateTimeImmutable $date, int $days): DateTimeImmu
     }
 
     return $date;
+}
+
+/**
+ * "Bu ürünü şu an X kişi görüntülüyor" sosyal kanıt sayacı - burada
+ * yalnızca boş bir işaretçi basılıyor (`scp_render_recently_viewed_marker()`
+ * ile AYNI "sunucu ürün id'sini data-* olarak basar, gerçek sayı
+ * assets/js/scp-ui-kit.js'in initSocialProofViewers()'ı tarafından REST
+ * üzerinden çekilir" ilkesi). Sayı PHP tarafında HESAPLANMIYOR - gerçek
+ * kaynak `plugin/seviye-commerce/src/Support/ProductViewerTracker.php`'ın
+ * transient'i, çünkü "şu an kim bakıyor" bilgisi doğası gereği canlı/kısa
+ * ömürlü, sayfa render anında sabitlenecek bir şey değil.
+ */
+function scp_render_social_proof_viewer_badge(): void
+{
+    global $product;
+
+    if (!$product instanceof WC_Product) {
+        return;
+    }
+
+    printf(
+        '<p class="scp-social-proof-viewers" data-scp-social-proof-viewers data-product-id="%s" hidden></p>',
+        esc_attr((string) $product->get_id())
+    );
 }
