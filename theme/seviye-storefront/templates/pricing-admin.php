@@ -121,7 +121,21 @@ if (!defined('ABSPATH')) {
 
                 <div class="scp-form__row">
                     <label data-scp-price-scope-field>
-                        <span><?php esc_html_e('Kapsam', 'seviye-storefront'); ?></span>
+                        <span>
+                            <?php esc_html_e('Kapsam', 'seviye-storefront'); ?>
+                            <?php
+                            $priceScopeTip = __(
+                                'Aynı ürün için birden fazla kural varsa Öğrenci kuralı Şube kuralını, Şube kuralı da Genel kuralı geçersiz kılar. Genel, hiçbir özel kural yoksa varsayılan fiyattır.',
+                                'seviye-storefront'
+                            );
+                            ?>
+                            <span
+                                class="scp-help-tip"
+                                tabindex="0"
+                                data-tip="<?php echo esc_attr($priceScopeTip); ?>"
+                                aria-label="<?php echo esc_attr($priceScopeTip); ?>"
+                            >?</span>
+                        </span>
                         <select name="scope">
                             <option value="general" data-scp-scope-general><?php esc_html_e('Genel', 'seviye-storefront'); ?></option>
                             <option value="branch"><?php esc_html_e('Şube', 'seviye-storefront'); ?></option>

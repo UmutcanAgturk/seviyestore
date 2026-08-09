@@ -106,6 +106,39 @@ function scp_enqueue_panel_assets(): void
         'parentLinked' => __('Veli bağlandı.', 'seviye-storefront'),
         'profileSaved' => __('Profiliniz güncellendi.', 'seviye-storefront'),
         'noChildren' => __('Sisteme bağlı bir öğrenci bulunamadı.', 'seviye-storefront'),
+        // translators: %s is the previously purchased size (e.g. "M").
+        'pastSizeHint' => __('Geçen sefer bu öğrenci için %s bedeni alınmıştı.', 'seviye-storefront'),
+        'pastSizeApply' => __('Uygula', 'seviye-storefront'),
+        // Seviye Commerce'in WooCommerceCartHooks::displayStudentName()'inin
+        // sepet satırlarına bastığı AYNI etiket metni ("Öğrenci") -
+        // initCartStudentGrouping()'in (scp-ui-kit.js) o metni DOM'da arayıp
+        // hangi satırın hangi öğrenciye ait olduğunu anlayabilmesi için.
+        'cartStudentLabel' => __('Öğrenci', 'seviye-storefront'),
+        'childPhotoUpload' => __('Fotoğraf Yükle', 'seviye-storefront'),
+        'familySummaryHeading' => __('Aile Paketi Özeti', 'seviye-storefront'),
+        'tourStep1Title' => __('Kenar Çubuğu', 'seviye-storefront'),
+        'tourStep1Body' => __(
+            'Soldaki menüden yetkili olduğunuz tüm bölümlere ulaşabilirsiniz - gruplar üzerine gelerek alt başlıkları görün.',
+            'seviye-storefront'
+        ),
+        'tourStep2Title' => __('Hızlı Arama', 'seviye-storefront'),
+        'tourStep2Body' => __(
+            'Üst menüdeki "Bul" düğmesi (ya da Cmd/Ctrl+K) ile herhangi bir sayfaya veya kayda anında atlayabilirsiniz.',
+            'seviye-storefront'
+        ),
+        'tourStep3Title' => __('Bildirimler', 'seviye-storefront'),
+        'tourStep3Body' => __(
+            'Zil simgesi size gelen önemli olayları (yeni sipariş, düşük stok, duyurular...) tek bir yerde toplar.',
+            'seviye-storefront'
+        ),
+        'tourStep4Title' => __('Karanlık Mod', 'seviye-storefront'),
+        'tourStep4Body' => __(
+            'Sağ üstteki tema düğmesiyle istediğiniz zaman açık/koyu görünüm arasında geçiş yapabilirsiniz.',
+            'seviye-storefront'
+        ),
+        'tourSkip' => __('Geç', 'seviye-storefront'),
+        'tourNext' => __('İleri', 'seviye-storefront'),
+        'tourFinish' => __('Başlayalım', 'seviye-storefront'),
         'pricingProductNotFound' => __('Ürün bulunamadı. Listeden bir ürün seçin.', 'seviye-storefront'),
         'scopeGeneral' => __('Genel', 'seviye-storefront'),
         'scopeBranch' => __('Şube', 'seviye-storefront'),

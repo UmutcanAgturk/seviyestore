@@ -424,6 +424,18 @@
   border-radius: var(--scp-radius-sm);
 }
 
+/* "Öğrenci bazlı beden geçmişi" -
+   product-student-picker.js'in scpSuggestPastSize()'ı, WC'nin kendi
+   beden `<select>`'inin hemen ardına ekliyor. */
+.scp-past-size-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 0;
+  font-size: var(--scp-text-sm);
+  color: var(--scp-text-muted);
+}
+
 .woocommerce-tabs {
   margin-top: 16px;
   padding: 24px 28px;
@@ -1056,6 +1068,72 @@
   text-align: center;
 }
 
+/* ---- "Çoklu öğrencili velilerde sepet gruplama/renklendirme" -
+   scp-ui-kit.js'in initCartStudentGrouping()'i ekliyor. ---- */
+.scp-cart-student-group td {
+  padding: 10px 12px 6px;
+  border-left: 3px solid transparent;
+  background: var(--scp-surface-alt);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--scp-text);
+}
+
+.scp-cart-student-group__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* ---- "Aile paketi özeti (sepette birden fazla öğrenci)" -
+   scp-ui-kit.js'in renderFamilyPackageSummary()'si ekliyor,
+   `.cart_totals`'ın hemen önünde. ---- */
+.scp-family-summary {
+  max-width: 380px;
+  margin: 0 0 20px auto;
+  padding: 16px 20px;
+  background: var(--scp-surface);
+  border: 1px solid var(--scp-border);
+  border-radius: var(--scp-radius);
+}
+
+.scp-family-summary h2 {
+  margin: 0 0 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.scp-family-summary ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scp-family-summary li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+  font-size: var(--scp-text-sm);
+}
+
+.scp-family-summary li:not(:last-child) {
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-family-summary__name {
+  flex: 1;
+  color: var(--scp-text);
+}
+
+.scp-family-summary__amount {
+  font-weight: 700;
+  color: var(--scp-primary-dark);
+}
+
 /* ---- "Sepet/ödeme adım göstergesi" - scp_render_checkout_steps()
    (inc/woocommerce.php), .scp-order-timeline'ı (panel.css) YENİDEN
    KULLANIYOR - sepet/ödeme/onay sayfalarının üstünde, kendi sayfa
@@ -1064,6 +1142,60 @@
 .scp-checkout-steps {
   max-width: 480px;
   margin: 0 auto 32px;
+}
+
+/* ---- "SSS accordion" - scp_render_faq_accordion() (inc/woocommerce.php)
+   native <details>/<summary> kullanıyor, yeni bir aç/kapa JS'i İCAT
+   ETMİYOR. ---- */
+.scp-faq {
+  max-width: 720px;
+  margin: 40px auto 0;
+}
+
+.scp-faq__heading {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.scp-faq__item {
+  border-bottom: 1px solid var(--scp-border);
+}
+
+.scp-faq__question {
+  padding: 14px 4px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.scp-faq__question::-webkit-details-marker {
+  display: none;
+}
+
+.scp-faq__question:focus-visible {
+  outline: 2px solid var(--scp-primary);
+  outline-offset: 2px;
+  border-radius: var(--scp-radius-sm);
+}
+
+.scp-faq__question::before {
+  content: "+";
+  display: inline-block;
+  width: 18px;
+  color: var(--scp-primary);
+  font-weight: 800;
+}
+
+.scp-faq__item[open] > .scp-faq__question::before {
+  content: "−";
+}
+
+.scp-faq__answer {
+  padding: 0 4px 16px 22px;
+  color: var(--scp-text-muted);
+  font-size: var(--scp-text-sm);
+  line-height: var(--scp-leading-normal);
 }
 
 /* ---- Boş arama sonucunda akıllı öneriler -

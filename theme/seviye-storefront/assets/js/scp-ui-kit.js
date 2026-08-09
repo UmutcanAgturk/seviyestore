@@ -349,12 +349,30 @@
     }
 
     /**
+     * "Öğrenci profiline fotoğraf/avatar yükleme" - `photoUrl` opsiyonel;
+     * verilirse baş harf yerine gerçek bir `<img>` gösteriyor (aynı
+     * `.scp-avatar` kutusunun içinde, aynı boyutta - CSS `object-fit:
+     * cover` ile kırpıyor), verilmezse (öğrencinin/kullanıcının henüz
+     * fotoğrafı yoksa) tamamen ESKİ davranış: baş harfler + isimden
+     * türetilen sabit renk.
+     *
      * @param {string} name
+     * @param {string} [photoUrl]
      * @return {HTMLSpanElement}
      */
-    window.scpAvatar = function (name) {
+    window.scpAvatar = function (name, photoUrl) {
         var span = document.createElement('span');
         span.className = 'scp-avatar';
+
+        if (photoUrl) {
+            var img = document.createElement('img');
+            img.src = photoUrl;
+            img.alt = '';
+            span.appendChild(img);
+
+            return span;
+        }
+
         span.style.backgroundColor = scpAvatarColorForName(name || '');
         span.textContent = scpAvatarInitials(name || '');
 
@@ -726,6 +744,131 @@
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
         closeButton.focus();
+    }
+
+    /**
+     * "İlk kez giriş yapan personel için onboarding tour" -
+     * header.php'nin yalnızca personelin İLK ziyaretinde bastığı
+     * `#scp-onboarding-tour-marker` varsa çalışıyor ("görüldü" bayrağı
+     * PHP tarafında ZATEN işaretlendi, bu yüzden burada ayrı bir
+     * "tamamlandı" isteği YOK). `openShortcutsHelp()`'in AYNI
+     * `.scp-modal`/`.scp-modal-overlay` kalıbını çok-adımlı bir sürüme
+     * genişletiyor - gerçek DOM elemanlarını "spot" ışığıyla
+     * vurgulamıyor (bu, her sayfa/rol için farklı bir kenar çubuğu
+     * düzeni olduğundan kırılgan olurdu), yalnızca dört temel özelliği
+     * kısa metinlerle anlatıyor.
+     */
+    function initOnboardingTour() {
+        var marker = document.getElementById('scp-onboarding-tour-marker');
+
+        if (!marker) {
+            return;
+        }
+
+        var textData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+        var steps = [
+            {
+                title: textData.tourStep1Title || 'Kenar Çubuğu',
+                body: textData.tourStep1Body
+                    || 'Soldaki menüden yetkili olduğunuz tüm bölümlere ulaşabilirsiniz - gruplar üzerine gelerek alt başlıkları görün.'
+            },
+            {
+                title: textData.tourStep2Title || 'Hızlı Arama',
+                body: textData.tourStep2Body
+                    || 'Üst menüdeki "Bul" düğmesi (ya da Cmd/Ctrl+K) ile herhangi bir sayfaya veya kayda anında atlayabilirsiniz.'
+            },
+            {
+                title: textData.tourStep3Title || 'Bildirimler',
+                body: textData.tourStep3Body
+                    || 'Zil simgesi size gelen önemli olayları (yeni sipariş, düşük stok, duyurular...) tek bir yerde toplar.'
+            },
+            {
+                title: textData.tourStep4Title || 'Karanlık Mod',
+                body: textData.tourStep4Body
+                    || 'Sağ üstteki tema düğmesiyle istediğiniz zaman açık/koyu görünüm arasında geçiş yapabilirsiniz.'
+            }
+        ];
+
+        var currentStep = 0;
+
+        var overlay = document.createElement('div');
+        overlay.className = 'scp-modal-overlay';
+
+        var modal = document.createElement('div');
+        modal.className = 'scp-modal scp-tour-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+
+        var eyebrow = document.createElement('p');
+        eyebrow.className = 'scp-tour-modal__eyebrow';
+        modal.appendChild(eyebrow);
+
+        var title = document.createElement('h2');
+        modal.appendChild(title);
+
+        var body = document.createElement('p');
+        modal.appendChild(body);
+
+        var actions = document.createElement('div');
+        actions.className = 'scp-modal__actions';
+
+        var skipButton = document.createElement('button');
+        skipButton.type = 'button';
+        skipButton.className = 'scp-btn scp-btn--ghost';
+        skipButton.textContent = textData.tourSkip || 'Geç';
+
+        var nextButton = document.createElement('button');
+        nextButton.type = 'button';
+        nextButton.className = 'scp-btn';
+
+        actions.appendChild(skipButton);
+        actions.appendChild(nextButton);
+        modal.appendChild(actions);
+
+        function render() {
+            var step = steps[currentStep];
+            eyebrow.textContent = (currentStep + 1) + ' / ' + steps.length;
+            title.textContent = step.title;
+            body.textContent = step.body;
+            nextButton.textContent = currentStep === steps.length - 1
+                ? (textData.tourFinish || 'Başlayalım')
+                : (textData.tourNext || 'İleri');
+        }
+
+        function close() {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown);
+        }
+
+        function onKeydown(event) {
+            if (event.key === 'Escape') {
+                close();
+            }
+        }
+
+        nextButton.addEventListener('click', function () {
+            if (currentStep === steps.length - 1) {
+                close();
+                return;
+            }
+
+            currentStep += 1;
+            render();
+        });
+
+        skipButton.addEventListener('click', close);
+        overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) {
+                close();
+            }
+        });
+        document.addEventListener('keydown', onKeydown);
+
+        render();
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        nextButton.focus();
     }
 
     document.addEventListener('keydown', function (event) {
@@ -1723,6 +1866,15 @@
                     currentTotals.replaceWith(freshTotals);
                 }
 
+                // initCartStudentGrouping()'in renderFamilyPackageSummary()'si
+                // özet kartını `.cart_totals`'ın hemen ÖNÜNE ekliyor - bu
+                // yüzden `.cart-collaterals` (o `.cart_totals`'ı SARAN
+                // kap) YUKARIDA zaten tazelendikten SONRA çağrılıyor,
+                // yoksa kart o kabın değişimiyle birlikte silinirdi.
+                if (freshForm && currentForm) {
+                    initCartStudentGrouping();
+                }
+
                 if (typeof jQuery !== 'undefined') {
                     jQuery(document.body).trigger('wc_fragment_refresh');
                 }
@@ -1918,7 +2070,217 @@
         initStickyCartBar();
         initAriaLiveRegions();
         initImageLazyPlaceholders();
+        initCartStudentGrouping();
+        initOnboardingTour();
     });
+
+    /**
+     * "Çoklu öğrencili velilerde sepet ürünlerini öğrenciye göre
+     * gruplama/renklendirme" - WooCommerceCartHooks::displayStudentName()
+     * (plugin/seviye-commerce) her sepet satırının ürün adının altına
+     * WC'nin KENDİ `woocommerce_get_item_data` meta bloğuyla (`<dl
+     * class="variation">`) zaten "Öğrenci: Ahmet Yılmaz" yazıyordu - yeni
+     * bir veri kaynağı İCAT EDİLMEDİ, bu metin OKUNUYOR. İki öğrenciden
+     * az varsa (0 ya da 1) hiçbir şey yapmıyor - gruplamanın bir anlamı
+     * olmaz. Satırları FİZİKSEL olarak öğrenciye göre yeniden sıralayıp
+     * (form gönderimini BOZMUYOR - tarayıcı bir <form>'un tüm alt
+     * input'larını DOM sırasından BAĞIMSIZ toplar) her grubun başına bir
+     * öğrenci alt-başlığı satırı ekliyor, ayrıca her satırın soluna
+     * öğrenciye özgü sabit bir renk şeridi koyuyor.
+     * initCartQuantitySteppers()'ın miktar güncellemesi tabloyu WC'nin
+     * KENDİ HTML'iyle değiştirdiğinde (submitCartUpdate()) bu fonksiyon
+     * ORADA DA yeniden çağrılıyor, yoksa gruplama miktar değişikliğinde
+     * kaybolurdu.
+     */
+    function initCartStudentGrouping() {
+        var table = document.querySelector('.woocommerce-cart-form table.shop_table');
+
+        if (!table) {
+            return;
+        }
+
+        var tbody = table.querySelector('tbody');
+        var headRow = table.querySelector('thead tr');
+
+        if (!tbody || !headRow) {
+            return;
+        }
+
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.cart_item'));
+
+        if (rows.length < 2) {
+            return;
+        }
+
+        var COLORS = ['#2a5cb8', '#0f9d63', '#c2410c', '#7c3aed', '#be123c', '#0e7490'];
+
+        function studentNameFor(row) {
+            var dts = row.querySelectorAll('dl.variation dt');
+
+            for (var i = 0; i < dts.length; i++) {
+                if (dts[i].textContent.indexOf(scpCartStudentLabel()) === 0) {
+                    var dd = dts[i].nextElementSibling;
+
+                    return dd ? dd.textContent.trim() : null;
+                }
+            }
+
+            return null;
+        }
+
+        function scpCartStudentLabel() {
+            return (typeof scpPanelText !== 'undefined' && scpPanelText.cartStudentLabel) || 'Öğrenci';
+        }
+
+        var order = [];
+        var groups = {};
+        var ungrouped = [];
+
+        rows.forEach(function (row) {
+            var name = studentNameFor(row);
+
+            if (!name) {
+                ungrouped.push(row);
+                return;
+            }
+
+            if (!groups[name]) {
+                groups[name] = [];
+                order.push(name);
+            }
+
+            groups[name].push(row);
+        });
+
+        // Tek öğrenci (ya da hiç öğrenci meta'sı yok) - gruplamanın bir
+        // anlamı yok, satırları olduğu gibi bırak.
+        if (order.length < 2) {
+            return;
+        }
+
+        var columnCount = headRow.children.length;
+
+        order.forEach(function (name, index) {
+            var color = COLORS[index % COLORS.length];
+
+            var header = document.createElement('tr');
+            header.className = 'scp-cart-student-group';
+
+            var cell = document.createElement('td');
+            cell.colSpan = columnCount;
+            cell.style.borderLeftColor = color;
+
+            var dot = document.createElement('span');
+            dot.className = 'scp-cart-student-group__dot';
+            dot.style.background = color;
+            cell.appendChild(dot);
+
+            cell.appendChild(document.createTextNode(name));
+            header.appendChild(cell);
+            tbody.appendChild(header);
+
+            groups[name].forEach(function (row) {
+                row.style.borderLeft = '3px solid ' + color;
+                tbody.appendChild(row);
+            });
+        });
+
+        ungrouped.forEach(function (row) {
+            tbody.appendChild(row);
+        });
+
+        renderFamilyPackageSummary(order, groups, COLORS);
+    }
+
+    /**
+     * Bir metin içindeki tek bir para tutarını (WC'nin kendi basılı
+     * `.amount` HTML'i, ör. "1.234,56 ₺") sayıya çeviriyor - JSON'dan
+     * gelen HAM bir sayı değil, WC'nin ZATEN render ettiği HTML metni
+     * (bu sayfada sepetin kendi ayrı bir REST/JSON temsili yok). Türkçe
+     * ("1.234,56") ve ABD ("1,234.56") biçimlerinin İKİSİNİ de doğru
+     * ayrıştırmak için EN SONDAKİ ayraç ondalık kabul ediliyor, öncekiler
+     * binlik ayracı olarak atılıyor.
+     */
+    function scpParseAmount(text) {
+        var cleaned = (text || '').replace(/[^\d.,]/g, '');
+        var decimalIndex = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+
+        if (decimalIndex === -1) {
+            return parseFloat(cleaned) || 0;
+        }
+
+        var intPart = cleaned.slice(0, decimalIndex).replace(/[.,]/g, '');
+        var decPart = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, '');
+
+        return parseFloat(intPart + '.' + decPart) || 0;
+    }
+
+    /**
+     * "Aile paketi özeti (sepette birden fazla öğrenci)" -
+     * initCartStudentGrouping()'in zaten hesapladığı gruplardan, her
+     * öğrencinin kendi ürün sayısı + ara toplamını gösteren küçük bir
+     * kart. WC'nin KENDİ satır `.product-subtotal .amount`
+     * metinlerinin toplamı (scpParseAmount() ile) - ayrı bir fiyat
+     * hesaplama mantığı İCAT EDİLMİYOR, yalnızca zaten ekranda basılı
+     * olan tutarlar gruplanıyor. `.cart_totals`'ın hemen ÖNÜNE
+     * ekleniyor (varsa) - "Ara Toplam/Toplam" ile aynı görsel bölgede.
+     */
+    function renderFamilyPackageSummary(order, groups, colors) {
+        var existing = document.querySelector('.scp-family-summary');
+
+        if (existing) {
+            existing.remove();
+        }
+
+        var card = document.createElement('div');
+        card.className = 'scp-family-summary';
+
+        var heading = document.createElement('h2');
+        heading.textContent = (typeof scpPanelText !== 'undefined' && scpPanelText.familySummaryHeading)
+            || 'Aile Paketi Özeti';
+        card.appendChild(heading);
+
+        var list = document.createElement('ul');
+
+        order.forEach(function (name, index) {
+            var rows = groups[name];
+            var subtotal = rows.reduce(function (sum, row) {
+                var amountEl = row.querySelector('.product-subtotal .amount');
+
+                return sum + (amountEl ? scpParseAmount(amountEl.textContent) : 0);
+            }, 0);
+
+            var item = document.createElement('li');
+
+            var dot = document.createElement('span');
+            dot.className = 'scp-cart-student-group__dot';
+            dot.style.background = colors[index % colors.length];
+            item.appendChild(dot);
+
+            var label = document.createElement('span');
+            label.className = 'scp-family-summary__name';
+            label.textContent = name + ' (' + rows.length + ')';
+            item.appendChild(label);
+
+            var amount = document.createElement('span');
+            amount.className = 'scp-family-summary__amount';
+            amount.textContent = subtotal.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                + ' TRY';
+            item.appendChild(amount);
+
+            list.appendChild(item);
+        });
+
+        card.appendChild(list);
+
+        var totals = document.querySelector('.cart_totals');
+
+        if (totals && totals.parentNode) {
+            totals.parentNode.insertBefore(card, totals);
+        } else {
+            document.querySelector('.woocommerce-cart-form').insertAdjacentElement('afterend', card);
+        }
+    }
 
     /**
      * "Ekran okuyucu için dinamik içerik duyuruları" - onlarca panel

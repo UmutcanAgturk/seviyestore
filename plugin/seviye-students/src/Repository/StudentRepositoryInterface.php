@@ -32,6 +32,15 @@ interface StudentRepositoryInterface
 
     public function find(int $id): ?Student;
 
+    /**
+     * "Öğrenci profiline fotoğraf/avatar yükleme" - dar bir amaca özel
+     * yazma metodu (tüm Student alanlarını isteyen update()'in geniş
+     * imzasını YENİDEN KULLANMIYOR), çünkü fotoğraf yükleme veliden
+     * gelir ve velinin şube/eğitim yılı/T.C. no gibi alanları değiştirme
+     * yetkisi/bilgisi yok - yalnızca $attachmentId'yi değiştiriyor.
+     */
+    public function updatePhoto(int $id, ?int $attachmentId): void;
+
     public function delete(int $id): void;
 
     /**

@@ -160,7 +160,7 @@
             nameGroup.className = 'scp-table__name-group';
 
             if (typeof window.scpAvatar === 'function') {
-                nameGroup.appendChild(window.scpAvatar(fullName));
+                nameGroup.appendChild(window.scpAvatar(fullName, student.photo_url));
             }
 
             var nameLabel = document.createElement('span');

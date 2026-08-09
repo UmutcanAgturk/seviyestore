@@ -53,6 +53,14 @@ add_action('woocommerce_before_cart', 'scp_render_checkout_steps');
 add_action('woocommerce_before_checkout_form', 'scp_render_checkout_steps');
 add_action('woocommerce_before_thankyou', 'scp_render_checkout_steps');
 
+// "SSS accordion (ürün/ödeme/iade sayfaları)" - ürün sayfasında sekmelerin
+// ALTINA (yorumlar/açıklama sekmesinden sonra, ürüne özel olmayan genel
+// sorular sayfanın asıl içeriğiyle karışmasın diye), ödeme sayfasında ise
+// EN SONA (`woocommerce_after_checkout_form` - WC'nin kendi çekirdek
+// hook'u, form'un dışında/altında).
+add_action('woocommerce_after_single_product', 'scp_render_product_faq', 20);
+add_action('woocommerce_after_checkout_form', 'scp_render_checkout_faq');
+
 // "Mağaza Vitrini" - öncelik 1, scp_render_category_banner()'dan (4) ÖNCE -
 // yalnızca mağaza ana sayfasında (is_shop(), kategori arşivlerinde DEĞİL -
 // onların zaten kendi banner'ı var) gösterilen hero + öne çıkan ürünler
@@ -483,6 +491,97 @@ function scp_render_checkout_steps(): void
         <?php endforeach; ?>
     </ol>
     <?php
+}
+
+/**
+ * "SSS accordion" - native `<details>/<summary>` kullanıyor (yeni bir JS
+ * aç/kapa mekanizması İCAT ETMİYOR - tarayıcının kendi yerleşik
+ * genişlet/daralt davranışı, klavye/erişilebilirlik desteği ücretsiz
+ * geliyor). `scp_render_product_faq()`/`scp_render_checkout_faq()` bu
+ * ortak render'ı KENDİ sabit soru/cevap listeleriyle çağırıyor.
+ *
+ * @param list<array{q: string, a: string}> $items
+ */
+function scp_render_faq_accordion(string $heading, array $items): void
+{
+    if ($items === []) {
+        return;
+    }
+    ?>
+    <section class="scp-faq">
+        <h2 class="scp-faq__heading"><?php echo esc_html($heading); ?></h2>
+        <?php foreach ($items as $item) : ?>
+            <details class="scp-faq__item">
+                <summary class="scp-faq__question"><?php echo esc_html($item['q']); ?></summary>
+                <div class="scp-faq__answer"><?php echo esc_html($item['a']); ?></div>
+            </details>
+        <?php endforeach; ?>
+    </section>
+    <?php
+}
+
+function scp_render_product_faq(): void
+{
+    scp_render_faq_accordion(
+        __('Sık Sorulan Sorular', 'seviye-storefront'),
+        [
+            [
+                'q' => __('Bu ürün için doğru bedeni nasıl seçerim?', 'seviye-storefront'),
+                'a' => __(
+                    'Ürün sayfasındaki "Beden Rehberi" düğmesine tıklayarak yaşa/boya göre önerilen bedeni görebilirsiniz. Öğrenciyi seçtiyseniz, o öğrenci için daha önce alınan bir beden varsa ayrıca öneri olarak gösterilir.',
+                    'seviye-storefront'
+                ),
+            ],
+            [
+                'q' => __('Siparişim ne zaman elime ulaşır?', 'seviye-storefront'),
+                'a' => __(
+                    'Siparişiniz onaylandıktan sonra hazırlanıp kargoya verilir; kargo durumunu Siparişlerim sayfasından takip edebilirsiniz.',
+                    'seviye-storefront'
+                ),
+            ],
+            [
+                'q' => __('Ürünü iade edebilir miyim?', 'seviye-storefront'),
+                'a' => __(
+                    'Evet - teslim aldığınız bir siparişi, satın alma tarihinden itibaren 14 gün içinde Siparişlerim sayfasındaki "İade Et" düğmesiyle iade edebilirsiniz.',
+                    'seviye-storefront'
+                ),
+            ],
+        ]
+    );
+}
+
+function scp_render_checkout_faq(): void
+{
+    if (!is_checkout() || is_order_received_page()) {
+        return;
+    }
+
+    scp_render_faq_accordion(
+        __('Ödeme Hakkında Sık Sorulan Sorular', 'seviye-storefront'),
+        [
+            [
+                'q' => __('Hangi ödeme yöntemlerini kullanabilirim?', 'seviye-storefront'),
+                'a' => __(
+                    'Ödeme adımında görünen, mağazanın etkinleştirdiği yöntemlerden herhangi birini kullanabilirsiniz.',
+                    'seviye-storefront'
+                ),
+            ],
+            [
+                'q' => __('Ödeme bilgilerim güvende mi?', 'seviye-storefront'),
+                'a' => __(
+                    'Ödeme işlemi, seçtiğiniz ödeme sağlayıcısının kendi güvenli altyapısı üzerinden gerçekleşir; kart bilgileriniz bu sitede saklanmaz.',
+                    'seviye-storefront'
+                ),
+            ],
+            [
+                'q' => __('Siparişimi verdikten sonra nasıl takip ederim?', 'seviye-storefront'),
+                'a' => __(
+                    'Siparişiniz onaylandığında bir e-posta bildirimi alırsınız; güncel durumu her zaman Siparişlerim sayfasından görebilirsiniz.',
+                    'seviye-storefront'
+                ),
+            ],
+        ]
+    );
 }
 
 /**

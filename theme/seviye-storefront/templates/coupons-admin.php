@@ -77,7 +77,21 @@ if (!defined('ABSPATH')) {
 
             <div class="scp-form__row">
                 <label>
-                    <span><?php esc_html_e('Kullanım Limiti (isteğe bağlı)', 'seviye-storefront'); ?></span>
+                    <span>
+                        <?php esc_html_e('Kullanım Limiti (isteğe bağlı)', 'seviye-storefront'); ?>
+                        <?php
+                        $couponUsageLimitTip = __(
+                            'Bu kod TÜM velilerin toplamda kaç kez kullanabileceğini belirler - kişi başına bir limit değildir.',
+                            'seviye-storefront'
+                        );
+                        ?>
+                        <span
+                            class="scp-help-tip"
+                            tabindex="0"
+                            data-tip="<?php echo esc_attr($couponUsageLimitTip); ?>"
+                            aria-label="<?php echo esc_attr($couponUsageLimitTip); ?>"
+                        >?</span>
+                    </span>
                     <input type="number" name="usage_limit" min="1" step="1" placeholder="1">
                 </label>
                 <label>

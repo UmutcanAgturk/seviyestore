@@ -126,6 +126,27 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
         throw new RuntimeException(sprintf('Öğrenci #%d silinemedi: %s', $id, $error));
     }
 
+    public function updatePhoto(int $id, ?int $attachmentId): void
+    {
+        $table = $this->connection->table('students');
+
+        // %d has no NULL placeholder in $wpdb->prepare() - "kaldır"
+        // (remove photo) is expressed as a literal SQL NULL instead of a
+        // parameterized 0, which would otherwise round-trip as a
+        // (nonsensical) attachment ID 0 rather than "no photo".
+        $sql = $attachmentId === null
+            ? $this->connection->prepare(
+                'UPDATE ' . $table . ' SET photo_attachment_id = NULL, updated_at = %s WHERE id = %d',
+                [$this->now(), $id]
+            )
+            : $this->connection->prepare(
+                'UPDATE ' . $table . ' SET photo_attachment_id = %d, updated_at = %s WHERE id = %d',
+                [$attachmentId, $this->now(), $id]
+            );
+
+        $this->connection->query($sql);
+    }
+
     public function all(): array
     {
         $table = $this->connection->table('students');
@@ -158,7 +179,10 @@ final class WpdbStudentRepository implements StudentRepositoryInterface
             EducationYear::fromString((string) $row['education_year']),
             (string) $row['class_name'],
             StudentStatus::from((string) $row['status']),
-            isset($row['tc_no']) && $row['tc_no'] !== '' ? (string) $row['tc_no'] : null
+            isset($row['tc_no']) && $row['tc_no'] !== '' ? (string) $row['tc_no'] : null,
+            isset($row['photo_attachment_id']) && $row['photo_attachment_id'] !== null
+                ? (int) $row['photo_attachment_id']
+                : null
         );
     }
 

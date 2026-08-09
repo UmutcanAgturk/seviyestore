@@ -5321,6 +5321,123 @@ line-length uyarıları kaldı), üç CSS dosyasının da küme parantezi
 dengesi doğrulandı. Bu tur yalnızca tema dosyalarını değiştirdiği için
 hiçbir eklenti PHPUnit paketi etkilenmedi.
 
+### 92. UX Turu 9B (33 maddelik büyük seçimin veli/öğrenci kişiselleştirme maddeleri)
+
+9A'nın devamı - bu bölüm 9B'yi kapsıyor: öğrenci geçmişine/kimliğine
+dayalı kişiselleştirme (beden geçmişi, fotoğraf, sepet gruplama, aile
+paketi özeti) ve bağlamsal yardım/yönlendirme (SSS, help-tip, personel
+onboarding turu). Hem tema HEM DE `seviye-commerce`/`seviye-students`
+eklenti kaynağı değişti.
+
+**Öğrenci bazlı beden geçmişi.** Yeni bir veri kaynağı İCAT EDİLMEDİ -
+`scp_order_line_items.product_id` WC'nin `get_product_id()`'siyle AYNI
+(varyasyonlarda bile PARENT ürün id'si, `get_variation_id()` değil),
+yani beden bilgisi bu tablodan OKUNAMAZ; gerçek kaynak WC'nin kendi
+sipariş satırı metadata'sı. `OrderPresenter::presentItem()` (hem
+veli-yüzlü `commerce/orders/mine` HEM DE personel-yüzlü
+`AdminOrdersRestController`'ın ORTAK kaynağı) `student_id` ve
+`attributes` (WC'nin kendi `get_formatted_meta_data()`'sıyla türetilen
+`{beden: 'M'}` gibi varyant meta'sı, `pa_` öneki
+`ProductsRestController::applyVariants()`'ın kendi anahtarlarıyla
+eşleşecek şekilde temizlenmiş) döndürecek şekilde GENİŞLETİLDİ. Ürün
+sayfasında öğrenci `<select>`'i değiştiğinde `product-student-picker.js`
+`commerce/orders/mine`'ı çekip AYNI ürün+öğrenci için en son (liste
+zaten `orderby=date DESC`) alınan bedeni bulup otomatik UYGULAMADAN
+(sürpriz olmasın diye) bir ipucu + "Uygula" düğmesi gösteriyor.
+
+**SSS accordion (ürün/ödeme/iade sayfaları).** Yeni bir aç/kapa JS
+mekanizması İCAT EDİLMEDİ - native `<details>/<summary>` kullanılıyor,
+tarayıcının kendi klavye/erişilebilirlik desteği ücretsiz geliyor.
+Ortak `scp_render_faq_accordion()` (inc/woocommerce.php)
+`scp_render_product_faq()` (ürün sayfası, sabit 3 soru: beden seçimi/
+teslimat/iade) ve `scp_render_checkout_faq()` (`woocommerce_after_checkout_form`
+- WC'nin çekirdek hook'u, form'un dışında; ödeme yöntemleri/güvenlik/
+takip) tarafından çağrılıyor.
+
+**Çoklu öğrencili velilerde sepet gruplama/renklendirme.**
+`WooCommerceCartHooks::displayStudentName()` (önceden var) zaten WC'nin
+`woocommerce_get_item_data` kancasıyla her sepet satırının
+`<dl class="variation">`'ına "Öğrenci: {isim}" YAZDIRIYORDU; yeni bir
+veri kaynağı yerine `initCartStudentGrouping()` (scp-ui-kit.js) bu
+ZATEN RENDER EDİLMİŞ metni okuyup `<tr>`'leri öğrenciye göre fiziksel
+olarak yeniden sıralıyor (form gönderimi input'ları DOM sırasına değil
+DOM ÜYELİĞİNE göre topladığı için güvenli) ve renkli grup başlığı
+satırları + sol kenar renk kodlaması ekliyor. `scpParseAmount()` TR
+("1.234,56") ve US ("1,234.56") biçimlerinin ikisini de - hangi ayraç
+EN SONDA geçiyorsa onu ondalık kabul ederek - ham JSON tutar olmadan,
+WC'nin render ettiği `.amount` metninden ayrıştırıyor.
+
+**Öğrenci profiline fotoğraf/avatar yükleme.** Bir veli şu ana kadar
+öğrenci kaydına SIFIR yazma erişimine sahipti
+(`canAccessStudent()` yalnızca personel-özel `MANAGE_STUDENTS`
+capability'sini kabul ediyordu) - bu yüzden gerçekten YENİ, dar
+kapsamlı bir izin yolu gerekti: `StudentsRestController::canManageStudentPhoto()`
+= personel (branch-scoped `MANAGE_STUDENTS`) VEYA istek sahibi o
+öğrencinin bağlı velisi (Students modülünün KENDİ iç
+`StudentParentRepositoryInterface`'i - bu kontrol modülün İÇİNDE
+yaşadığı için yayınlanan `StudentGuardianCheckInterface` Contract'ı
+DEĞİL). Yeni `PUT students/{id}/photo` ucu, ZATEN VAR OLAN
+`scpUploadMedia()`'yı (branding/ürün görselleri için kullanılan aynı
+`/wp/v2/media` yükleme yardımcısı) reddetmeden yeniden kullanıyor. Yeni
+sütun (`photo_attachment_id`) ZATEN DEPLOY EDİLMİŞ `scp_students`
+tablosuna eklendiği için `AddPhotoToStudentsTable` migration'ı
+`CreateOrderLineItemsTable`'ın (henüz hiç deploy edilmemiş bir tabloya
+sütun ekleyen) aksine TÜM sütunları içeren eksiksiz bir `CREATE TABLE`
+ifadesini yeniden `dbDelta()`'ya veriyor - bu, zaten deploy edilmiş bir
+özel tabloya sütun eklemenin doğru WordPress deyimidir, ham
+`ALTER TABLE` `dbDelta()` tarafından güvenilir biçimde ayrıştırılmaz.
+`window.scpAvatar(name, photoUrl)` (bölüm 89'un baş harf avatarı)
+isteğe bağlı ikinci parametreyle GERÇEK bir `<img>` (`object-fit:
+cover`, aynı yuvarlatılmış kutu) render edecek şekilde GERİYE DÖNÜK
+UYUMLU genişletildi - hem `parent-dashboard.js`'nin yeni çocuk satırı
+hem de `students-panel.js`'nin personel-yüzlü listesi artık gerçek
+fotoğraf gösteriyor.
+
+**Aile paketi özeti (sepette birden fazla öğrenci).**
+`renderFamilyPackageSummary()` sepet gruplamasının yan ürünü - aynı
+`initCartStudentGrouping()` taramasından çıkan öğrenci gruplarını
+`.cart_totals`'ın hemen ÖNÜNE bir özet kartı olarak basıyor. Bir
+sıralama hatası kendim yakalayıp DÜZELTTİM: `initCartQuantitySteppers()`'ın
+AJAX `submitCartUpdate()`'i `.cart-collaterals`'ı (`.cart_totals`'ı
+SARAN element) TAMAMEN DEĞİŞTİRİYORDU; gruplama fonksiyonu bu
+değişimden ÖNCE çağrılırsa yeni eklenen özet kartı eski wrapper'la
+BİRLİKTE SİLİNİYORDU - `initCartStudentGrouping()`'in çağrısı totals
+değişiminden SONRAYA taşınarak düzeltildi.
+
+**Bağlamsal yardım ipuçları (? simgeleri).** Yeni JS'siz, saf CSS
+tooltip bileşeni (`.scp-help-tip`) - görebilen kullanıcılar için
+`::after`'da `content: attr(data-tip)` (hover/focus), ekran okuyucular
+için AYNI metin `aria-label`'da (hover beklemeden odaklanınca hemen
+duyuruluyor). İçerik yazmadan önce KAYNAK KODU OKUYUP doğrulandı: ilk
+"Dönem" taslağı yanlışlıkla dönem/sömestr sınırı olduğunu iddia
+ediyordu; `StudentSpendingCalculator::spentAmount()`'ta TERM için
+`$monthStart = null` olduğu (yani HİÇBİR tarih filtresi
+uygulanmadığı - tüm zamanların toplamı) görülünce metin DÜZELTİLDİ.
+"Kapsam" (fiyat kuralı) ipucu da `PriceResolver::resolve()`'un
+Öğrenci > Şube > Genel önceliğini doğruladıktan sonra yazıldı.
+"Kullanım Limiti" (kupon) ipucu bu limitin veli başına değil TOPLAM
+olduğunu açıklıyor.
+
+**İlk kez giriş yapan personel için onboarding tour.** `scp_current_zone()`
+`'admin'`/`'sube'` döndürdüğünde (veli kök zonunda BOŞ) SADECE
+PERSONELE gösteriliyor - "personel için" seçimiyle bire bir. Yeni
+`_scp_onboarding_tour_seen` user meta'sı, turun GÖRÜLMEYE karar verildiği
+ANDA (tamamlanma/kapatma beklenmeden) işaretleniyor - bilinçli bir
+basitleştirme, ikinci bir REST gidiş-dönüşünden kaçınıyor
+(kullanıcı yarıda bırakıp sayfayı yenilese bile bir daha GÖRÜNMEZ, bu
+turun tekrar tekrar karşısına çıkmasından çok daha iyi bir varsayılan).
+`.scp-modal`/`.scp-modal-overlay` YENİDEN KULLANILDI - bölüm 89'un
+klavye kısayolları yardım ekranıyla AYNI overlay/modal/actions CSS
+sınıfları, 4 sabit adım (Kenar Çubuğu/Hızlı Arama/Bildirimler/Karanlık
+Mod) ve İleri/Geç akışıyla genişletildi.
+
+**Doğrulama.** Değişen tüm dosyalarda `php -l`/`node --check` temiz;
+`vendor/bin/phpcs` (`OrderPresenter.php` dahil) 0 hata (yalnızca
+önceden de var olan nonce-verification/line-length uyarıları kaldı);
+üç CSS dosyasının küme parantezi dengesi doğrulandı; `seviye-commerce`
+(34 test, 86 doğrulama) ve `seviye-students` (47 test, 86 doğrulama)
+eklentilerinin TAM PHPUnit paketleri geçti.
+
 ## Test stratejisi
 
 - **Birim testleri** (`plugin/*/tests/Unit`): WordPress'e bağımlı olmayan iş

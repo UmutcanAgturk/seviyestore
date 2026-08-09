@@ -257,7 +257,21 @@ if (!defined('ABSPATH')) {
                 <p class="scp-form__hint" data-scp-spending-limit-status></p>
                 <div class="scp-form scp-form--inline">
                     <label>
-                        <span><?php esc_html_e('Dönem', 'seviye-storefront'); ?></span>
+                        <span>
+                            <?php esc_html_e('Dönem', 'seviye-storefront'); ?>
+                            <?php
+                            $spendingLimitPeriodTip = __(
+                                'Aylık: her takvim ayı başında sıfırlanır. Dönemlik: bir tarih sınırı yoktur - öğrencinin ödemesi tamamlanmış TÜM siparişlerinin toplamına göre hesaplanır.',
+                                'seviye-storefront'
+                            );
+                            ?>
+                            <span
+                                class="scp-help-tip"
+                                tabindex="0"
+                                data-tip="<?php echo esc_attr($spendingLimitPeriodTip); ?>"
+                                aria-label="<?php echo esc_attr($spendingLimitPeriodTip); ?>"
+                            >?</span>
+                        </span>
                         <select data-scp-spending-limit-period>
                             <option value="monthly"><?php esc_html_e('Aylık', 'seviye-storefront'); ?></option>
                             <option value="term"><?php esc_html_e('Dönemlik', 'seviye-storefront'); ?></option>

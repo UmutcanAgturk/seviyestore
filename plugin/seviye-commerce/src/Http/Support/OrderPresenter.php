@@ -137,7 +137,36 @@ final class OrderPresenter
             'unit_price' => (float) $item->get_total() / $quantity,
             'line_total' => (float) $item->get_total(),
             'line_tax' => (float) $item->get_total_tax(),
+            'student_id' => $studentId > 0 ? $studentId : null,
             'student_name' => $student !== null ? trim($student->firstName . ' ' . $student->lastName) : null,
+            'attributes' => $this->presentAttributes($item),
         ];
+    }
+
+    /**
+     * "Öğrenci bazlı beden geçmişi" - ürün sayfasının bir öğrenci + ürün
+     * için geçmişte hangi varyant (Beden/Renk) alındığını önerebilmesi
+     * için. WC'nin KENDİ `get_formatted_meta_data()`'sı - sipariş
+     * e-postalarının/admin ekranının "Beden: M" satırını bastığı AYNI
+     * genel amaçlı API, yeni bir meta okuma mantığı İCAT EDİLMEDİ.
+     * Global öznitelik meta anahtarları (`pa_beden`, `pa_renk`, ...)
+     * `pa_` öneki hariç bırakılarak döndürülüyor (`ProductsRestController`'ın
+     * `applyVariants()`'ının kendi 'beden'/'renk' anahtarlarıyla AYNI).
+     *
+     * @return array<string, string>
+     */
+    private function presentAttributes(WC_Order_Item_Product $item): array
+    {
+        $attributes = [];
+
+        foreach ($item->get_formatted_meta_data() as $meta) {
+            if (strpos((string) $meta->key, 'pa_') !== 0) {
+                continue;
+            }
+
+            $attributes[substr((string) $meta->key, 3)] = wp_strip_all_tags((string) $meta->display_value);
+        }
+
+        return $attributes;
     }
 }

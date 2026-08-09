@@ -21,6 +21,7 @@ use Seviye\Students\Contracts\ParentClassLookupInterface;
 use Seviye\Students\Contracts\StudentDirectoryInterface;
 use Seviye\Students\Contracts\StudentGuardianCheckInterface;
 use Seviye\Students\Contracts\StudentLookupInterface;
+use Seviye\Students\Database\Migrations\AddPhotoToStudentsTable;
 use Seviye\Students\Database\Migrations\CreateStudentParentsTable;
 use Seviye\Students\Database\Migrations\CreateStudentsTable;
 use Seviye\Students\Http\StudentsRestController;
@@ -116,6 +117,7 @@ final class StudentsModule implements ModuleInterface
 
         $container->get(MigrationRunner::class)->register(new CreateStudentsTable());
         $container->get(MigrationRunner::class)->register(new CreateStudentParentsTable());
+        $container->get(MigrationRunner::class)->register(new AddPhotoToStudentsTable());
 
         $rbac = $container->get(RbacManager::class);
         $rbac->grantCapability(Role::GENEL_MERKEZ, StudentCapability::MANAGE_STUDENTS->value);

@@ -180,6 +180,35 @@ $scp_is_parent_zone = current_user_can('scp_view_own_children') || current_user_
         </a>
     </nav>
 <?php endif; ?>
+<?php
+/**
+ * "İlk kez giriş yapan personel için onboarding tour" - yalnızca personel
+ * bölgelerinde (/admin, /sube - scp_current_zone(), veli KÖK bölgesinde
+ * DEĞİL, o zaten "Kurulum sihirbazı"nı GÖRMEZ, bölüm 175'in kurulum
+ * sihirbazı bambaşka bir şey: platformun İLK kurulumu, tek seferlik,
+ * yalnızca Genel Merkez içindir - bu ise HER personelin KENDİ ilk
+ * girişinde görür). "Görüldü" bayrağı basit bir user meta - şu an
+ * GÖSTERİLECEĞİNE karar verilir verilmez AYNI anda "görüldü" olarak
+ * işaretleniyor (ayrı bir "turu tamamladı" REST çağrısı İCAT EDİLMEDİ) -
+ * kullanıcı turu yarıda bırakıp sayfayı yenilese bile bir daha
+ * GÖRÜNMEZ, tıpkı gerçekten tamamlamış gibi; bu turun tekrar tekrar
+ * karşısına çıkmasından çok daha iyi bir varsayılan.
+ */
+$scp_is_staff_zone = in_array(scp_current_zone(), ['admin', 'sube'], true);
+$scp_show_onboarding_tour = false;
+
+if ($scp_is_staff_zone) {
+    $scp_current_user_id = get_current_user_id();
+    $scp_show_onboarding_tour = get_user_meta($scp_current_user_id, '_scp_onboarding_tour_seen', true) === '';
+
+    if ($scp_show_onboarding_tour) {
+        update_user_meta($scp_current_user_id, '_scp_onboarding_tour_seen', '1');
+    }
+}
+?>
+<?php if ($scp_show_onboarding_tour) : ?>
+    <span id="scp-onboarding-tour-marker" hidden></span>
+<?php endif; ?>
 <div class="scp-layout">
     <?php scp_render_sidebar(); ?>
     <main id="scp-main-content" class="scp-site-main">

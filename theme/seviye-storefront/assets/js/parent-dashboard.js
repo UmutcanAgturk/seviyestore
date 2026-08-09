@@ -53,14 +53,90 @@
             }
 
             result.data.forEach(function (student) {
+                var fullName = student.first_name + ' ' + student.last_name;
+
                 var item = document.createElement('li');
+                item.className = 'scp-child-row';
+
+                var avatarWrap = document.createElement('span');
+                avatarWrap.className = 'scp-child-row__avatar-wrap';
+                avatarWrap.appendChild(window.scpAvatar(fullName, student.photo_url));
+                item.appendChild(avatarWrap);
+
                 var label = document.createElement('span');
-                label.textContent = student.first_name + ' ' + student.last_name
-                    + ' — ' + student.class_name + ' (' + (student.branch_name || '') + ')';
+                label.className = 'scp-child-row__label';
+                label.textContent = fullName + ' — ' + student.class_name + ' (' + (student.branch_name || '') + ')';
                 item.appendChild(label);
+
+                item.appendChild(buildPhotoUploadControl(student, avatarWrap, fullName));
+
                 list.appendChild(item);
             });
         });
+    }
+
+    /**
+     * "Öğrenci profiline fotoğraf/avatar yükleme imkanı" - gizli bir
+     * `<input type="file">` + görünür bir düğme (WordPress'in kendi
+     * çekirdek `/wp/v2/media` uç noktasına yükleyen `scpUploadMedia()`'yı
+     * KULLANIYOR - Marka/ürün görseli yüklemenin AYNI yolu, ayrı bir
+     * dosya işleme mantığı İCAT EDİLMEDİ), sonra dönen ek dosya ID'sini
+     * `/students/{id}/photo`'ya PUT ediyor
+     * (StudentsRestController::canManageStudentPhoto() velinin KENDİ
+     * çocuğu için bunu yapabildiğini doğruluyor). Başarılı olunca
+     * avatar'ı YENİDEN OLUŞTURMUYOR, sadece yeni fotoğrafla değiştiriyor.
+     */
+    function buildPhotoUploadControl(student, avatarWrap, fullName) {
+        var wrapper = document.createElement('span');
+        wrapper.className = 'scp-child-row__photo-control';
+
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.hidden = true;
+
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'scp-btn scp-btn--ghost scp-btn--small';
+        button.textContent = scpPanelTextData.childPhotoUpload || 'Fotoğraf Yükle';
+        button.addEventListener('click', function () {
+            input.click();
+        });
+
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0];
+
+            if (!file || typeof scpUploadMedia === 'undefined') {
+                return;
+            }
+
+            button.disabled = true;
+
+            scpUploadMedia(file).then(function (result) {
+                button.disabled = false;
+
+                if (!result.ok) {
+                    return;
+                }
+
+                return apiFetch('students/' + student.id + '/photo', {
+                    method: 'PUT',
+                    body: JSON.stringify({ attachment_id: result.data.id })
+                });
+            }).then(function (result) {
+                if (!result || !result.ok) {
+                    return;
+                }
+
+                avatarWrap.innerHTML = '';
+                avatarWrap.appendChild(window.scpAvatar(fullName, result.data.photo_url));
+            });
+        });
+
+        wrapper.appendChild(button);
+        wrapper.appendChild(input);
+
+        return wrapper;
     }
 
     function initProfile() {

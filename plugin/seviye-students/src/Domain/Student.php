@@ -19,7 +19,8 @@ final class Student
         public readonly EducationYear $educationYear,
         public readonly string $className,
         public readonly StudentStatus $status,
-        public readonly ?string $tcNo = null
+        public readonly ?string $tcNo = null,
+        public readonly ?int $photoAttachmentId = null
     ) {
     }
 

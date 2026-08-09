@@ -103,6 +103,20 @@ final class StudentsRestController extends AbstractRestController
             ],
         ]);
 
+        // "Öğrenci profiline fotoğraf/avatar yükleme" - canAccessStudent()'ın
+        // AKSİNE, MANAGE_STUDENTS (personel-only) İSTEMİYOR: bir velinin
+        // KENDİ çocuğunun fotoğrafını yükleyebilmesi gerekiyor - bkz.
+        // canManageStudentPhoto() (personel VEYA o öğrencinin bağlı bir
+        // velisi).
+        register_rest_route(RestApiRegistrar::NAMESPACE, '/students/(?P<id>\d+)/photo', [
+            'methods' => 'PUT',
+            'callback' => [$this, 'updatePhoto'],
+            'permission_callback' => [$this, 'canManageStudentPhoto'],
+            'args' => [
+                'attachment_id' => ['required' => false, 'type' => 'integer'],
+            ],
+        ]);
+
         register_rest_route(RestApiRegistrar::NAMESPACE, '/students/(?P<id>\d+)/parents', [
             [
                 'methods' => 'GET',
@@ -180,6 +194,48 @@ final class StudentsRestController extends AbstractRestController
         $student = $this->students->find((int) $request->get_param('id'));
 
         return $student !== null && $student->branchId === $branchId;
+    }
+
+    /**
+     * Personel (canAccessStudent()'ın AYNI şube-kapsamlı MANAGE_STUDENTS
+     * mantığı) VEYA öğrencinin bağlı bir velisi (scp_student_parents'ın
+     * kendisi, StudentGuardianCheckInterface'in yayınlanan Contract'ı
+     * DEĞİL - bu, Students modülünün İÇİNDE, kendi
+     * StudentParentRepositoryInterface'ine erişimi var, dışarıdan bir
+     * Contract'a ihtiyacı yok, o yalnızca DİĞER modüller için).
+     */
+    public function canManageStudentPhoto(WP_REST_Request $request): bool
+    {
+        $studentId = (int) $request->get_param('id');
+
+        if (in_array(get_current_user_id(), $this->studentParents->parentUserIdsForStudent($studentId), true)) {
+            return true;
+        }
+
+        return $this->canAccessStudent($request);
+    }
+
+    public function updatePhoto(WP_REST_Request $request): WP_REST_Response
+    {
+        $id = (int) $request->get_param('id');
+        $student = $this->students->find($id);
+
+        if ($student === null) {
+            return new WP_REST_Response(['message' => __('Öğrenci bulunamadı.', 'seviye-students')], 404);
+        }
+
+        $attachmentId = $request->get_param('attachment_id');
+        $attachmentId = $attachmentId !== null && $attachmentId !== '' ? (int) $attachmentId : null;
+
+        if ($attachmentId !== null && get_post_type($attachmentId) !== 'attachment') {
+            return new WP_REST_Response(['message' => __('Geçersiz görsel.', 'seviye-students')], 422);
+        }
+
+        $this->students->updatePhoto($id, $attachmentId);
+
+        $updated = $this->students->find($id);
+
+        return new WP_REST_Response($this->serialize($updated ?? $student));
     }
 
     public function store(WP_REST_Request $request): WP_REST_Response
@@ -699,6 +755,9 @@ final class StudentsRestController extends AbstractRestController
             'class_name' => $student->className,
             'tc_no' => $student->tcNo,
             'status' => $student->status->value,
+            'photo_url' => $student->photoAttachmentId !== null
+                ? wp_get_attachment_image_url($student->photoAttachmentId, 'thumbnail') ?: null
+                : null,
         ];
     }
 
