@@ -681,6 +681,10 @@ button.scp-badge:hover {
   flex-wrap: wrap;
 }
 
+.scp-form__row[hidden] {
+  display: none;
+}
+
 .scp-form__hint {
   margin: 0 0 12px;
   font-size: 0.8125rem;
@@ -1023,6 +1027,10 @@ button.scp-badge:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.scp-compare-result__side[hidden] {
+  display: none;
 }
 
 .scp-compare-result__label {
