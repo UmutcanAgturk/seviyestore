@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        plugin: [seviye-core, seviye-security, seviye-branches, seviye-students, seviye-parents, seviye-destek, seviye-pricing, seviye-commerce, seviye-finance, seviye-reports, seviye-notifications, seviye-api, seviye-depo]
+        plugin: [seviye-core, seviye-security, seviye-branches, seviye-students, seviye-parents, seviye-destek, seviye-pricing, seviye-commerce, seviye-finance, seviye-reports, seviye-notifications, seviye-api, seviye-depo, seviye-sube-siparis]
     defaults:
       run:
         working-directory: plugin/${{ matrix.plugin }}

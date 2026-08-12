@@ -1,6 +1,6 @@
 # Bundled plugins
 
-This directory holds the 13 Seviye plugin zips `inc/plugin-installer.php`
+This directory holds the 14 Seviye plugin zips `inc/plugin-installer.php`
 installs from during the "Seviye Kurulum" wizard - a packaging-time build
 artifact, gitignored (`*.zip`) the same way `/plugin/*/vendor/` is, and
 rebuilt fresh for each delivered theme package rather than committed.

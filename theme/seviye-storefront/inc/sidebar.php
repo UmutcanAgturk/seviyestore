@@ -101,6 +101,10 @@ function scp_sidebar_sections(): array
         $groups['operasyon'][scp_menu_page_path('depo')] = __('Depo', 'seviye-storefront');
     }
 
+    if (current_user_can('scp_manage_branch_orders') || current_user_can('scp_manage_own_branch_orders')) {
+        $groups['operasyon'][scp_menu_page_path('sube-siparisleri')] = __('Şube Siparişleri', 'seviye-storefront');
+    }
+
     if (current_user_can('scp_view_hakedis') || current_user_can('scp_view_own_hakedis')) {
         $groups['finans'][scp_menu_page_path('cari-bakiye')] = __('Cari Bakiye', 'seviye-storefront');
     }
@@ -183,6 +187,7 @@ function scp_sidebar_sections(): array
         scp_menu_page_path('eposta-ayarlari') => 'email',
         scp_menu_page_path('gorunum') => 'appearance',
         scp_menu_page_path('aktivite-gunlugu') => 'activity',
+        scp_menu_page_path('sube-siparisleri') => 'orders',
     ];
 
     return [

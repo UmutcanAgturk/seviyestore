@@ -295,6 +295,41 @@ function scp_enqueue_panel_assets(): void
         'convertToOrder' => __('Siparişe Çevir', 'seviye-storefront'),
         'dismiss' => __('Reddet', 'seviye-storefront'),
         'noPurchaseSuggestions' => __('Bekleyen bir satın alma önerisi yok.', 'seviye-storefront'),
+        'boStatus_draft' => __('Taslak', 'seviye-storefront'),
+        'boStatus_submitted' => __('Onay Bekliyor', 'seviye-storefront'),
+        'boStatus_rejected' => __('Reddedildi', 'seviye-storefront'),
+        'boStatus_awaiting_payment' => __('Ödeme Bekliyor', 'seviye-storefront'),
+        'boStatus_completed' => __('Tamamlandı', 'seviye-storefront'),
+        'boStatus_cancelled' => __('İptal Edildi', 'seviye-storefront'),
+        'noQuotas' => __('Henüz bir kota tanımı yok.', 'seviye-storefront'),
+        'quotaDeleted' => __('Kota tanımı silindi.', 'seviye-storefront'),
+        'confirmDeleteQuota' => __(
+            'Bu kota tanımını silmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'noBranchOrders' => __('Henüz bir şube siparişi yok.', 'seviye-storefront'),
+        'branchOrderSubmitted' => __('Sipariş Genel Merkez onayına gönderildi.', 'seviye-storefront'),
+        'branchOrderApproved' => __('Sipariş onaylandı.', 'seviye-storefront'),
+        'branchOrderApprovedAwaitingPayment' => __(
+            'Sipariş onaylandı. Kota aşan tutar için ödeme bekleniyor.',
+            'seviye-storefront'
+        ),
+        'branchOrderRejected' => __('Sipariş reddedildi.', 'seviye-storefront'),
+        'branchOrderCancelled' => __('Sipariş vazgeçildi.', 'seviye-storefront'),
+        'confirmCancelBranchOrder' => __(
+            'Bu siparişi vazgeçmek istediğinize emin misiniz?',
+            'seviye-storefront'
+        ),
+        'promptRejectReason' => __('Red gerekçesini yazın:', 'seviye-storefront'),
+        'rejectReasonRequired' => __('Red gerekçesi gerekli.', 'seviye-storefront'),
+        'paymentUrlUnavailable' => __(
+            'Ödeme linki oluşturulamadı, lütfen tekrar deneyin.',
+            'seviye-storefront'
+        ),
+        'freeQuantityLabel' => __('Ücretsiz Hak', 'seviye-storefront'),
+        'consumedQuantityLabel' => __('Tüketilen', 'seviye-storefront'),
+        'remainingQuantityLabel' => __('Kalan', 'seviye-storefront'),
+        'payWithCard' => __('Kart ile Öde', 'seviye-storefront'),
         'productSaved' => __('Ürün kaydedildi.', 'seviye-storefront'),
         'productDeleted' => __('Ürün silindi.', 'seviye-storefront'),
         'confirmDeleteProduct' => __(
@@ -668,6 +703,32 @@ function scp_enqueue_panel_assets(): void
             'canManageSuppliers' => current_user_can('scp_manage_suppliers'),
             'canReceiveStock' => current_user_can('scp_receive_stock')
                 || current_user_can('scp_manage_own_branch_purchase_orders'),
+        ]));
+        wp_localize_script($handle, 'scpPanelText', $text);
+    }
+
+    // Genel Merkez/Bölge Müdürü (platform-wide: kota yönetimi + onay
+    // kuyruğu) VEYA Şube Müdürü (yalnızca kendi şubesi: sipariş oluşturma) -
+    // bkz. plugin/seviye-sube-siparis/src/Rbac/BranchOrderCapability.php.
+    $canManageBranchOrders = current_user_can('scp_manage_branch_orders');
+    $canManageOwnBranchOrders = current_user_can('scp_manage_own_branch_orders');
+
+    if (
+        $zonePath === 'sube-siparisleri'
+        && in_array($zone, ['admin', 'sube'], true)
+        && ($canManageBranchOrders || $canManageOwnBranchOrders)
+    ) {
+        $handle = 'scp-sube-siparisleri-panel';
+        wp_enqueue_script(
+            $handle,
+            SCP_THEME_URL . '/assets/js/sube-siparisleri-panel.js',
+            ['scp-api-fetch'],
+            scp_asset_version('/assets/js/sube-siparisleri-panel.js'),
+            true
+        );
+        wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageAll' => $canManageBranchOrders,
+            'canManageOwn' => $canManageOwnBranchOrders,
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);
     }

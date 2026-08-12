@@ -376,6 +376,15 @@ function scp_menu_pages(): array
                 || current_user_can('scp_manage_own_branch_stock_transfers'),
             'template' => 'depo-admin.php',
         ],
+        'sube-siparisleri' => [
+            'zones' => ['admin', 'sube'],
+            // Genel Merkez/Bölge Müdürü (platform-wide: kota yönetimi +
+            // onay kuyruğu) VEYA Şube Müdürü (yalnızca kendi şubesi: sipariş
+            // oluşturma) - bkz. plugin/seviye-sube-siparis/src/Rbac/BranchOrderCapability.php.
+            'capability' => static fn (): bool => current_user_can('scp_manage_branch_orders')
+                || current_user_can('scp_manage_own_branch_orders'),
+            'template' => 'sube-siparisleri-admin.php',
+        ],
         'cari-bakiye' => [
             'zones' => ['admin', 'sube'],
             'capability' => static fn (): bool => current_user_can('scp_view_hakedis')
