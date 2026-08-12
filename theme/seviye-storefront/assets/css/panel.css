@@ -796,6 +796,10 @@ button.scp-badge:hover {
   transition: filter 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
 }
 
+.scp-btn[hidden] {
+  display: none;
+}
+
 .scp-btn:hover {
   filter: brightness(1.12);
   box-shadow: 0 2px 8px rgba(20, 50, 107, 0.25);
@@ -1005,6 +1009,10 @@ button.scp-badge:hover {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin: 16px 0;
+}
+
+.scp-compare-result[hidden] {
+  display: none;
 }
 
 .scp-compare-result__side {

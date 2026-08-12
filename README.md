@@ -96,12 +96,16 @@ cd plugin/seviye-api && composer install && cd -
 `plugin/seviye-finance`, `plugin/seviye-reports`, `plugin/seviye-notifications`
 ve `plugin/seviye-api` klasörlerini WordPress'in `wp-content/plugins/` altına,
 `theme/seviye-storefront`'u ise `wp-content/themes/` altına sembolik link ile
-bağlayın. Ardından WooCommerce'i, **Seviye Core'u**, **Seviye Security'yi**, **Seviye
-Branches'ı**, **Seviye Students'ı**, **Seviye Parents'ı**, **Seviye Destek'i**,
+bağlayın. Ardından WooCommerce'i, **Seviye Core'u**, **Seviye Branches'ı**,
+**Seviye Students'ı**, **Seviye Parents'ı**, **Seviye Security'yi**, **Seviye Destek'i**,
 **Seviye Pricing'i**, **Seviye Commerce'i**, **Seviye Depo'yu**, **Seviye Finance'ı**,
 **Seviye Reports'u**, **Seviye Notifications'ı** ve **Seviye API'yi** (bu sırayla —
 Students, Branches'ın `scp_branches` tablosunun ve Contracts'ının zaten var
-olmasını gerektirir; Destek hem Branches'ın hem Students'ın Contracts'ını
+olmasını gerektirir; Security'nin KVKK veri ihracı özelliği Parents'ın
+`ParentContactLookupInterface`'ini tükettiğinden Parents'ın zaten aktif
+olmasını gerektirir (bu yüzden Security artık Core'dan hemen sonra değil,
+Parents'tan sonra aktive edilir — bkz. `seviye-security.php`'nin
+`Requires Plugins` başlığı); Destek hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden (ticket'ların şube kapsamı, velinin hangi şubelerin çocuğuna
 sahip olduğu) ikisi de zaten aktif olmalıdır; Pricing hem Branches'ın hem Students'ın Contracts'ını
 tükettiğinden ikisi de zaten aktif olmalıdır; Commerce Branches'ın,
@@ -119,15 +123,16 @@ edin, son olarak **Seviye Storefront** temasını etkinleştirin. Core
 aktivasyonu; PHP sürümünü ve
 WooCommerce'in aktif olduğunu doğrular, 9 platform rolünü kaydeder ve kendi
 migration'larını (`scp_logs`, `scp_settings`, `scp_migrations`) çalıştırır.
-Security aktivasyonu Core'un aktif olduğunu doğrular ve kendi
-migration'larını (`scp_user_identities`, `scp_password_tokens`) çalıştırır.
 Branches aktivasyonu da aynı şekilde Core'u doğrular ve kendi
 migration'larını (`scp_branches`, `scp_branch_users`) çalıştırır. Students
 aktivasyonu Core'u **ve Branches'ın aktif olduğunu** doğrular (aksi halde
 `scp_students`'ın `scp_branches`'a FK kurması başarısız olur) ve kendi
 migration'larını (`scp_students`, `scp_student_parents`) çalıştırır. Parents
 aktivasyonu yalnızca Core'u doğrular ve kendi migration'unu
-(`scp_parent_profiles`) çalıştırır. Destek aktivasyonu Core'u, **Branches'ın**
+(`scp_parent_profiles`) çalıştırır. Security aktivasyonu Core'un **ve
+Parents'ın aktif olduğunu** doğrular (KVKK veri ihracı Parents'ın
+Contract'ını tüketir) ve kendi migration'larını (`scp_user_identities`,
+`scp_password_tokens`) çalıştırır. Destek aktivasyonu Core'u, **Branches'ın**
 ve **Students'ın aktif olduğunu** doğrular (ticket'ların şube kapsamı
 Branches'ın Contracts'ını, velinin hangi şubelerin çocuğuna sahip olduğu
 Students'ın `ParentChildrenLookupInterface`'ini tüketir) ve kendi

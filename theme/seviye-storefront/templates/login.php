@@ -14,6 +14,21 @@ if (!defined('ABSPATH')) {
 }
 
 $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'login';
+
+/**
+ * The theme declares add_theme_support('title-tag') (inc/setup.php), so
+ * WordPress core already hooks _wp_render_title_tag() onto wp_head() and
+ * prints a <title> for us - hardcoding one here as well produced two
+ * <title> tags in the page <head>. Filter the title WP core will print
+ * instead of printing our own.
+ */
+add_filter('pre_get_document_title', static function () use ($scp_initial_view): string {
+    $suffix = $scp_initial_view === 'set-password'
+        ? __('Şifre Belirle', 'seviye-storefront')
+        : __('Giriş Yap', 'seviye-storefront');
+
+    return get_bloginfo('name') . ' — ' . $suffix;
+});
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -21,7 +36,6 @@ $scp_initial_view = scp_requested_password_token() !== '' ? 'set-password' : 'lo
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title><?php echo esc_html(get_bloginfo('name')); ?> &mdash; <?php esc_html_e('Giriş Yap', 'seviye-storefront'); ?></title>
     <?php scp_theme_preload_script(); ?>
     <?php wp_head(); ?>
 </head>

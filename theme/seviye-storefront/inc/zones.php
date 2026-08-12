@@ -326,7 +326,7 @@ function scp_menu_pages(): array
     return [
         'ogrenciler' => [
             'zones' => ['admin', 'sube'],
-            'capability' => static fn (): bool => current_user_can('scp_manage_students'),
+            'capability' => static fn (): bool => current_user_can('scp_manage_students') || current_user_can('scp_view_students'),
             'template' => 'students-admin.php',
         ],
         'subeler' => [

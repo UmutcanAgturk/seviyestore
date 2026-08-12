@@ -47,7 +47,7 @@ final class StudentsRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'index'],
-                'permission_callback' => $this->requireCapability(StudentCapability::MANAGE_STUDENTS->value),
+                'permission_callback' => [$this, 'canViewStudents'],
             ],
             [
                 'methods' => 'POST',
@@ -88,7 +88,7 @@ final class StudentsRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'show'],
-                'permission_callback' => [$this, 'canAccessStudent'],
+                'permission_callback' => [$this, 'canAccessStudentReadOnly'],
             ],
             [
                 'methods' => 'PUT',
@@ -121,7 +121,7 @@ final class StudentsRestController extends AbstractRestController
             [
                 'methods' => 'GET',
                 'callback' => [$this, 'listParents'],
-                'permission_callback' => [$this, 'canAccessStudent'],
+                'permission_callback' => [$this, 'canAccessStudentReadOnly'],
             ],
             [
                 'methods' => 'POST',
@@ -182,6 +182,35 @@ final class StudentsRestController extends AbstractRestController
     public function canAccessStudent(WP_REST_Request $request): bool
     {
         if (!current_user_can(StudentCapability::MANAGE_STUDENTS->value)) {
+            return false;
+        }
+
+        $branchId = $this->currentUserBranchId();
+
+        if ($branchId === null) {
+            return true;
+        }
+
+        $student = $this->students->find((int) $request->get_param('id'));
+
+        return $student !== null && $student->branchId === $branchId;
+    }
+
+    /** MANAGE_STUDENTS or read-only VIEW_STUDENTS (Rehberlik). */
+    public function canViewStudents(): bool
+    {
+        return current_user_can(StudentCapability::MANAGE_STUDENTS->value)
+            || current_user_can(StudentCapability::VIEW_STUDENTS->value);
+    }
+
+    /**
+     * Same branch-scoping as canAccessStudent(), but also lets a
+     * VIEW_STUDENTS-only user (Rehberlik) read a single student/its
+     * parent list - never used for a write route.
+     */
+    public function canAccessStudentReadOnly(WP_REST_Request $request): bool
+    {
+        if (!$this->canViewStudents()) {
             return false;
         }
 

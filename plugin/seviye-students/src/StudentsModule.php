@@ -123,6 +123,7 @@ final class StudentsModule implements ModuleInterface
         $rbac->grantCapability(Role::GENEL_MERKEZ, StudentCapability::MANAGE_STUDENTS->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, StudentCapability::MANAGE_STUDENTS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, StudentCapability::MANAGE_STUDENTS->value);
+        $rbac->grantCapability(Role::REHBERLIK, StudentCapability::VIEW_STUDENTS->value);
         $rbac->grantCapability(Role::VELI, StudentCapability::VIEW_OWN_CHILDREN->value);
 
         $container->singleton(

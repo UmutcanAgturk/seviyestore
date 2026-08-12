@@ -20,6 +20,14 @@ enum StudentCapability: string
 {
     case MANAGE_STUDENTS = 'scp_manage_students';
 
+    /**
+     * Rehberlik: read-only access to their own branch's students (same
+     * branch-scoping as MANAGE_STUDENTS, see StudentsRestController's
+     * canAccessStudent()/canViewStudent()) - never create/edit/delete a
+     * student or touch parent links.
+     */
+    case VIEW_STUDENTS = 'scp_view_students';
+
     /** Veli: see only the students linked to their own account. */
     case VIEW_OWN_CHILDREN = 'scp_view_own_children';
 }

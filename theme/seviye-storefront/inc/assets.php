@@ -496,7 +496,7 @@ function scp_enqueue_panel_assets(): void
     if (
         $zonePath === 'ogrenciler'
         && in_array($zone, ['admin', 'sube'], true)
-        && current_user_can('scp_manage_students')
+        && (current_user_can('scp_manage_students') || current_user_can('scp_view_students'))
     ) {
         $handle = 'scp-students-panel';
         wp_enqueue_script(
@@ -507,6 +507,7 @@ function scp_enqueue_panel_assets(): void
             true
         );
         wp_localize_script($handle, 'scpPanel', array_merge($localized, [
+            'canManageStudents' => current_user_can('scp_manage_students'),
             'canManageAllBranches' => current_user_can('scp_manage_branches'),
         ]));
         wp_localize_script($handle, 'scpPanelText', $text);

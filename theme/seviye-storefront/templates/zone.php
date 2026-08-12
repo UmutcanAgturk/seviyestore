@@ -137,6 +137,9 @@ get_header();
                             <tbody data-scp-overview-products-body></tbody>
                         </table>
                     </div>
+                    <p class="scp-status" data-scp-overview-products-empty hidden>
+                        <?php esc_html_e('Son 30 günde satış bulunmuyor.', 'seviye-storefront'); ?>
+                    </p>
                 </div>
 
                 <div class="scp-dashboard-widget" data-scp-dashboard-widget="branches">

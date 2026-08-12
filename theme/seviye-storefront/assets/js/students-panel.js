@@ -5,8 +5,14 @@
  * membership. This script only additionally shows/hides a branch picker.
  *
  * Expects two globals localized from PHP (see inc/assets.php):
- *   scpPanel     { restUrl, nonce, canManageAllBranches }
+ *   scpPanel     { restUrl, nonce, canManageStudents, canManageAllBranches }
  *   scpPanelText { ...translated UI strings }
+ *
+ * canManageStudents is false only for Rehberlik (VIEW_STUDENTS, read-only -
+ * see StudentCapability's own docblock): the list still loads and a row
+ * still opens the same detail form, but every write control (create, edit,
+ * delete, CSV import, class promotion, parent link/edit/remove, spending
+ * limit) is hidden or disabled.
  */
 (function () {
     'use strict';
@@ -31,6 +37,14 @@
     // script's localize tag runs, avoids that.
     var scpPanelData = scpPanel;
     var scpPanelTextData = typeof scpPanelText !== 'undefined' ? scpPanelText : {};
+
+    // "Rehberlik" holds VIEW_STUDENTS, not MANAGE_STUDENTS (read-only branch
+    // access to students - see StudentCapability's own docblock). This
+    // page/script still loads for them (inc/assets.php enqueues it on
+    // MANAGE_STUDENTS *or* VIEW_STUDENTS), but every write control below is
+    // gated on this flag so a view-only visitor never sees a button that
+    // would just 403 on click.
+    var canManageStudents = Boolean(scpPanelData.canManageStudents);
 
     var statusEl = root.querySelector('[data-scp-students-status]');
     var tableBody = root.querySelector('[data-scp-students-body]');
@@ -183,35 +197,47 @@
             row.appendChild(statusBadgeCell(student.status));
 
             var actionsCell = document.createElement('td');
-            var editButton = document.createElement('button');
-            editButton.type = 'button';
-            editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            editButton.textContent = scpPanelTextData.edit;
-            editButton.addEventListener('click', function () {
-                openStudentForm(student);
-            });
-            actionsCell.appendChild(editButton);
 
-            var deleteButton = document.createElement('button');
-            deleteButton.type = 'button';
-            deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-            deleteButton.textContent = scpPanelTextData.remove;
-            deleteButton.addEventListener('click', function () {
-                if (!window.confirm(scpPanelTextData.confirmDeleteStudent)) {
-                    return;
-                }
+            if (canManageStudents) {
+                var editButton = document.createElement('button');
+                editButton.type = 'button';
+                editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                editButton.textContent = scpPanelTextData.edit;
+                editButton.addEventListener('click', function () {
+                    openStudentForm(student);
+                });
+                actionsCell.appendChild(editButton);
 
-                apiFetch('students/' + student.id, { method: 'DELETE' }).then(function (result) {
-                    if (!result.ok) {
-                        setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                var deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+                deleteButton.textContent = scpPanelTextData.remove;
+                deleteButton.addEventListener('click', function () {
+                    if (!window.confirm(scpPanelTextData.confirmDeleteStudent)) {
                         return;
                     }
 
-                    setStatus(scpPanelTextData.studentDeleted);
-                    loadStudents();
+                    apiFetch('students/' + student.id, { method: 'DELETE' }).then(function (result) {
+                        if (!result.ok) {
+                            setStatus((result.data && result.data.message) || scpPanelTextData.saveError, true);
+                            return;
+                        }
+
+                        setStatus(scpPanelTextData.studentDeleted);
+                        loadStudents();
+                    });
                 });
-            });
-            actionsCell.appendChild(deleteButton);
+                actionsCell.appendChild(deleteButton);
+            } else {
+                // Read-only (Rehberlik): no edit/delete controls, but the
+                // whole row still opens the same detail form - readonly
+                // there too - so a counselor can look up a student's class/
+                // parent contact without a dead-end list.
+                row.classList.add('scp-row--clickable');
+                row.addEventListener('click', function () {
+                    openStudentForm(student);
+                });
+            }
 
             row.appendChild(actionsCell);
 
@@ -253,8 +279,16 @@
             parentsPanel.hidden = false;
             parentQuickAdd.hidden = true;
             loadParents(student.id);
-            spendingLimitPanel.hidden = false;
-            loadSpendingLimit(student.id);
+
+            // The spending-limit endpoint is MANAGE_STUDENTS-only server
+            // side (see SpendingLimitRestController::canAccessStudent()) -
+            // a read-only (Rehberlik) visitor has no business seeing or
+            // editing it, and calling it here would just 403.
+            spendingLimitPanel.hidden = !canManageStudents;
+
+            if (canManageStudents) {
+                loadSpendingLimit(student.id);
+            }
         } else {
             parentsPanel.hidden = true;
             parentsList.innerHTML = '';
@@ -369,28 +403,30 @@
         label.textContent = parent.name + ' (' + parent.email + ')';
         item.appendChild(label);
 
-        var editButton = document.createElement('button');
-        editButton.type = 'button';
-        editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        editButton.textContent = scpPanelTextData.edit;
-        editButton.addEventListener('click', function () {
-            item.replaceWith(renderParentEditForm(studentId, parent));
-        });
-        item.appendChild(editButton);
+        if (canManageStudents) {
+            var editButton = document.createElement('button');
+            editButton.type = 'button';
+            editButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+            editButton.textContent = scpPanelTextData.edit;
+            editButton.addEventListener('click', function () {
+                item.replaceWith(renderParentEditForm(studentId, parent));
+            });
+            item.appendChild(editButton);
 
-        var removeButton = document.createElement('button');
-        removeButton.type = 'button';
-        removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
-        removeButton.textContent = scpPanelTextData.remove;
-        removeButton.addEventListener('click', function () {
-            apiFetch('students/' + studentId + '/parents/' + parent.id, { method: 'DELETE' })
-                .then(function (removeResult) {
-                    if (removeResult.ok) {
-                        loadParents(studentId);
-                    }
-                });
-        });
-        item.appendChild(removeButton);
+            var removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'scp-btn scp-btn--ghost scp-btn--small';
+            removeButton.textContent = scpPanelTextData.remove;
+            removeButton.addEventListener('click', function () {
+                apiFetch('students/' + studentId + '/parents/' + parent.id, { method: 'DELETE' })
+                    .then(function (removeResult) {
+                        if (removeResult.ok) {
+                            loadParents(studentId);
+                        }
+                    });
+            });
+            item.appendChild(removeButton);
+        }
 
         return item;
     }
@@ -439,6 +475,35 @@
         item.appendChild(cancelButton);
 
         return item;
+    }
+
+    if (!canManageStudents) {
+        // Read-only (Rehberlik): hide every write-only entry point up
+        // front - create, CSV import, class promotion - rather than
+        // leaving buttons whose click handler would just 403. The detail
+        // form itself stays reachable (row click, see renderStudents())
+        // but every field/button inside it - including link-parent and
+        // the spending-limit save/remove buttons, all in the same
+        // <form data-scp-student-form> - is disabled too.
+        root.querySelector('[data-scp-new-student]').hidden = true;
+
+        // The import/promote forms' own heading + hint text live in the
+        // SAME wrapping .scp-card--nested as the form, not inside it -
+        // hiding just the <form> would leave an explanatory card with no
+        // control to explain. Hide the whole card.
+        var importCard = importForm.closest('.scp-card--nested');
+        if (importCard) {
+            importCard.hidden = true;
+        }
+
+        var promoteCard = promoteForm.closest('.scp-card--nested');
+        if (promoteCard) {
+            promoteCard.hidden = true;
+        }
+
+        form.querySelectorAll('input, select, button, textarea').forEach(function (el) {
+            el.disabled = true;
+        });
     }
 
     root.querySelector('[data-scp-new-student]').addEventListener('click', function () {

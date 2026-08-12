@@ -61,7 +61,7 @@ function scp_sidebar_sections(): array
         $groups['genel'][home_url('/' . scp_current_zone())] = __('Genel Bakış', 'seviye-storefront');
     }
 
-    if (current_user_can('scp_manage_students')) {
+    if (current_user_can('scp_manage_students') || current_user_can('scp_view_students')) {
         $groups['kisiler'][scp_menu_page_path('ogrenciler')] = __('Öğrenciler', 'seviye-storefront');
     }
 

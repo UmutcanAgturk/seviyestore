@@ -60,10 +60,10 @@ function scp_setup_steps(): array
     return [
         scp_bundled_setup_step('wporg', 'woocommerce', 'WooCommerce', 'woocommerce/woocommerce.php'),
         scp_bundled_setup_step('bundled', 'seviye-core', 'Seviye Core', 'seviye-core/seviye-core.php'),
-        scp_bundled_setup_step('bundled', 'seviye-security', 'Seviye Security', 'seviye-security/seviye-security.php'),
         scp_bundled_setup_step('bundled', 'seviye-branches', 'Seviye Branches', 'seviye-branches/seviye-branches.php'),
         scp_bundled_setup_step('bundled', 'seviye-students', 'Seviye Students', 'seviye-students/seviye-students.php'),
         scp_bundled_setup_step('bundled', 'seviye-parents', 'Seviye Parents', 'seviye-parents/seviye-parents.php'),
+        scp_bundled_setup_step('bundled', 'seviye-security', 'Seviye Security', 'seviye-security/seviye-security.php'),
         scp_bundled_setup_step('bundled', 'seviye-destek', 'Seviye Destek', 'seviye-destek/seviye-destek.php'),
         scp_bundled_setup_step('bundled', 'seviye-pricing', 'Seviye Pricing', 'seviye-pricing/seviye-pricing.php'),
         scp_bundled_setup_step('bundled', 'seviye-commerce', 'Seviye Commerce', 'seviye-commerce/seviye-commerce.php'),

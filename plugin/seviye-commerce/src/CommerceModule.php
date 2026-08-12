@@ -164,11 +164,14 @@ final class CommerceModule implements ModuleInterface
         // Read-only: "Bütün ürün id'leri Genel Merkez, Sistem, şube
         // müdürleri, muhasebe, depodan görünür olsun" - Genel Merkez/Şube
         // Müdürü already see everything via MANAGE_PRODUCTS above (a
-        // superset); these three roles get VIEW_PRODUCTS instead, since
-        // they must never create/edit/delete/toggle a product.
+        // superset); these roles get VIEW_PRODUCTS instead, since they
+        // must never create/edit/delete/toggle a product. Satış Danışmanı
+        // (a sales floor role) is the same tier - they sell from the
+        // catalog, they don't manage it.
         $rbac->grantCapability(Role::SISTEM, ProductCapability::VIEW_PRODUCTS->value);
         $rbac->grantCapability(Role::MUHASEBE, ProductCapability::VIEW_PRODUCTS->value);
         $rbac->grantCapability(Role::DEPO, ProductCapability::VIEW_PRODUCTS->value);
+        $rbac->grantCapability(Role::SATIS_DANISMANI, ProductCapability::VIEW_PRODUCTS->value);
 
         // Product photo uploads go through WordPress' own /wp/v2/media REST
         // endpoint from the theme's "Ürünler" panel - simpler and more
@@ -186,6 +189,12 @@ final class CommerceModule implements ModuleInterface
         $rbac->grantCapability(Role::GENEL_MERKEZ, OrderCapability::VIEW_ORDERS->value);
         $rbac->grantCapability(Role::BOLGE_MUDURU, OrderCapability::VIEW_ORDERS->value);
         $rbac->grantCapability(Role::SUBE_MUDURU, OrderCapability::VIEW_OWN_BRANCH_ORDERS->value);
+
+        // Satış Danışmanı: same own-branch order visibility as Şube
+        // Müdürü, but read-only - deliberately no CANCEL_OWN_BRANCH_ORDERS
+        // or UPDATE_OWN_BRANCH_ORDER_FULFILLMENT grant below, a sales
+        // consultant looks orders up, they don't cancel/fulfill them.
+        $rbac->grantCapability(Role::SATIS_DANISMANI, OrderCapability::VIEW_OWN_BRANCH_ORDERS->value);
 
         // "İade/iptal akışı" - iptal (henüz ödenmemiş bir siparişi para
         // hareketi olmadan durdurma) VIEW_ORDERS ile aynı üç rolde; iade

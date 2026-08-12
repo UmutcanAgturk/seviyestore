@@ -39,6 +39,7 @@
     var statsEl = root.querySelector('[data-scp-overview-stats]');
     var productsTable = root.querySelector('[data-scp-overview-products-table]');
     var productsBody = root.querySelector('[data-scp-overview-products-body]');
+    var productsEmptyEl = root.querySelector('[data-scp-overview-products-empty]');
     var branchSection = root.querySelector('[data-scp-overview-branch-section]');
     var branchesTable = root.querySelector('[data-scp-overview-branches-table]');
     var branchesBody = root.querySelector('[data-scp-overview-branches-body]');
@@ -77,6 +78,10 @@
     function renderProducts(products) {
         productsBody.innerHTML = '';
         productsTable.hidden = products.length === 0;
+
+        if (productsEmptyEl) {
+            productsEmptyEl.hidden = products.length !== 0;
+        }
 
         products.forEach(function (product) {
             var row = document.createElement('tr');
